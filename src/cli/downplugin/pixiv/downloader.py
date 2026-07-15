@@ -1,13 +1,13 @@
 import json
 import re
 import time
-import random
 import signal
 import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 
 from src.cli.downplugin.base import BaseDownloader, AuthError
+from src.cli.downplugin.context import DownloadContext, PipelineResult
 from .config import PixivConfig
 from .client import PixivClient
 from .types import ExtractMessage, WorkInfo
@@ -119,24 +119,248 @@ class PixivDownloader(BaseDownloader):
 
         return None, None
 
-    def _do_import(self, file_path: Path, work_url: str, metadata: Dict) -> tuple[bool, str]:
-        res, reason = self.import_download(file_path, work_url, metadata)
-        if res:
-            self.existing_sources.add(work_url.strip())
-        return res, reason
-
     def download_and_import(self, work_url: str) -> tuple[Optional[Path], str]:
-        self._clear_last_error()
-        if self._is_source_in_manifest(work_url):
-            return None, "清单已存在来源"
+        result = self._run_pipeline(work_url)
+        return (result.final_path, result.reason)
 
-        dl, info = self.download(work_url)
-        if not dl:
-            return None, self._last_error or "下载失败"
+    # ── 流水线入口 ──────────────────────────────────────────
 
-        metadata = self._build_metadata(info, work_url)
-        res, reason = self._do_import(dl, work_url, metadata)
-        return dl if res else None, reason
+    def _run_pipeline(self, work_url: str) -> PipelineResult:
+        ctx = DownloadContext(work_url)
+        try:
+            if self._is_source_in_manifest(work_url):
+                return PipelineResult.skipped(work_url)
+
+            if self._pull_base_mapping and work_url in self._pull_base_mapping:
+                return self._run_pull_base_pipeline(ctx,
+                                                     self._pull_base_mapping[work_url])
+
+            if self._download_mode == "meta":
+                return self._run_meta_pipeline(ctx)
+
+            return self._run_normal_pipeline(ctx)
+        except AuthError:
+            raise
+        except Exception as e:
+            self._pipeline_cleanup(ctx)
+            return PipelineResult.failed(work_url, str(e))
+
+    # ── 标准流水线：①→⑥ ────────────────────────────────────
+
+    def _run_normal_pipeline(self, ctx: DownloadContext) -> PipelineResult:
+        # ①② 获取网页内容并处理为暂存文件
+        info = self._pipeline_fetch(ctx)
+        if not ctx.temp_file:
+            return PipelineResult.failed(ctx.work_url, ctx.error or "下载处理失败")
+        ctx.metadata = self._build_metadata(info, ctx.work_url)
+
+        # ③ 生成作品信息
+        self._pipeline_build_entry(ctx)
+
+        # ④ 写入数据库
+        self._pipeline_write_db(ctx)
+
+        # ⑤ 移动到目标位置
+        self._pipeline_move_file(ctx)
+
+        # ⑥ 清理暂存
+        self._pipeline_cleanup(ctx)
+
+        with self._sources_lock:
+            self.existing_sources.add(ctx.work_url.strip())
+
+        return PipelineResult.success(ctx.work_url, final_path=ctx.final_path)
+
+    # ── pull_base 流水线 — 复用旧库文件 ─────────────────────
+
+    def _run_pull_base_pipeline(self, ctx: DownloadContext,
+                                 old_entry: dict) -> PipelineResult:
+        old_path = Path(old_entry["file_path"])
+        if not old_path.is_absolute():
+            return PipelineResult.failed(ctx.work_url, "旧库文件路径非绝对路径")
+        if not old_path.exists():
+            logger.warning("旧库文件不存在，回退正常下载: %s", old_path)
+            return self._run_normal_pipeline(ctx)
+
+        info = self.get_info(ctx.work_url)
+        if not info:
+            return PipelineResult.failed(ctx.work_url, "获取元数据失败")
+
+        ctx.metadata = self._build_metadata(info, ctx.work_url)
+
+        import tempfile, shutil
+        tmp_dir = Path(tempfile.mkdtemp())
+        ctx.temp_file = tmp_dir / old_path.name
+        shutil.copy2(old_path, ctx.temp_file)
+        logger.info("复用旧库文件: %s → %s", old_path.name, ctx.work_url)
+
+        self._pipeline_build_entry(ctx)
+        self._pipeline_write_db(ctx)
+        self._pipeline_move_file(ctx)
+        self._pipeline_cleanup(ctx)
+
+        with self._sources_lock:
+            self.existing_sources.add(ctx.work_url.strip())
+
+        return PipelineResult.success(ctx.work_url, final_path=ctx.final_path)
+
+    # ── meta 流水线 — 仅元数据 ──────────────────────────────
+
+    def _run_meta_pipeline(self, ctx: DownloadContext) -> PipelineResult:
+        info = self.get_info(ctx.work_url)
+        if not info:
+            return PipelineResult.failed(ctx.work_url, "获取详情失败")
+
+        from src.core.paths import build_import_target
+        from src.domain.cdbook import normalize_series_name
+        from src.core.registry import generate_id
+        from src.core.work_repository import append_one
+
+        author = info.get("author", "")
+        series = normalize_series_name(info.get("series", "") or "")
+        tags = info.get("tags", [])
+        title = info.get("title", "")
+        file_type, suffix = self._resolve_work_format(info.get("type", "illust"))
+
+        book_id = generate_id(file_type, author, series)
+        safe_title = normalize_series_name(title)
+        placeholder_name = f"{book_id}_{safe_title}{suffix}"
+        target = build_import_target(Path(placeholder_name), author, series, book_id=book_id)
+
+        entry = {
+            "ID": book_id, "标题": title, "作者": author or "佚名",
+            "系列": series or "", "标签": ",".join(str(t) for t in tags if t) if isinstance(tags, list) else str(tags or ""),
+            "来源": ctx.work_url, "源状态": "metadata_only", "后缀": suffix,
+            "分类": file_type, "导入时间": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "文件大小(KB)": "0", "MD5": "", "文件路径": str(target.absolute()),
+            "收藏": "否", "评分": "", "简介": info.get("description", ""),
+            "点赞": str(info.get("like_count", 0)),
+        }
+        append_one(entry)
+
+        with self._sources_lock:
+            self.existing_sources.add(ctx.work_url.strip())
+
+        return PipelineResult.success(ctx.work_url, final_path=target)
+
+    # ── 流水线阶段方法 ─────────────────────────────────────
+
+    def _pipeline_fetch(self, ctx: DownloadContext) -> Optional[dict]:
+        dl, info = self.download(ctx.work_url)
+        if dl:
+            ctx.temp_file = dl
+        else:
+            ctx.error = "下载失败"
+        return info
+
+    def _pipeline_build_entry(self, ctx: DownloadContext) -> None:
+        from src.core.hashing import generate_file_md5, check_duplicate_by_md5
+        from src.core.filetype import determine_file_type
+        from src.core.registry import generate_id
+        from src.core.paths import build_import_target
+        from src.domain.cdbook import normalize_series_name
+
+        fp = ctx.temp_file
+        author = ctx.metadata.get("author", "")
+        series = normalize_series_name(ctx.metadata.get("series", "") or "")
+        title = ctx.metadata.get("title", "")
+        tags = ctx.metadata.get("tags", [])
+        tags_str = ",".join(str(t) for t in tags if t) if isinstance(tags, list) else str(tags)
+        description = ctx.metadata.get("description", "")
+        like_count = ctx.metadata.get("like_count", 0)
+        create_date = ctx.metadata.get("create_date", "")
+        source_status = ctx.metadata.get("source_status", "ok")
+        user_id = ctx.metadata.get("user_id", "")
+
+        source_md5 = generate_file_md5(fp)
+        is_dup, dup_id = check_duplicate_by_md5(source_md5)
+        if is_dup:
+            raise ValueError(f"MD5重复: {dup_id}")
+
+        file_type = determine_file_type(str(fp))
+        if file_type == "unknown":
+            raise ValueError(f"无法识别的文件类型: {fp.suffix}")
+
+        book_id = generate_id(file_type, author, series)
+
+        if create_date and "T" in create_date:
+            normalized = create_date.split("+")[0].split("Z")[0].replace("T", " ")
+            if len(normalized) >= 10:
+                create_date = normalized
+
+        target = build_import_target(fp, author, series, book_id=book_id)
+
+        ctx.entry = {
+            "ID": book_id,
+            "标题": title or fp.stem,
+            "作者": author or "佚名",
+            "系列": series,
+            "标签": tags_str,
+            "来源": ctx.work_url,
+            "源状态": source_status,
+            "后缀": fp.suffix.lower(),
+            "分类": file_type,
+            "导入时间": create_date or time.strftime("%Y-%m-%d %H:%M:%S"),
+            "文件大小(KB)": "0",
+            "MD5": source_md5,
+            "文件路径": str(target.absolute()),
+            "收藏": "否",
+            "评分": "",
+            "简介": description,
+            "点赞": str(like_count),
+        }
+        ctx.metadata["_book_id"] = book_id
+        ctx.metadata["_file_type"] = file_type
+        ctx.metadata["_md5"] = source_md5
+        ctx.metadata["_user_id"] = user_id
+        ctx.metadata["_author"] = author
+        ctx.metadata["_series"] = series
+        ctx.metadata["_target_path"] = str(target.absolute())
+
+    def _pipeline_write_db(self, ctx: DownloadContext) -> None:
+        from src.core.work_repository import append_one
+
+        append_one(ctx.entry)
+
+        author = ctx.metadata.get("_author", "")
+        user_id = ctx.metadata.get("_user_id", "")
+        if author:
+            try:
+                from src.core.author_manager import register
+                register(name=author, uid=user_id or "", homepage="")
+            except Exception:
+                pass
+
+    def _pipeline_move_file(self, ctx: DownloadContext) -> None:
+        import shutil
+
+        target = Path(ctx.metadata["_target_path"])
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        if target.exists():
+            raise ValueError(f"目标已存在: {target}")
+
+        shutil.copy2(ctx.temp_file, target)
+        file_size_kb = round(target.stat().st_size / 1024, 2)
+
+        ctx.entry["文件大小(KB)"] = str(file_size_kb)
+        ctx.final_path = target
+
+        from src.core.work_repository import update_entry
+        update_entry(ctx.entry["ID"], {
+            "文件大小(KB)": str(file_size_kb),
+            "文件路径": str(target.absolute()),
+        })
+
+    def _pipeline_cleanup(self, ctx: DownloadContext) -> None:
+        if ctx.temp_file:
+            try:
+                ctx.temp_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+            ctx.temp_file = None
+
+    # ── process_url（调度入口） ─────────────────────────────
 
     def process_url(self, url: Union[str, List[str]], mode: str = "both") -> Dict[str, int]:
         stats = {"success": 0, "failed": 0, "skipped": 0}
@@ -171,31 +395,23 @@ class PixivDownloader(BaseDownloader):
 
         lock = threading.Lock()
 
-        def _on_result(item, result):
-            work_url, status, reason, file_path, metadata = result
-            if status == "success":
-                if file_path and metadata:
-                    imported, msg = self._do_import(file_path, work_url, metadata)
-                    if imported:
-                        with lock:
-                            stats["success"] += 1
-                    else:
-                        with lock:
-                            stats["failed"] += 1
-                else:
-                    with lock:
-                        stats["success"] += 1
-            elif status == "skipped":
-                with lock:
+        def _on_result(work_url: str, result: PipelineResult):
+            with lock:
+                if result.status == "success":
+                    stats["success"] += 1
+                elif result.status == "skipped":
                     stats["skipped"] += 1
-            else:
-                with lock:
+                else:
                     stats["failed"] += 1
-                logger.warning("下载失败: %s 原因: %s", work_url, reason)
+                    logger.warning("下载失败: %s 原因: %s", work_url, result.reason)
+
+        def _worker(work_url: str) -> PipelineResult:
+            return self._retry(lambda: self._run_pipeline(work_url), work_url)
 
         try:
-            timeline = self._run_batch(works, self._download_worker, _on_result, self.max_workers)
-            logger.info("完成: 成功 %d | 跳过 %d | 失败 %d", stats['success'], stats['skipped'], stats['failed'])
+            timeline = self._run_batch(works, _worker, _on_result, self.max_workers)
+            logger.info("完成: 成功 %d | 跳过 %d | 失败 %d",
+                        stats['success'], stats['skipped'], stats['failed'])
         except KeyboardInterrupt:
             logger.info("收到停止信号")
             self.stop_event.set()
@@ -207,69 +423,16 @@ class PixivDownloader(BaseDownloader):
 
         return stats
 
-    def _download_worker(self, work_url: str) -> tuple[str, str, str, Any, Any]:
-        # 抖动分散启动，避免同时请求
-        self.stop_event.wait(random.uniform(0.05, 0.5))
-        self._check_stop()
+    # ── 兼容旧 API（rank.py 等使用） ────────────────────────
 
-        max_retries = 3
-        last_reason = ""
-        for attempt in range(max_retries):
-            self._check_stop()
-            try:
-                status, reason, file_path, metadata = self._process_single_work(work_url)
-                last_reason = reason
-                if status == "success":
-                    return work_url, status, reason, file_path, metadata
-                elif status == "skipped":
-                    return work_url, status, reason, None, None
-                else:
-                    if attempt < max_retries - 1:
-                        # 指数退避 + 抖动
-                        delay = base_delay = 3.0 * (2 ** attempt)
-                        delay = random.uniform(base_delay * 0.5, base_delay * 1.5)
-                        logger.debug("重试 %d/%d: %s 等待 %.1fs", attempt + 1, max_retries, work_url, delay)
-                        self.stop_event.wait(delay)
-                        continue
-                    return work_url, status, reason, None, None
-            except KeyboardInterrupt:
-                return work_url, "failed", "用户取消", None, None
-            except Exception as e:
-                last_reason = str(e)
-                if attempt < max_retries - 1:
-                    delay = random.uniform(1.5, 4.5) * (attempt + 1)
-                    logger.debug("重试 %d/%d 异常: %s 等待 %.1fs", attempt + 1, max_retries, work_url, delay)
-                    self.stop_event.wait(delay)
-                    continue
-                return work_url, "failed", str(e), None, None
-        logger.warning("下载重试耗尽: %s 原因: %s", work_url, last_reason)
-        return work_url, "failed", last_reason, None, None
+    def get_last_error(self) -> str:
+        return self._last_error
 
-    def _process_single_work(self, work_url: str
-                             ) -> tuple[str, str, Optional[Path], Optional[Dict]]:
-        try:
-            if self._is_source_in_manifest(work_url):
-                return "skipped", "已存在", None, None
+    def _set_last_error(self, msg: str):
+        self._last_error = msg
 
-            if self._pull_base_mapping and work_url in self._pull_base_mapping:
-                return self._pull_base_import(work_url, self._pull_base_mapping[work_url])
-
-            if self._download_mode == "meta":
-                return self._import_metadata_only(work_url)
-
-            dl, info = self.download(work_url)
-            if not dl:
-                if not self._last_error:
-                    self._last_error = "下载失败(无详细信息)"
-                logger.warning("作品下载失败: %s 原因: %s", work_url, self._last_error)
-                return "failed", self._last_error or "下载失败", None, None
-
-            metadata = self._build_metadata(info, work_url)
-            return "success", "ok", dl, metadata
-        except AuthError:
-            raise
-        except Exception as e:
-            return "failed", str(e), None, None
+    def _clear_last_error(self):
+        self._last_error = ""
 
     @staticmethod
     def _resolve_work_format(work_type: str) -> tuple[str, str]:
@@ -280,73 +443,6 @@ class PixivDownloader(BaseDownloader):
             "illust": ("插画", ".pdf"),
         }
         return mapping.get(work_type, ("插画", ".pdf"))
-
-    def _pull_base_import(self, work_url: str, old_entry: dict
-                          ) -> tuple[str, str, Optional[Path], Optional[Dict]]:
-        old_path = Path(old_entry["file_path"])
-        if not old_path.is_absolute():
-            logger.warning("旧库文件路径非绝对路径，跳过: %s", old_path)
-            return "failed", "旧库文件路径非绝对路径", None, None
-        if not old_path.exists():
-            logger.warning("旧库文件不存在，回退正常下载: %s", old_path)
-            dl, info = self.download(work_url)
-            if not dl:
-                return "failed", self._last_error or "下载失败", None, None
-            metadata = self._build_metadata(info, work_url)
-            return "success", "ok", dl, metadata
-
-        info = self.get_info(work_url)
-        if not info:
-            return "failed", "获取元数据失败", None, None
-
-        import tempfile, shutil
-        tmp_dir = Path(tempfile.mkdtemp())
-        tmp_path = tmp_dir / old_path.name
-        shutil.copy2(old_path, tmp_path)
-
-        metadata = self._build_metadata(info, work_url)
-        logger.info("复用旧库文件: %s → %s", old_path.name, work_url)
-        return "success", "ok", tmp_path, metadata
-
-    def _import_metadata_only(self, work_url: str
-                              ) -> tuple[str, str, Optional[Path], Optional[Dict]]:
-        if work_url.strip() in self.existing_sources:
-            return "skipped", "已存在", None, None
-        try:
-            info = self.get_info(work_url)
-            if not info:
-                return "failed", "获取详情失败", None, None
-
-            from src.core.paths import build_import_target
-            from src.domain.cdbook import normalize_series_name
-            from src.core.registry import generate_id
-            from src.operations.import_op import register_entry
-
-            author = info.get("author", "")
-            series = normalize_series_name(info.get("series", "") or "")
-            tags = info.get("tags", [])
-            title = info.get("title", "")
-            file_type, suffix = self._resolve_work_format(info.get("type", "illust"))
-
-            book_id = generate_id(file_type, author, series)
-            safe_title = normalize_series_name(title)
-            placeholder_name = f"{book_id}_{safe_title}{suffix}"
-            target = build_import_target(Path(placeholder_name), author, series, book_id=book_id)
-
-            entry = {
-                "ID": book_id, "标题": title, "作者": author or "佚名",
-                "系列": series or "", "标签": ",".join(str(t) for t in tags if t) if isinstance(tags, list) else str(tags or ""),
-                "来源": work_url, "源状态": "metadata_only", "后缀": suffix,
-                "分类": file_type, "导入时间": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "文件大小(KB)": "0", "MD5": "", "文件路径": str(target.absolute()),
-                "收藏": "否", "评分": "", "简介": info.get("description", ""),
-                "点赞": str(info.get("like_count", 0)),
-            }
-            register_entry(entry)
-            self.existing_sources.add(work_url.strip())
-            return "success", "ok", None, None
-        except Exception as e:
-            return "failed", str(e), None, None
 
     def expand_urls(self, urls: List[str]) -> List[str]:
         works = []
@@ -485,9 +581,3 @@ class PixivDownloader(BaseDownloader):
     def stop(self):
         super().stop()
         self.client.stop()
-
-    def _set_last_error(self, msg: str):
-        self._last_error = msg
-
-    def _clear_last_error(self):
-        self._last_error = ""

@@ -1,5 +1,6 @@
 import json
 import time
+import random
 import threading
 import concurrent.futures
 from abc import ABC, abstractmethod
@@ -9,6 +10,7 @@ from tqdm import tqdm
 
 from src.core.config import get_project_root, get_library_path
 from src.core.logging import logger
+from .context import PipelineResult, DownloadContext, DownloadControl
 
 
 class AuthError(Exception):
@@ -61,8 +63,10 @@ class BaseDownloader(ABC):
         return list(cls.METADATA_SCHEMA.keys())
     def __init__(self):
         self.existing_sources: Set[str] = set()
+        self._sources_lock = threading.Lock()
         self.download_file_path: str = "downloads"
         self.stop_event = threading.Event()
+        self._ctrl = DownloadControl()
 
     @abstractmethod
     def process_url(self, urls: Union[str, List[str]], mode: str = "both") -> Dict[str, int]:
@@ -95,37 +99,40 @@ class BaseDownloader(ABC):
         logger.info("🛑 收到停止信号，正在通知所有线程...")
         self.stop_event.set()
 
+    def set_download_control(self, ctrl: DownloadControl):
+        self._ctrl = ctrl
+
     def _check_stop(self):
         if self.stop_event.is_set():
             raise KeyboardInterrupt("Download interrupted by user")
 
-    def _batch_wait(
-        self,
-        futures: Dict[concurrent.futures.Future, Any],
-        pbar: tqdm,
-        *,
-        on_result: Optional[Callable[[Any, Any], None]] = None,
-    ) -> list[tuple[float, int]]:
-        start_time = time.monotonic()
-        timeline: list[tuple[float, int]] = []
-        completed = 0
-
-        for future in concurrent.futures.as_completed(futures):
+    def _retry(self, fn: Callable[[], "PipelineResult"], work_url: str,
+               max_retries: int = 3) -> "PipelineResult":
+        for attempt in range(max_retries):
             self._check_stop()
-            completed += 1
-            pbar.update(1)
-            timeline.append((time.monotonic() - start_time, completed))
             try:
-                item = futures[future]
-                result = future.result()
-                if on_result:
-                    on_result(item, result)
+                result = fn()
             except KeyboardInterrupt:
-                raise
+                return PipelineResult.failed(work_url, "用户取消")
             except Exception as e:
-                logger.error("任务异常: %s: %s", type(e).__name__, e)
+                if attempt < max_retries - 1:
+                    delay = random.uniform(1.5, 4.5) * (attempt + 1)
+                    logger.debug("重试 %d/%d: 异常 %s 等待 %.1fs",
+                                 attempt + 1, max_retries, work_url, delay)
+                    self.stop_event.wait(delay)
+                    continue
+                return PipelineResult.failed(work_url, str(e))
 
-        return timeline
+            if result.status in ("success", "skipped"):
+                return result
+            if attempt < max_retries - 1:
+                delay = 3.0 * (2 ** attempt) * random.uniform(0.5, 1.5)
+                logger.debug("重试 %d/%d: %s 等待 %.1fs",
+                             attempt + 1, max_retries, work_url, delay)
+                self.stop_event.wait(delay)
+                continue
+            return result
+        return PipelineResult.failed(work_url, "重试耗尽")
 
     def _batch_executor(self, max_workers: int) -> concurrent.futures.ThreadPoolExecutor:
         return concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
@@ -148,35 +155,94 @@ class BaseDownloader(ABC):
                 completed = 0
                 all_futures: Dict[concurrent.futures.Future, Any] = {}
                 work_iter = iter(works)
-                # 初始提交一批
-                for _ in range(min(chunk_size, len(works))):
-                    try:
-                        u = next(work_iter)
-                        all_futures[executor.submit(worker_fn, u)] = u
-                    except StopIteration:
-                        break
-                while all_futures:
-                    self._check_stop()
-                    for future in concurrent.futures.as_completed(all_futures, timeout=0.5):
-                        completed += 1
-                        pbar.update(1)
-                        timeline.append((time.monotonic() - start_time, completed))
-                        item = all_futures.pop(future)
-                        try:
-                            result = future.result()
-                            if on_result_fn:
-                                on_result_fn(item, result)
-                        except KeyboardInterrupt:
-                            raise
-                        except Exception as e:
-                            logger.error("任务异常: %s: %s", type(e).__name__, e)
-                        # 补充提交下一个
+                paused_stage = 0  # 0=正常, 1=正在暂停, 2=已暂停
+                paused_cancelled: list[str] = []
+
+                def _fill():
+                    for _ in range(min(chunk_size, 100)):
                         try:
                             u = next(work_iter)
                             all_futures[executor.submit(worker_fn, u)] = u
                         except StopIteration:
-                            pass
-                        break  # 重新进入 as_completed 循环
+                            break
+
+                _fill()
+
+                while True:
+                    self._check_stop()
+
+                    if self._ctrl.cancelled:
+                        pbar.set_description("⏹ 已取消")
+                        self._batch_shutdown(executor)
+                        break
+
+                    if not all_futures:
+                        if self._ctrl.paused:
+                            if paused_stage < 2:
+                                pbar.set_description("⏸ 已暂停，按 o 继续 / c 退出")
+                                paused_stage = 2
+                            if self._ctrl.sigint_count > 0:
+                                pbar.set_description("⏹ 已取消")
+                                self._batch_shutdown(executor)
+                                break
+                            self.stop_event.wait(0.3)
+                            continue
+
+                        # Not paused, try to refill
+                        paused_stage = 0
+                        pbar.set_description(desc)
+                        if paused_cancelled:
+                            for u in paused_cancelled:
+                                all_futures[executor.submit(worker_fn, u)] = u
+                            paused_cancelled.clear()
+                        _fill()
+                        if not all_futures:
+                            break
+                        continue
+
+                    paused_stage = 0
+
+                    try:
+                        for future in concurrent.futures.as_completed(all_futures, timeout=5):
+                            completed += 1
+                            pbar.update(1)
+                            timeline.append((time.monotonic() - start_time, completed))
+                            item = all_futures.pop(future)
+                            try:
+                                result = future.result()
+                                if on_result_fn:
+                                    on_result_fn(item, result)
+                            except KeyboardInterrupt:
+                                raise
+                            except Exception as e:
+                                logger.error("任务异常: %s: %s", type(e).__name__, e)
+                            if self._ctrl.paused:
+                                if paused_stage < 1:
+                                    pbar.set_description("⏸ 正在暂停...")
+                                    paused_stage = 1
+                                    for f, u in list(all_futures.items()):
+                                        if f.cancel():
+                                            all_futures.pop(f)
+                                            paused_cancelled.append(u)
+                            else:
+                                if paused_cancelled:
+                                    for u in paused_cancelled:
+                                        all_futures[executor.submit(worker_fn, u)] = u
+                                    paused_cancelled.clear()
+                                try:
+                                    u = next(work_iter)
+                                    all_futures[executor.submit(worker_fn, u)] = u
+                                except StopIteration:
+                                    pass
+                            break
+                    except concurrent.futures.TimeoutError:
+                        if self._ctrl.paused and paused_stage < 1:
+                            pbar.set_description("⏸ 正在暂停...")
+                            paused_stage = 1
+                            for f, u in list(all_futures.items()):
+                                if f.cancel():
+                                    all_futures.pop(f)
+                                    paused_cancelled.append(u)
             return timeline
         finally:
             self._batch_shutdown(executor)

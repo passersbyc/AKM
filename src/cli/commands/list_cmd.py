@@ -57,37 +57,38 @@ class ListCommand(BaseCommand):
         if limit > 0 and len(items) > limit:
             items = items[:limit]
 
-        columns = [
-            {"header": "ID", "justify": "right", "style": "cyan", "no_wrap": True},
-            {"header": "标题", "style": "magenta"},
-            {"header": "作者", "style": "green"},
-            {"header": "系列", "style": "yellow"},
-            {"header": "分类", "style": "blue"},
-            {"header": "收藏", "style": "red"},
-            {"header": "点赞", "style": "yellow"},
-            {"header": "评分", "style": "cyan"},
-        ]
+        from rich.table import Table
 
-        rows = []
-        for row in items:
+        table = Table(title="作品列表", show_lines=False)
+        table.add_column("ID", justify="right", style="cyan", no_wrap=True)
+        table.add_column("标题", style="magenta")
+        table.add_column("作者", style="green")
+        table.add_column("系列", style="yellow")
+        table.add_column("分类", style="blue")
+        table.add_column("收藏", style="red")
+        table.add_column("点赞", style="yellow")
+        table.add_column("评分", style="cyan")
+
+        for i, row in enumerate(items):
+            author = row.get("作者", "未知")
+            is_last_of_author = (i + 1 == len(items)
+                                 or items[i + 1].get("作者", "未知") != author)
+
             likes = row.get("点赞", "0") or "0"
             rating = row.get("评分", "-") or "0"
-            rows.append([
+            table.add_row(
                 short_id(row.get("ID", "N/A")),
                 row.get("标题", ""),
-                row.get("作者", "未知"),
+                author,
                 row.get("系列", "-") or "-",
                 row.get("分类", "") or "未知",
                 "♥" if row.get("收藏", "否") == "是" else "",
                 likes if int(likes) > 0 else "",
                 rating if float(rating) > 0 else "",
-            ])
-        self.output.table("作品列表", columns, rows)
+                end_section=is_last_of_author,
+            )
 
-        if is_default_limit and limit < total:
-            self.output.info(f"[dim]显示 {len(items)}/{total} 个作品（--no-limit 查看全部）[/dim]")
-        else:
-            self.output.info(f"[dim]共计 {total} 个作品[/dim]")
+        self.console.print(table)
         return 0
 
     def _list_author(self, args: argparse.Namespace) -> int:

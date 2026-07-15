@@ -51,7 +51,7 @@ class FollowCommand(BaseCommand):
         if args.pixiv:
             return self._follow_pixiv()
 
-        # 提供 URL: 关注单个作者
+        # 提供 URL: 关注单个作者并排队全部作品
         if args.url:
             return self._follow_url(args.url)
 
@@ -61,27 +61,51 @@ class FollowCommand(BaseCommand):
     # ── 关注 ──────────────────────────────────────────────
 
     def _follow_url(self, url: str) -> int:
-        result = source_op.follow_author_by_url(url)
-        if not result:
-            self.output.info("不支持的 URL 或获取作者信息失败，请检查 URL 或 Cookie")
+        from src.cli.downplugin import registry
+        from src.core.download import append_to_download_json
+        from src.operations import source_set
+
+        cls = registry.resolve(url)
+        if not cls:
+            self.output.info(f"不支持的链接: {url}")
+            return 1
+        downloader = cls()
+
+        info = downloader.get_author_info(url)
+        if not info:
+            self.output.info("无法获取作者信息，请检查 URL 或 Cookie")
+            return 1
+        name, _ = info
+        uid = downloader.extract_uid(url)
+
+        self.output.info(f"作者: {name}" + (f" (UID: {uid})" if uid else ""))
+
+        works = downloader.get_user_works(url)
+        if not works:
+            self.output.info("未获取到任何作品，作者可能已清空或账号异常")
+            result = source_op.follow_author_by_url(url)
+            if result:
+                self.output.info(f"已关注: {name}")
             return 1
 
-        tag = "已关注" if result["already_followed"] else "已关注作者"
-        self.output.info(f"{tag}: {result['name']} (UID: {result['uid']})")
-        lid = result["local_id"]
-        if lid:
-            self.output.info(f"  本地ID: {lid}")
-        self.output.info(f"  主页:   {url}")
-        row = result["row"]
-        self.output.info(f"  状态:   {row.get('follow_status', '')}")
-        note = row.get("note", "")
-        if note:
-            self.output.info(f"  备注:   {note}")
-        data = {"uid": result["uid"], "name": result["name"], "local_id": lid}
-        if result["already_followed"]:
-            data["already_followed"] = True
-            return self.output.result(True, data=data, exit_code=2)
-        return self.output.result(True, data=data)
+        result = source_op.follow_author_by_url(url)
+        if result:
+            lid = result["local_id"]
+            tag = "已关注" if result["already_followed"] else "已关注"
+            self.output.info(f"{tag}: {name} (本地ID: {lid})")
+
+        in_library = source_set()
+        new_works = [w for w in works if w not in in_library]
+        skipped = len(works) - len(new_works)
+
+        entries = [{"url": w, "author_id": ""} for w in new_works]
+        added = append_to_download_json(entries)
+
+        self.output.info(f"作品总数: {len(works)} | 已入库跳过: {skipped} | 新加入队列: {added}")
+        return self.output.result(True, data={
+            "author": name, "uid": uid, "total": len(works),
+            "skipped": skipped, "queued": added,
+        })
 
     def _follow_pixiv(self) -> int:
         cookie = self._cookie()
