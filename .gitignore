@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+data/.id_registry.json
+data/download.json
+data/application.log
+downloads/
+library/
+.DS_Store
+*.epub
+*.pdf
+*.bak
+
+# databases
+*.db
+novel-page-snapshot
+
+# MCP logs
+.playwright-mcp/
+.qoder/
+
+# testing
+.coverage
+.pytest_cache/
+htmlcov/

@@ -1,0 +1,2 @@
+[console_scripts]
+akm = src.cli.main:main
