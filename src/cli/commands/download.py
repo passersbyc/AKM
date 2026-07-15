@@ -5,7 +5,7 @@ from src.cli.core import BaseCommand
 from src.cli.downplugin import registry
 from src.cli.commands._download_utils import DownloadGroupRunner
 from src.core.logging import logger
-from src.core.download import read_download_json
+from src.core.download import get_pending_urls
 from src.core.paths import delete_downloads_file
 from src.operations import source_set
 
@@ -46,8 +46,8 @@ class DownloadCommand(BaseCommand):
         pull_base_mapping: dict = {}
 
         if args.pull or args.pull_base:
-            data = read_download_json()
-            for entry in data.get("works", []):
+            entries = get_pending_urls()
+            for entry in entries:
                 u = entry.get("url", "").strip()
                 if u and u not in urls:
                     pull_urls.append(u)
@@ -106,19 +106,15 @@ class DownloadCommand(BaseCommand):
         )
 
     def _purge_download_json(self, urls: list[str]) -> None:
-        from src.core.download import read_download_json, _write_download_json
+        from src.core.download import mark_downloaded
+        from src.core.logging import logger
         in_manifest = source_set()
-        data = read_download_json()
         removed = 0
-        remaining = []
-        for entry in data.get("works", []):
-            if entry.get("url", "") in in_manifest:
+        for u in urls:
+            if u in in_manifest:
+                mark_downloaded(u)
                 removed += 1
-            else:
-                remaining.append(entry)
         if removed:
-            data["works"] = remaining
-            _write_download_json(data)
             logger.info(f"已清理下载中转: {removed} 个已入库")
 
     @staticmethod

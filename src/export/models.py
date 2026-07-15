@@ -8,7 +8,7 @@ class ExportRequest:
     query: str
     dest_dir: Path
     export_name: str
-    mode: Literal["author", "tag", "id"] = "author"
+    mode: Literal["author", "tag", "id", "work", "mylikeauthor", "mylikeworks"] = "author"
     filter_type: Optional[str] = None
     limit: int = 0
     output_format: Literal["folder", "zip", "epub", "completeness"] = "folder"

@@ -448,15 +448,12 @@ class PixivWorkExtractor(PixivBaseExtractor):
 
     def _download_illust_pages(self, pid: str, title: str, urls: list[str]) -> tuple[Optional[Path], str]:
         import shutil
-        from tqdm import tqdm
         safe_title = normalize_series_name(title)
         tmp_dir = self._download_dir() / f"{safe_title}__{pid}"
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        for i, u in enumerate(tqdm(urls, desc=f"下载 {safe_title}", unit="页", leave=False)):
-            if self.client.is_stopped:
-                shutil.rmtree(tmp_dir, ignore_errors=True)
-                return None, "用户取消"
+        pairs: list[tuple[str, Path]] = []
+        for u in urls:
             fn = u.split("/")[-1]
             fp = tmp_dir / fn
             if fp.exists():
@@ -470,11 +467,19 @@ class PixivWorkExtractor(PixivBaseExtractor):
                         fp.unlink()
                     except OSError:
                         pass
-            if not self.client.download_to_file(u, fp):
+            pairs.append((u, fp))
+
+        if pairs:
+            if self.client.is_stopped:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+                return None, "用户取消"
+            count = self.client.download_files_parallel(pairs, max_workers=4)
+            if count < len(pairs):
                 shutil.rmtree(tmp_dir, ignore_errors=True)
                 if self.client.is_stopped:
                     return None, "用户取消"
-                return None, f"第{i+1}/{len(urls)} 页图片下载失败"
+                failed = len(pairs) - count
+                return None, f"{failed}/{len(urls)} 页图片下载失败"
 
         try:
             pdf_path = convert_images_to_book(tmp_dir, target_format="pdf", delete_original=True)

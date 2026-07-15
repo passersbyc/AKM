@@ -399,11 +399,20 @@ class PixivDownloader(BaseDownloader):
             with lock:
                 if result.status == "success":
                     stats["success"] += 1
+                    from src.core.download import mark_downloaded
+                    mark_downloaded(work_url)
                 elif result.status == "skipped":
                     stats["skipped"] += 1
                 else:
                     stats["failed"] += 1
                     logger.warning("下载失败: %s 原因: %s", work_url, result.reason)
+                    reason_lower = result.reason.lower()
+                    if any(code in reason_lower for code in ("404", "401", "403")):
+                        from src.core.download import mark_invalid
+                        mark_invalid(work_url)
+                    else:
+                        from src.core.download import mark_failed
+                        mark_failed(work_url)
 
         def _worker(work_url: str) -> PipelineResult:
             return self._retry(lambda: self._run_pipeline(work_url), work_url)

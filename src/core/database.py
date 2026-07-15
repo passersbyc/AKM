@@ -178,6 +178,34 @@ def init_db() -> None:
         db.execute("ALTER TABLE pixiv_trackings DROP COLUMN is_active")
     except sqlite3.OperationalError:
         pass
+    try:
+        db.execute("ALTER TABLE download_queue ADD COLUMN is_valid INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE download_queue ADD COLUMN is_in_db INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE download_queue ADD COLUMN is_blacklisted INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE download_queue ADD COLUMN work_type TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE download_queue ADD COLUMN author_name TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE download_queue ADD COLUMN download_time TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE download_queue ADD COLUMN fail_count INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
 
 
 def next_counter(name: str) -> int:

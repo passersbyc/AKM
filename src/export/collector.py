@@ -2,7 +2,20 @@ from .models import ExportRequest, ExportPlan, TypeGroup
 
 
 def collect_rows(rows: list[dict], request: ExportRequest) -> ExportPlan:
-    filtered = _filter_rows(rows, request)
+    if request.mode in ("work", "mylikeworks"):
+        standalone, series_groups = _classify_works(rows)
+        return ExportPlan(
+            standalone=standalone,
+            series_groups=series_groups,
+            type_groups={},
+            is_tag_mode=False,
+        )
+
+    if request.mode == "mylikeauthor":
+        filtered = _filter_by_author_ids(rows, request)
+    else:
+        filtered = _filter_rows(rows, request)
+
     standalone, series_groups = _classify_works(filtered)
 
     if request.limit > 0:

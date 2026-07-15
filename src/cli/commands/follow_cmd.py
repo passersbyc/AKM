@@ -62,7 +62,7 @@ class FollowCommand(BaseCommand):
 
     def _follow_url(self, url: str) -> int:
         from src.cli.downplugin import registry
-        from src.core.download import append_to_download_json
+        from src.core.download import append_or_update
         from src.operations import source_set
 
         cls = registry.resolve(url)
@@ -95,11 +95,15 @@ class FollowCommand(BaseCommand):
             self.output.info(f"{tag}: {name} (本地ID: {lid})")
 
         in_library = source_set()
-        new_works = [w for w in works if w not in in_library]
-        skipped = len(works) - len(new_works)
-
-        entries = [{"url": w, "author_id": ""} for w in new_works]
-        added = append_to_download_json(entries)
+        entries = []
+        skipped = 0
+        for w in works:
+            w_type = "novel" if "/novel/" in w else "illust"
+            in_db = 1 if w in in_library else 0
+            if in_db:
+                skipped += 1
+            entries.append({"url": w, "author_name": name, "work_type": w_type, "is_in_db": in_db})
+        added = append_or_update(entries)
 
         self.output.info(f"作品总数: {len(works)} | 已入库跳过: {skipped} | 新加入队列: {added}")
         return self.output.result(True, data={

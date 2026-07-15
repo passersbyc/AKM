@@ -15,6 +15,8 @@ def load_commands(app: CLIApp) -> None:
     from src.cli.commands.delete_cmd import DeleteCommand
     from src.cli.commands.follow_cmd import FollowCommand
     from src.cli.commands.pull_cmd import PullCommand
+    from src.cli.commands.export import ExportCommand
+    from src.cli.commands.setting_cmd import SettingCommand
 
     for cls in (
         StatsCommand,
@@ -26,6 +28,8 @@ def load_commands(app: CLIApp) -> None:
         DeleteCommand,
         FollowCommand,
         PullCommand,
+        ExportCommand,
+        SettingCommand,
     ):
         app.register_command(cls)
 

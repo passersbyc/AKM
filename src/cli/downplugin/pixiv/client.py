@@ -226,6 +226,32 @@ class PixivClient:
                     pass
             return False
 
+    def download_files_parallel(self, pairs: list[tuple[str, Path]],
+                                 max_workers: int = 4) -> int:
+        if not pairs:
+            return 0
+        workers = min(len(pairs), max_workers)
+        if workers <= 1:
+            url, path = pairs[0]
+            return 1 if self.download_to_file(url, path) else 0
+
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {}
+            for url, path in pairs:
+                futures[pool.submit(self.download_to_file, url, path)] = (url, path)
+            success = 0
+            for future in concurrent.futures.as_completed(futures):
+                url, path = futures[future]
+                try:
+                    if future.result():
+                        success += 1
+                    else:
+                        logger.warning("下载失败: %s", url)
+                except Exception as e:
+                    logger.warning("下载异常: %s %s", url, e)
+            return success
+
     def get_text(self, url: str, timeout: int = 15) -> Optional[str]:
         try:
             self._api_rate_limit()

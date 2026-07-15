@@ -1,90 +1,162 @@
 import argparse
+import json
 from pathlib import Path
 
-from src.cli.core import BaseCommand
-from src.operations import export_by_query
+from src.cli.base import BaseCommand
+from src.core.config import get_project_root
+
+
+def _get_export_defaults():
+    config_path = get_project_root() / "config.json"
+    try:
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        cfg = {}
+    ps = cfg.get("project_settings", {})
+    return {
+        "dest": ps.get("export_path", "."),
+        "format": ps.get("export_format", "folder"),
+    }
 
 
 class ExportCommand(BaseCommand):
-    @property
-    def name(self) -> str:
-        return "export"
-
-    @property
-    def description(self) -> str:
-        return "将指定作者或标签的所有作品导出到目录，支持系列 EPUB/PDF 合并"
+    verb = "export"
+    nouns = ["author", "mylikeauthor", "mylikeworks"]
+    description = "导出作品到指定目录"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("query", help="要导出的目标名称（默认按作者），或以空格分隔的标签关键词")
-        parser.add_argument("destination", nargs="?", default=".", help="导出目标路径（默认当前目录）")
-        parser.add_argument("-n", "--name", type=str, help="自定义导出文件夹名称")
-        parser.add_argument("-t", "--tag", action="store_true", help="按标签导出而不是按作者导出")
-        parser.add_argument("-c", "--type", type=str, help="按分类筛选 (如 小说, 漫画)")
-        parser.add_argument("-l", "--number", type=int, help="按点赞量限制导出数量")
-        parser.add_argument("-i", "--id", type=str, help="按作者本地ID批量导出（逗号分隔）")
-        parser.add_argument("-f", "--favorited", action="store_true", help="仅导出收藏作者的作品")
-        parser.add_argument("--format", default="folder", choices=["zip", "folder", "epub", "completeness"],
-                            help="导出格式，zip 为压缩包，folder 为文件夹，epub 为 EPUB 电子书，completeness 为按分类全局合并 (默认: folder)")
+        defaults = _get_export_defaults()
+        parser.add_argument("target", nargs="?", default=None,
+                            help="作品 ID 或名称")
+        parser.add_argument("dest", nargs="?", default=defaults["dest"],
+                            help="导出目标路径")
+        parser.add_argument("--format", default=defaults["format"],
+                            choices=["folder", "zip", "epub"],
+                            help="导出格式")
 
-    def execute(self, args: argparse.Namespace) -> int:
-        dest_dir = Path(args.destination or ".").resolve()
-        if not dest_dir.exists():
-            try:
-                dest_dir.mkdir(parents=True)
-            except Exception as e:
-                return self._respond(False, error=f"无法创建目标目录: {e}")
+    def configure_noun_parser(self, parser: argparse.ArgumentParser,
+                               noun: str) -> None:
+        defaults = _get_export_defaults()
+        if noun == "author":
+            parser.add_argument("target", type=str, help="作者 ID 或名称")
+            parser.add_argument("dest", nargs="?", default=defaults["dest"],
+                                help="导出目标路径")
+            parser.add_argument("--format", default=defaults["format"],
+                                choices=["folder", "zip", "epub"])
+            parser.add_argument("--type", type=str, help="按分类筛选")
+            parser.add_argument("--number", type=int, default=0,
+                                help="按点赞量限制数量")
+        elif noun in ("mylikeauthor", "mylikeworks"):
+            parser.add_argument("dest", nargs="?", default=defaults["dest"],
+                                help="导出目标路径")
+            parser.add_argument("--format", default=defaults["format"],
+                                choices=["folder", "zip", "epub"])
+            parser.add_argument("--type", type=str, help="按分类筛选")
+            parser.add_argument("--number", type=int, default=0,
+                                help="按点赞量限制数量")
 
-        author_ids = [x.strip() for x in (args.id or "").split(",") if x.strip()]
-        if author_ids or args.favorited:
-            mode = "id"
-        elif args.tag:
-            mode = "tag"
+    def execute(self, args: argparse.Namespace, noun=None) -> int:
+        if noun == "author":
+            return self._export_author(args)
+        elif noun == "mylikeauthor":
+            return self._export_mylikeauthor(args)
+        elif noun == "mylikeworks":
+            return self._export_mylikeworks(args)
         else:
-            mode = "author"
+            return self._export_work(args)
 
-        query = args.query
-        export_name = args.name if args.name else query.replace(" ", "_")
-        result = export_by_query(
-            query=query,
-            dest_dir=dest_dir,
-            export_name=export_name,
-            mode=mode,
-            filter_type=getattr(args, 'type', None),
-            limit=args.number or 0,
-            output_format=getattr(args, 'format', 'folder'),
-            author_ids=author_ids,
-            favorited_only=args.favorited,
-        )
+    # ── helpers ────────────────────────────────────────────
 
+    def _resolve_dest(self, dest_str: str) -> Path:
+        dest_dir = Path(dest_str).resolve()
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            self.output.error(f"无法创建目标目录: {e}")
+            return None
+        return dest_dir
+
+    def _print_result(self, result: dict, fmt_label: str) -> int:
         if not result["success"]:
-            return self._respond(False, error=result.get("error") or "导出失败")
-
-        if getattr(args, 'format', 'folder') == "completeness":
-            merged_list = [(ft, r) for ft, r in (result.get("results") or {}).items()
-                          if r.get("status") == "merged"]
-            if not self._json_mode and merged_list:
-                self._print(f"[bold bright_green]━━━ 按分类全局合并 ━━━[/bold bright_green]")
-                for ft, r in merged_list:
-                    output_path = r.get("output", "")
-                    count = r.get("count", 0)
-                    safe_out = str(output_path).replace(str(Path(result.get("destination", ""))), ".", 1) if output_path else ""
-                    self._print(f"  [bold cyan]{ft:　<4s}[/bold cyan] [bright_green]{safe_out}[/bright_green] [bold yellow]{count} 文件[/bold yellow]")
-                self._print()
-
-            if self._json_mode:
-                return self._respond(True, {
-                    "exported": result["exported"],
-                    "destination": result["destination"],
-                    "results": result["results"],
-                })
-            return 0
-
-        fmt_label = "EPUB 电子书" if getattr(args, 'format', 'folder') == "epub" else ("文件夹" if getattr(args, 'format', 'folder') == "folder" else "文件")
-        self._print(f"[bold green]✓[/bold green] 导出完成: [bold cyan]{fmt_label}[/bold cyan] [bright_green]{result['destination']}[/bright_green] [bold yellow]({result['exported']} 项)[/bold yellow]")
-
-        if self._json_mode:
-            return self._respond(True, {
-                "exported": result["exported"],
-                "destination": result["destination"],
-            })
+            self.output.info(f"导出失败: {result.get('error', '未知错误')}")
+            return 1
+        dest = result.get("destination", "")
+        try:
+            dest = str(Path(dest).relative_to(Path.cwd()))
+        except ValueError:
+            pass
+        self.output.info(f"[green]导出完成:[/green] {fmt_label} "
+                         f"[bright_green]{dest}[/bright_green] "
+                         f"[yellow]({result['exported']} 项)[/yellow]")
         return 0
+
+    # ── export <work> ──────────────────────────────────────
+
+    def _export_work(self, args: argparse.Namespace) -> int:
+        if not args.target:
+            self.output.info("用法: export <作品ID或名称> [导出路径]")
+            return 1
+        dest_dir = self._resolve_dest(args.dest)
+        if dest_dir is None:
+            return 1
+
+        from src.operations.export_op import export_work
+        fmt = getattr(args, 'format', 'folder')
+        result = export_work(args.target, dest_dir, output_format=fmt)
+        fmt_label = {"folder": "文件夹", "zip": "压缩包", "epub": "EPUB"}.get(fmt, fmt)
+        return self._print_result(result, fmt_label)
+
+    # ── export author ──────────────────────────────────────
+
+    def _export_author(self, args: argparse.Namespace) -> int:
+        if not args.target:
+            self.output.info("用法: export author <作者ID或名称> [导出路径]")
+            return 1
+        dest_dir = self._resolve_dest(args.dest)
+        if dest_dir is None:
+            return 1
+
+        from src.operations.export_op import export_author
+        result = export_author(
+            args.target, dest_dir,
+            filter_type=getattr(args, 'type', None),
+            limit=getattr(args, 'number', 0),
+            output_format=getattr(args, 'format', 'folder'),
+        )
+        fmt_label = {"folder": "文件夹", "zip": "压缩包", "epub": "EPUB"}.get(
+            getattr(args, 'format', 'folder'), 'folder')
+        return self._print_result(result, fmt_label)
+
+    # ── export mylikeauthor ────────────────────────────────
+
+    def _export_mylikeauthor(self, args: argparse.Namespace) -> int:
+        dest_dir = self._resolve_dest(args.dest)
+        if dest_dir is None:
+            return 1
+
+        from src.operations.export_op import export_mylikeauthor
+        result = export_mylikeauthor(
+            dest_dir,
+            filter_type=getattr(args, 'type', None),
+            limit=getattr(args, 'number', 0),
+            output_format=getattr(args, 'format', 'folder'),
+        )
+        fmt_label = {"folder": "文件夹", "zip": "压缩包", "epub": "EPUB"}.get(
+            getattr(args, 'format', 'folder'), 'folder')
+        return self._print_result(result, fmt_label)
+
+    # ── export mylikeworks ─────────────────────────────────
+
+    def _export_mylikeworks(self, args: argparse.Namespace) -> int:
+        dest_dir = self._resolve_dest(args.dest)
+        if dest_dir is None:
+            return 1
+
+        from src.operations.export_op import export_mylikeworks
+        result = export_mylikeworks(
+            dest_dir,
+            output_format=getattr(args, 'format', 'folder'),
+        )
+        fmt_label = {"folder": "文件夹", "zip": "压缩包", "epub": "EPUB"}.get(
+            getattr(args, 'format', 'folder'), 'folder')
+        return self._print_result(result, fmt_label)

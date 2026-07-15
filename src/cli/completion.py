@@ -159,8 +159,8 @@ def build_completer(app):
                         if opt.startswith(word_before):
                             yield Completion(opt, start_position=-len(word_before))
                     return
-                # noun 没匹配到时，继续补全作品名（适用于 open/edit/delete）
-                if not noun_matched and first in ("open", "edit", "delete"):
+                # noun 没匹配到时，继续补全作品名（适用于 open/edit/delete/export）
+                if not noun_matched and first in ("open", "edit", "delete", "export"):
                     for insert, display in self._query_works(word_before):
                         yield Completion(insert, start_position=-len(word_before),
                                          display=display)
@@ -179,8 +179,8 @@ def build_completer(app):
                         yield Completion(name, start_position=-len(word_before))
                 return
 
-            # search author / delete author: 补全作者名
-            if first in ("search", "delete") and second == "author":
+            # search author / delete author / export author: 补全作者名
+            if first in ("search", "delete", "export") and second == "author":
                 if len(words) == 2 or (len(words) == 3 and not text.endswith(" ")):
                     for name in self._query_authors(word_before):
                         yield Completion(name, start_position=-len(word_before))
@@ -193,8 +193,8 @@ def build_completer(app):
                         yield Completion(label, start_position=-len(word_before))
                 return
 
-            # open / edit / delete: 第二词补全作品名（除非是 author/all）
-            if first in ("open", "edit", "delete") and second not in ("author", "all"):
+            # open / edit / delete / export 默认: 补全作品名
+            if first in ("open", "edit", "delete", "export") and second not in ("author", "all", "mylikeauthor", "mylikeworks"):
                 if len(words) == 1 or (len(words) == 2 and not text.endswith(" ")):
                     for insert, display in self._query_works(word_before):
                         yield Completion(insert, start_position=-len(word_before),

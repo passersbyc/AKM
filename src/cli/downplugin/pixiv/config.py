@@ -23,7 +23,7 @@ DEFAULTS = {
         "max_workers": 8,
         "timeout": 20,
         "rate_limit_rps": 5.0,
-        "rate_limit_rps_authenticated": 10.0,
+        "rate_limit_rps_authenticated": 15.0,
         "image_rate_limit_rps": 20.0,
         "image_rate_limit_rps_authenticated": 30.0,
         "retry_429": True,

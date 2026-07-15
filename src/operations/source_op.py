@@ -330,7 +330,8 @@ def sync_one_author(row: dict, downloader=None, dry_run: bool = False,
         result["new_urls"] = new_urls
         result["new_ids"] = [extract_pixiv_id(u) for u in new_urls]
         if not dry_run:
-            entries = [{"url": u} for u in new_urls]
+            entries = [{"url": u, "author_name": name, "work_type": "novel" if "/novel/" in u else "illust"}
+                        for u in new_urls]
             if entries:
                 if download_lock:
                     with download_lock:

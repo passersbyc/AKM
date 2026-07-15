@@ -197,6 +197,7 @@ class DownloadGroupRunner:
                                   self.results["skipped"])
         self.results["elapsed"] = round(time.monotonic() - start_time, 1)
 
+        self.ctrl.cancel.set()
         listener.join(timeout=2)
 
         if self.show_chart and self.results["total"] > 0:

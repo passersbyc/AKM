@@ -8,7 +8,7 @@ from src.operations import list_items
 
 class ListCommand(BaseCommand):
     verb = "list"
-    nouns = ["author"]
+    nouns = ["author", "download"]
     description = "列出库中的作品或作者"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
@@ -27,10 +27,14 @@ class ListCommand(BaseCommand):
             parser.add_argument("number", type=int, nargs="?", default=0,
                                 help="限制显示数量")
             parser.add_argument("--favorite", action="store_true", help="仅收藏作者")
+        elif noun == "download":
+            parser.add_argument("--all", action="store_true", help="显示全部（含已下载/无效/拉黑）")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         if noun == "author":
             return self._list_author(args)
+        if noun == "download":
+            return self._list_download(args)
         return self._list_work(args)
 
     def _list_work(self, args: argparse.Namespace) -> int:
@@ -147,4 +151,71 @@ class ListCommand(BaseCommand):
 
         self.console.print(table)
         self.output.info(f"[dim]共计 {len(items)} 位作者[/dim]")
+        return 0
+
+    def _list_download(self, args: argparse.Namespace) -> int:
+        from src.core.database import get_db
+        from rich.table import Table
+
+        db = get_db()
+        if getattr(args, "all", False):
+            rows = db.execute(
+                "SELECT url, author_name, work_type, is_valid, is_in_db, "
+                "is_blacklisted, fail_count, download_time, added_at "
+                "FROM download_queue ORDER BY added_at DESC"
+            ).fetchall()
+        else:
+            rows = db.execute(
+                "SELECT url, author_name, work_type, is_valid, is_in_db, "
+                "is_blacklisted, fail_count, download_time, added_at "
+                "FROM download_queue WHERE is_in_db = 0 "
+                "ORDER BY added_at DESC"
+            ).fetchall()
+
+        if not rows:
+            self.output.info("下载队列为空")
+            return 0
+
+        if self.output.json_mode:
+            items = [dict(r) for r in rows]
+            return self.output.result(True, data={"queue": items, "total": len(items)})
+
+        table = Table(title="下载队列", show_lines=False)
+        table.add_column("URL", style="dim", max_width=50)
+        table.add_column("作者", style="green")
+        table.add_column("类型", style="blue", width=6)
+        table.add_column("状态", style="cyan", width=10)
+        table.add_column("失败", justify="right", style="yellow", width=4)
+        table.add_column("添加时间", style="dim", width=16)
+
+        for r in rows:
+            url = r["url"] or ""
+            author = r["author_name"] or "-"
+            w_type = r["work_type"] or "-"
+            fail_count = r["fail_count"]
+
+            if not r["is_valid"]:
+                status = "[red]无效[/red]"
+            elif r["is_blacklisted"]:
+                status = "[red]拉黑[/red]"
+            elif r["is_in_db"]:
+                status = "[green]已下载[/green]"
+            else:
+                status = "[yellow]待下载[/yellow]"
+
+            # Truncate URL for display
+            short_url = url
+            if len(url) > 47:
+                short_url = url[:44] + "..."
+
+            table.add_row(
+                short_url, author, w_type, status,
+                str(fail_count) if fail_count else "",
+                r["download_time"] or r["added_at"] or "",
+            )
+
+        self.console.print(table)
+        total = len(rows)
+        pending = sum(1 for r in rows if not r["is_in_db"] and r["is_valid"] and not r["is_blacklisted"])
+        self.output.info(f"[dim]共 {total} 条 | 待下载: {pending}[/dim]")
         return 0
