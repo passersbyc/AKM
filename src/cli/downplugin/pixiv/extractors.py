@@ -492,7 +492,7 @@ class PixivWorkExtractor(PixivBaseExtractor):
             return None, "PDF打包失败"
 
     def _download_dir(self) -> Path:
-        return Path("downloads")
+        return getattr(self, "_save_dir", None) or Path("downloads")
 
     def _mark_deleted_by_pid(self, pid: str) -> None:
         from src.core.database import get_db
@@ -703,7 +703,7 @@ class PixivNovelSeriesExtractor(PixivBaseExtractor):
             yield ExtractMessage.error_msg(url, "EPUB生成失败")
 
     def _download_dir(self) -> Path:
-        return Path("downloads")
+        return getattr(self, "_save_dir", None) or Path("downloads")
 
 
 class PixivSearchExtractor(PixivBaseExtractor):

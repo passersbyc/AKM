@@ -24,6 +24,11 @@ from src.core.logging import get_logger
 log = get_logger("akm.pixiv")
 
 
+class _PipelineSkip(Exception):
+    """MD5 重复等正常跳过情况，走 skipped 而非 failed。"""
+    pass
+
+
 class PixivDownloader(BaseDownloader):
     name = "pixiv"
     url_patterns = [r"pixiv\.net"]
@@ -32,8 +37,6 @@ class PixivDownloader(BaseDownloader):
     supports_author_works = True
     supports_search = True
     supports_ranking = True
-
-    _download_dir_lock = threading.Lock()
 
     def __init__(self):
         super().__init__()
@@ -87,8 +90,6 @@ class PixivDownloader(BaseDownloader):
             return None
         return None
 
-    _download_dir_lock = threading.Lock()
-
     def download(self, work_url: str, save_dir: Optional[Path] = None
                  ) -> tuple[Optional[Path], Optional[Dict[str, Any]]]:
         if save_dir is None:
@@ -97,25 +98,17 @@ class PixivDownloader(BaseDownloader):
                 save_dir = get_project_root() / save_dir
         save_dir.mkdir(parents=True, exist_ok=True)
 
-        old_novel_dir = PixivWorkExtractor._download_dir
-        old_series_dir = PixivNovelSeriesExtractor._download_dir
-        with self._download_dir_lock:
-            PixivWorkExtractor._download_dir = lambda self_ext: save_dir
-            PixivNovelSeriesExtractor._download_dir = lambda self_ext: save_dir
-            try:
-                extractor = self._create_extractor(work_url)
-                metadata = None
-                for msg in extractor.items(work_url):
-                    if msg.type == "metadata":
-                        metadata = msg.data
-                    elif msg.type == "file":
-                        return msg.path, metadata or msg.data
-                    elif msg.type == "error":
-                        self._set_last_error(msg.error or "下载失败")
-                        return None, None
-            finally:
-                PixivWorkExtractor._download_dir = old_novel_dir
-                PixivNovelSeriesExtractor._download_dir = old_series_dir
+        extractor = self._create_extractor(work_url)
+        extractor._save_dir = save_dir
+        metadata = None
+        for msg in extractor.items(work_url):
+            if msg.type == "metadata":
+                metadata = msg.data
+            elif msg.type == "file":
+                return msg.path, metadata or msg.data
+            elif msg.type == "error":
+                self._set_last_error(msg.error or "下载失败")
+                return None, None
 
         return None, None
 
@@ -141,6 +134,9 @@ class PixivDownloader(BaseDownloader):
             return self._run_normal_pipeline(ctx)
         except AuthError:
             raise
+        except _PipelineSkip:
+            self._pipeline_cleanup(ctx)
+            return PipelineResult.skipped(work_url)
         except Exception as e:
             self._pipeline_cleanup(ctx)
             return PipelineResult.failed(work_url, str(e))
@@ -160,8 +156,17 @@ class PixivDownloader(BaseDownloader):
         # ④ 写入数据库
         self._pipeline_write_db(ctx)
 
-        # ⑤ 移动到目标位置
-        self._pipeline_move_file(ctx)
+        # ⑤ 移动到目标位置（失败则回滚 ④，避免 works 有记录无文件）
+        try:
+            self._pipeline_move_file(ctx)
+        except Exception:
+            from src.core.work_repository import delete_entries
+            try:
+                delete_entries({ctx.entry["ID"]})
+                logger.warning("移动文件失败，已回滚 works 记录: %s", ctx.entry["ID"])
+            except Exception:
+                logger.error("移动文件失败且回滚 works 记录失败: %s", ctx.entry["ID"])
+            raise
 
         # ⑥ 清理暂存
         self._pipeline_cleanup(ctx)
@@ -250,7 +255,7 @@ class PixivDownloader(BaseDownloader):
         if dl:
             ctx.temp_file = dl
         else:
-            ctx.error = "下载失败"
+            ctx.error = self._last_error or "下载失败"
         return info
 
     def _pipeline_build_entry(self, ctx: DownloadContext) -> None:
@@ -275,7 +280,7 @@ class PixivDownloader(BaseDownloader):
         source_md5 = generate_file_md5(fp)
         is_dup, dup_id = check_duplicate_by_md5(source_md5)
         if is_dup:
-            raise ValueError(f"MD5重复: {dup_id}")
+            raise _PipelineSkip(f"MD5重复: {dup_id}")
 
         file_type = determine_file_type(str(fp))
         if file_type == "unknown":
@@ -403,16 +408,22 @@ class PixivDownloader(BaseDownloader):
                     mark_downloaded(work_url)
                 elif result.status == "skipped":
                     stats["skipped"] += 1
+                    from src.core.download import mark_downloaded
+                    mark_downloaded(work_url)
                 else:
                     stats["failed"] += 1
                     logger.warning("下载失败: %s 原因: %s", work_url, result.reason)
-                    reason_lower = result.reason.lower()
-                    if any(code in reason_lower for code in ("404", "401", "403")):
-                        from src.core.download import mark_invalid
-                        mark_invalid(work_url)
+                    if result.reason == "用户取消":
+                        # 用户主动取消，不计失败次数，避免误拉黑
+                        pass
                     else:
-                        from src.core.download import mark_failed
-                        mark_failed(work_url)
+                        reason_lower = result.reason.lower()
+                        if any(code in reason_lower for code in ("404", "401", "403")):
+                            from src.core.download import mark_invalid
+                            mark_invalid(work_url)
+                        else:
+                            from src.core.download import mark_failed
+                            mark_failed(work_url)
 
         def _worker(work_url: str) -> PipelineResult:
             return self._retry(lambda: self._run_pipeline(work_url), work_url)

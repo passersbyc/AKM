@@ -88,33 +88,40 @@ def pop_download_json(urls: list[str]) -> list[dict]:
 
 
 def mark_downloaded(url: str) -> None:
-    get_db().execute(
-        "UPDATE download_queue SET is_in_db=1, download_time=datetime('now'), "
-        "fail_count=0 WHERE url=?", (url,))
+    db = get_db()
+    with db:
+        db.execute(
+            "UPDATE download_queue SET is_in_db=1, download_time=datetime('now'), "
+            "fail_count=0 WHERE url=?", (url,))
 
 
 def mark_invalid(url: str) -> None:
     """404/401/403：标记为无效。"""
-    get_db().execute(
-        "UPDATE download_queue SET is_valid=0 WHERE url=?", (url,))
+    db = get_db()
+    with db:
+        db.execute(
+            "UPDATE download_queue SET is_valid=0 WHERE url=?", (url,))
 
 
 def mark_failed(url: str) -> None:
     """失败次数 +1，满 3 次拉黑。"""
     db = get_db()
-    db.execute(
-        "UPDATE download_queue SET fail_count = fail_count + 1 WHERE url=?", (url,))
-    row = db.execute(
-        "SELECT fail_count FROM download_queue WHERE url=?", (url,)).fetchone()
-    if row and row[0] >= 3:
+    with db:
         db.execute(
-            "UPDATE download_queue SET is_blacklisted=1 WHERE url=?", (url,))
+            "UPDATE download_queue SET fail_count = fail_count + 1 WHERE url=?", (url,))
+        row = db.execute(
+            "SELECT fail_count FROM download_queue WHERE url=?", (url,)).fetchone()
+        if row and row[0] >= 3:
+            db.execute(
+                "UPDATE download_queue SET is_blacklisted=1 WHERE url=?", (url,))
 
 
 def mark_not_in_db(url: str) -> None:
     """setting check：文件缺失，触发重新下载。"""
-    get_db().execute(
-        "UPDATE download_queue SET is_in_db=0, fail_count=0 WHERE url=?", (url,))
+    db = get_db()
+    with db:
+        db.execute(
+            "UPDATE download_queue SET is_in_db=0, fail_count=0 WHERE url=?", (url,))
 
 
 def get_by_url(url: str) -> dict | None:
