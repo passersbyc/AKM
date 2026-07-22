@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}AKM · 仪表盘{% endblock %}
+{% block content %}
+
+<!-- 统计概览 -->
+<section class="stats-grid">
+    <div class="stat-card stat-purple">
+        <div class="stat-icon">📚</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ stats.total_books }}</div>
+            <div class="stat-label">作品</div>
+        </div>
+    </div>
+    <div class="stat-card stat-pink">
+        <div class="stat-icon">✍️</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ stats.total_authors }}</div>
+            <div class="stat-label">作者</div>
+        </div>
+    </div>
+    <div class="stat-card stat-teal">
+        <div class="stat-icon">📁</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ stats.total_series }}</div>
+            <div class="stat-label">系列</div>
+        </div>
+    </div>
+    <div class="stat-card stat-amber">
+        <div class="stat-icon">⭐</div>
+        <div class="stat-info">
+            <div class="stat-value">{{ stats.favorited_count }}</div>
+            <div class="stat-label">收藏</div>
+        </div>
+    </div>
+</section>
+
+<!-- 最近活动 + 猜你喜欢 -->
+<div class="dashboard-row">
+    <section class="card activity-card">
+        <h2 class="card-title">最近活动</h2>
+        <div class="activity-columns">
+            <div class="activity-col">
+                <h3 class="activity-header col-green">最近打开</h3>
+                {% for item in activity.recent_open %}
+                <div class="activity-item">
+                    <span class="item-id">{{ item.short_id }}</span>
+                    <span class="item-title">{{ item.title[:15] }}</span>
+                </div>
+                {% else %}
+                <div class="empty-hint">暂无</div>
+                {% endfor %}
+            </div>
+            <div class="activity-col">
+                <h3 class="activity-header col-yellow">最近导入</h3>
+                {% for item in activity.recent_import %}
+                <div class="activity-item">
+                    <span class="item-id">{{ item.short_id }}</span>
+                    <span class="item-title">{{ item.title[:15] }}</span>
+                </div>
+                {% else %}
+                <div class="empty-hint">暂无</div>
+                {% endfor %}
+            </div>
+            <div class="activity-col">
+                <h3 class="activity-header col-blue">最近下载</h3>
+                {% for item in activity.recent_download %}
+                <div class="activity-item">
+                    <span class="item-id">{{ item.short_id }}</span>
+                    <span class="item-title">{{ item.title[:15] }}</span>
+                </div>
+                {% else %}
+                <div class="empty-hint">暂无</div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="card recommend-card">
+        <h2 class="card-title">猜你喜欢</h2>
+        <div class="recommend-scroll">
+            {% for item in recommendations %}
+            <div class="recommend-item">
+                <div class="recommend-cover placeholder-cover">
+                    <span class="cover-type">{{ '📕' if item.kind == 'series' else '📖' }}</span>
+                </div>
+                <div class="recommend-info">
+                    <div class="recommend-title">
+                        {% if item.kind == 'series' %} {% endif %}
+                        {{ item.title[:18] }}
+                        {% if item.series_count %}<span class="series-count">{{ item.series_count }}本</span>{% endif %}
+                    </div>
+                    <div class="recommend-reasons">
+                        {% for reason in item.reasons %}
+                        <span class="reason-tag">{{ reason }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-hint">暂无推荐</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<!-- 标签/作者/点赞排行 -->
+<div class="dashboard-row">
+    <section class="card">
+        <h2 class="card-title">标签 Top 10</h2>
+        <div class="tag-bars">
+            {% for tag, count in top_tags %}
+            <div class="tag-bar-row">
+                <span class="tag-name">{{ tag }}</span>
+                <div class="tag-bar-track">
+                    <div class="tag-bar-fill" style="width: {{ (count / top_tags[0][1] * 100) | round }}%"></div>
+                </div>
+                <span class="tag-count">{{ count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card">
+        <h2 class="card-title">作者 Top 5</h2>
+        <div class="top-list">
+            {% for r in top_authors %}
+            <div class="top-list-item">
+                <span class="rank">#{{ loop.index }}</span>
+                <span class="top-name">{{ r.name }}</span>
+                <span class="top-badge">{{ r.cnt }} 作品</span>
+                {% if r.fav_cnt %}<span class="top-fav">♥ {{ r.fav_cnt }}</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card">
+        <h2 class="card-title">点赞 Top 5</h2>
+        <div class="top-list">
+            {% for r in top_likes %}
+            <div class="top-list-item">
+                <span class="rank">#{{ loop.index }}</span>
+                <div class="top-info">
+                    <div class="top-title">{{ (r.title or '')[:16] }}</div>
+                    <div class="top-sub">{{ r.author }}</div>
+                </div>
+                <span class="top-badge">{{ r.like_count }} ♥</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+{% endblock %}

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AKM{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="layout">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <span class="logo-text">AKM</span>
+            <span class="logo-sub">作品管理</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                <span>仪表盘</span>
+            </a>
+            <a href="/works" class="nav-item {% if active_page == 'works' %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <span>作品</span>
+            </a>
+            <a href="/authors" class="nav-item {% if active_page == 'authors' %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>作者</span>
+            </a>
+            <a href="/download" class="nav-item {% if active_page == 'download' %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>下载</span>
+            </a>
+        </nav>
+        {% if stats %}
+        <div class="sidebar-stats">
+            <div class="mini-stat"><span class="mini-label">作品</span><span class="mini-value">{{ stats.total_books }}</span></div>
+            <div class="mini-stat"><span class="mini-label">作者</span><span class="mini-value">{{ stats.total_authors }}</span></div>
+            <div class="mini-stat"><span class="mini-label">收藏</span><span class="mini-value">{{ stats.favorited_count }}</span></div>
+        </div>
+        {% endif %}
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -10,3 +10,7 @@ python-docx>=1.0
 markitdown>=0.1
 art>=6.0
 pycryptodome>=3.20
+fastapi>=0.110
+uvicorn[standard]>=0.29
+jinja2>=3.1
+python-multipart>=0.0.9

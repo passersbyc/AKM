@@ -1,43 +1,8 @@
 import argparse
-from collections import Counter
 
 from src.cli.base import BaseCommand
 from src.core.database import short_id
-from src.operations import get_stats
-
-
-# 繁→简 标签归一化表（日文汉字繁体 → 中文简体）
-TAG_NORMALIZE: dict[str, str] = {
-    "性転換": "性转",
-    "性転換過程": "性转换过程",
-    "記憶改変": "记忆改変",
-    "現実改変": "现实改変",
-    "精神変化": "精神变化",
-    "他者変身": "他者变身",
-    "強制変身": "强制变身",
-    "口調強制": "口调强制",
-    "人格変化": "人格变化",
-    "人格改変": "人格改変",
-    "立場逆転": "立场逆转",
-    "立場変化": "立场变化",
-    "他人変身": "他人变身",
-    "認識改変": "认识改変",
-    "存在改変": "存在改変",
-    "常識改変": "常识改変",
-    "人生改変": "人生改変",
-    "肉体変化": "肉体变化",
-    "転生": "转生",
-    "中国语": "中国語",
-}
-
-
-def _normalize_tag(tag: str) -> str:
-    """归一化标签：繁→简、大小写统一。"""
-    t = TAG_NORMALIZE.get(tag, tag)
-    # TSF/tsf 统一为大写
-    if t.lower() == "tsf":
-        return "TSF"
-    return t
+from src.operations import get_stats, get_top_tags
 
 
 class StatsCommand(BaseCommand):
@@ -118,19 +83,11 @@ class StatsCommand(BaseCommand):
             _render_recommendations(console, recent_open, recent_import, recent_download)
 
         # ── 标签统计 Top 10 ──
-        from src.operations import get_raw_tags
-        all_tags = get_raw_tags()
-        tag_counter: Counter = Counter()
-        for tags_str in all_tags:
-            for t in (tags_str or "").split(","):
-                t = t.strip()
-                if t:
-                    tag_counter[_normalize_tag(t)] += 1
+        top_tags = get_top_tags(limit=10)
 
-        if tag_counter:
+        if top_tags:
             console.print()
             console.print(Rule("[bold bright_cyan]标签统计 Top 10[/bold bright_cyan]", style="bright_cyan"))
-            top_tags = tag_counter.most_common(10)
             max_count = top_tags[0][1] if top_tags else 1
             tag_table = Table(show_header=False, box=box.SIMPLE, padding=(0, 2))
             tag_table.add_column("tag", style="cyan", no_wrap=True, width=16)
@@ -138,7 +95,7 @@ class StatsCommand(BaseCommand):
             tag_table.add_column("count", style="yellow", justify="right", width=6)
             for tag, count in top_tags:
                 bar_len = max(1, int(count / max_count * 40))
-                bar = "█" * bar_len
+                bar = "\u2588" * bar_len
                 tag_table.add_row(tag, f"[dim]{bar}[/dim]", str(count))
             console.print(tag_table)
 

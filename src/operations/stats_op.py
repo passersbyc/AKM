@@ -1,5 +1,5 @@
 """stats 操作 - 库统计入口。"""
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from src.core.work_manager import WorkManager
 
@@ -96,3 +96,49 @@ def get_top_likes(limit: int = 5) -> list[dict]:
         (limit,),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ── 标签归一化（从 stats_cmd.py 下沉） ──
+
+TAG_NORMALIZE: dict[str, str] = {
+    "性転換": "性转",
+    "性転換過程": "性转换过程",
+    "記憶改変": "记忆改変",
+    "現実改変": "现实改変",
+    "精神変化": "精神变化",
+    "他者変身": "他者变身",
+    "強制変身": "强制变身",
+    "口調強制": "口调强制",
+    "人格変化": "人格变化",
+    "人格改変": "人格改変",
+    "立場逆転": "立场逆转",
+    "立場変化": "立场变化",
+    "他人変身": "他人变身",
+    "認識改変": "认识改変",
+    "存在改変": "存在改変",
+    "常識改変": "常识改変",
+    "人生改変": "人生改変",
+    "肉体変化": "肉体变化",
+    "転生": "转生",
+    "中国语": "中国語",
+}
+
+
+def _normalize_tag(tag: str) -> str:
+    """归一化标签：繁→简、大小写统一。"""
+    t = TAG_NORMALIZE.get(tag, tag)
+    if t.lower() == "tsf":
+        return "TSF"
+    return t
+
+
+def get_top_tags(limit: int = 10) -> list[tuple[str, int]]:
+    """返回归一化后的 Top N 标签及计数。"""
+    all_tags = get_raw_tags()
+    tag_counter: Counter = Counter()
+    for tags_str in all_tags:
+        for t in (tags_str or "").split(","):
+            t = t.strip()
+            if t:
+                tag_counter[_normalize_tag(t)] += 1
+    return tag_counter.most_common(limit)

@@ -37,3 +37,9 @@ name = "业务层不依赖 CLI 表现层"
 type = "forbidden"
 source_modules = ["src.operations", "src.downloader"]
 forbidden_modules = ["src.cli"]
+
+[[tool.importlinter.contracts]]
+name = "Web 表现层不依赖 CLI 表现层"
+type = "forbidden"
+source_modules = ["src.web"]
+forbidden_modules = ["src.cli"]
