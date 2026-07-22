@@ -105,17 +105,8 @@ class InfoCommand(BaseCommand):
         return 0
 
     def _record_open(self, work_id: str, title: str) -> None:
+        from src.operations import record_open
         try:
-            from src.core.database import get_db
-            db = get_db()
-            db.execute(
-                "INSERT INTO recent_opens (work_id, title) VALUES (?, ?)",
-                (work_id, title),
-            )
-            db.execute(
-                "DELETE FROM recent_opens WHERE id NOT IN "
-                "(SELECT id FROM recent_opens ORDER BY opened_at DESC LIMIT 50)"
-            )
-            db.commit()
+            record_open(work_id, title)
         except Exception:
             pass

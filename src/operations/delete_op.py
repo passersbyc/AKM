@@ -116,3 +116,12 @@ def delete_series(series_targets: list[str], author: str = "",
             if was_force:
                 unlinked += 1
     return deleted, unlinked
+
+
+def delete_all_works(keep_file: bool = False, clear_tables: bool = True) -> dict:
+    """清空所有作品，返回 {deleted, ids}。"""
+    from src.core.database import get_db
+    db = get_db()
+    rows = db.execute("SELECT id FROM works").fetchall()
+    ids = {r["id"] for r in rows}
+    return delete_book(ids, keep_file=keep_file, clear_tables=clear_tables)

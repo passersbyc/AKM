@@ -21,7 +21,7 @@ def get_info(target: str, target_type: str = "book") -> dict | None:
             series = _series_by_name(target)
         if not series:
             return None
-        author_name = _author_name(series.get("author_id", ""))
+        author_name = get_author_name(series.get("author_id", ""))
         works = series_works(target, author_name)
         return {"series": series, "author_name": author_name, "works": works}
     return None
@@ -34,9 +34,41 @@ def _series_by_name(name: str) -> dict | None:
     return dict_from_row(row)
 
 
-def _author_name(author_id: str) -> str:
+def get_author_name(author_id: str) -> str:
+    """作者 ID → 名称，找不到返回原 id。"""
     author = author_by_id(author_id)
     return author["name"] if author else author_id
+
+
+def get_series_name(series_id: str, author_id: str = "") -> str:
+    """系列 ID → 名称，找不到返回原 id。"""
+    if not series_id:
+        return "-"
+    db = get_db()
+    if author_id:
+        row = db.execute(
+            "SELECT name FROM series WHERE id = ? AND author_id = ?",
+            (series_id, author_id),
+        ).fetchone()
+    else:
+        row = db.execute(
+            "SELECT name FROM series WHERE id = ?", (series_id,)
+        ).fetchone()
+    return row["name"] if row else series_id
+
+
+def record_open(work_id: str, title: str) -> None:
+    """记录最近打开的作品，保留最近 50 条。"""
+    db = get_db()
+    with db:
+        db.execute(
+            "INSERT INTO recent_opens (work_id, title) VALUES (?, ?)",
+            (work_id, title),
+        )
+        db.execute(
+            "DELETE FROM recent_opens WHERE id NOT IN "
+            "(SELECT id FROM recent_opens ORDER BY opened_at DESC LIMIT 50)"
+        )
 
 
 def get_related_works(series: str, exclude_id: str = "") -> list[dict]:

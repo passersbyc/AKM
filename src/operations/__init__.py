@@ -1,8 +1,8 @@
-from .list_op import list_items
-from .info_op import get_info, get_related_works
+from .list_op import list_items, list_authors_with_status, list_download_queue
+from .info_op import get_info, get_related_works, get_author_name, get_series_name, record_open
 from .edit_op import edit, edit_book, edit_author, edit_series, get_book
-from .delete_op import delete_book, filter_rows, delete_by_ids, delete_authors, delete_series, resolve_author_targets
-from .search_op import search_works
+from .delete_op import delete_book, filter_rows, delete_by_ids, delete_authors, delete_series, resolve_author_targets, delete_all_works
+from .search_op import search_works, search_by_label, search_authors
 from .stats_op import get_stats, aggregate
 from .verify_op import verify_integrity
 from .import_op import import_file, import_files, register_entry

@@ -108,22 +108,15 @@ class OpenCommand(BaseCommand):
 
     @staticmethod
     def _author_name(author_id: str) -> str:
+        from src.operations import get_author_name
         if not author_id:
             return "未知"
-        from src.core.database import get_db
-        row = get_db().execute("SELECT name FROM authors WHERE id = ?", (author_id,)).fetchone()
-        return row["name"] if row else author_id
+        return get_author_name(author_id)
 
     @staticmethod
     def _series_name(series_id: str, author_id: str) -> str:
-        if not series_id:
-            return "-"
-        from src.core.database import get_db
-        row = get_db().execute(
-            "SELECT name FROM series WHERE id = ? AND author_id = ?",
-            (series_id, author_id),
-        ).fetchone()
-        return row["name"] if row else series_id
+        from src.operations import get_series_name
+        return get_series_name(series_id, author_id)
 
     @staticmethod
     def _work_json(work: dict) -> dict:
@@ -177,17 +170,8 @@ class OpenCommand(BaseCommand):
         return self.output.result(False, error=f"未找到作品或作者: {target}")
 
     def _record_open(self, work_id: str, title: str) -> None:
+        from src.operations import record_open
         try:
-            from src.core.database import get_db
-            db = get_db()
-            db.execute(
-                "INSERT INTO recent_opens (work_id, title) VALUES (?, ?)",
-                (work_id, title),
-            )
-            db.execute(
-                "DELETE FROM recent_opens WHERE id NOT IN "
-                "(SELECT id FROM recent_opens ORDER BY opened_at DESC LIMIT 50)"
-            )
-            db.commit()
+            record_open(work_id, title)
         except Exception:
             pass

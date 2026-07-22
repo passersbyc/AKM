@@ -21,10 +21,19 @@ pythonpath = ["."]
 [tool.coverage.run]
 source = ["src"]
 omit = [
-    "src/cli/downplugin/pixiv/*",
+    "src/downloader/pixiv/*",
     "tests/*",
 ]
 
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+
+[tool.importlinter]
+root_package = "src"
+
+[[tool.importlinter.contracts]]
+name = "业务层不依赖 CLI 表现层"
+type = "forbidden"
+source_modules = ["src.operations", "src.downloader"]
+forbidden_modules = ["src.cli"]

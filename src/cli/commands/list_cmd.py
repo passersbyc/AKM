@@ -96,7 +96,8 @@ class ListCommand(BaseCommand):
         return 0
 
     def _list_author(self, args: argparse.Namespace) -> int:
-        items = list_items("author")["items"]
+        from src.operations import list_authors_with_status
+        items = list_authors_with_status()
         if args.favorite:
             items = [a for a in items if a.get("favorite", False)]
         if args.number > 0:
@@ -109,10 +110,8 @@ class ListCommand(BaseCommand):
             logger.info("还没有作者")
             return 0
 
-        from src.core.activity import compute_status, build_author_stats
         from rich.table import Table
 
-        author_stats = build_author_stats()
         table = Table(title="作者列表", show_lines=False)
         table.add_column("ID", style="magenta", justify="right", width=4)
         table.add_column("名称", style="bold")
@@ -132,16 +131,11 @@ class ListCommand(BaseCommand):
             is_last_fav = (i == last_fav_idx and last_fav_idx >= 0)
             name = row.get("name", "")
             lid = row.get("id", "")
-            src = row.get("source", "local")
-            tracking_status = row.get("follow_status", "")
             homepage = row.get("homepage", "") or "-"
             if homepage != "-" and "//" in homepage:
                 homepage = homepage.split("//", 1)[1]
 
-            st = author_stats.get(lid) or author_stats.get(name) or {}
-            status = compute_status(lid, src, tracking_status,
-                                    row.get("last_checked", ""),
-                                    stats=st if st else None)
+            status = row.get("status", "")
             count = str(row.get("work_count", 0))
             scount = str(row.get("series_count", 0))
             fav = "[red]\u2665[/red]" if row.get("favorite") else ""
@@ -154,23 +148,10 @@ class ListCommand(BaseCommand):
         return 0
 
     def _list_download(self, args: argparse.Namespace) -> int:
-        from src.core.database import get_db
+        from src.operations import list_download_queue
         from rich.table import Table
 
-        db = get_db()
-        if getattr(args, "all", False):
-            rows = db.execute(
-                "SELECT url, author_name, work_type, is_valid, is_in_db, "
-                "is_blacklisted, fail_count, download_time, added_at "
-                "FROM download_queue ORDER BY added_at DESC"
-            ).fetchall()
-        else:
-            rows = db.execute(
-                "SELECT url, author_name, work_type, is_valid, is_in_db, "
-                "is_blacklisted, fail_count, download_time, added_at "
-                "FROM download_queue WHERE is_in_db = 0 "
-                "ORDER BY added_at DESC"
-            ).fetchall()
+        rows = list_download_queue(show_all=getattr(args, "all", False))
 
         if not rows:
             self.output.info("下载队列为空")

@@ -89,15 +89,8 @@ class SearchCommand(BaseCommand):
         return 0
 
     def _search_label(self, args: argparse.Namespace) -> int:
-        from src.core.database import get_db
-        db = get_db()
-        rows = db.execute(
-            "SELECT id, title, tags, file_type, favorite, rating, "
-            "(SELECT a.name FROM authors a WHERE a.id = works.author_id) as author_name "
-            "FROM works WHERE tags LIKE ? "
-            "ORDER BY favorite DESC, rating DESC LIMIT 50",
-            (f"%{args.query}%",),
-        ).fetchall()
+        from src.operations import search_by_label
+        rows = search_by_label(args.query, limit=50)
         if args.number > 0:
             rows = rows[:args.number]
         total = len(rows)
@@ -131,18 +124,8 @@ class SearchCommand(BaseCommand):
         return 0
 
     def _search_author(self, args: argparse.Namespace) -> int:
-        from src.core.database import get_db
-        db = get_db()
-        rows = db.execute(
-            "SELECT a.id, a.name, a.favorite, a.source, "
-            "COUNT(w.id) as work_count "
-            "FROM authors a LEFT JOIN works w ON a.id = w.author_id "
-            "WHERE a.name LIKE ? "
-            "GROUP BY a.id ORDER BY a.favorite DESC, a.name",
-            (f"%{args.query}%",),
-        ).fetchall()
-        if args.number > 0:
-            rows = rows[:args.number]
+        from src.operations import search_authors
+        rows = search_authors(args.query, limit=args.number)
         total = len(rows)
 
         if self.output.json_mode:

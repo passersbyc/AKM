@@ -94,3 +94,32 @@ def list_recent_favorited(days: int = 7) -> list[dict]:
     """
     rows = db.execute(sql, fav_ids + [cutoff, cutoff]).fetchall()
     return [row_to_manifest(dict(r)) for r in rows]
+
+
+def list_authors_with_status() -> list[dict]:
+    """返回作者列表，每项含 status 字段（活跃/停更/已死等）。"""
+    from src.core.activity import build_author_stats, compute_status
+    items = list_items("author")["items"]
+    author_stats = build_author_stats()
+    for row in items:
+        lid = row.get("id", "")
+        src = row.get("source", "local")
+        tracking_status = row.get("follow_status", "")
+        st = author_stats.get(lid) or author_stats.get(row.get("name", "")) or {}
+        row["status"] = compute_status(lid, src, tracking_status,
+                                       row.get("last_checked", ""),
+                                       stats=st if st else None)
+    return items
+
+
+def list_download_queue(show_all: bool = False) -> list[dict]:
+    """返回下载队列。show_all=True 含已下载/无效/拉黑，否则仅待下载。"""
+    from src.core.database import get_db
+    db = get_db()
+    where = "" if show_all else "WHERE is_in_db = 0 "
+    rows = db.execute(
+        "SELECT url, author_name, work_type, is_valid, is_in_db, "
+        "is_blacklisted, fail_count, download_time, added_at "
+        f"FROM download_queue {where}ORDER BY added_at DESC"
+    ).fetchall()
+    return [dict(r) for r in rows]

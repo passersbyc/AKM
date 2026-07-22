@@ -83,11 +83,8 @@ class DeleteCommand(BaseCommand):
                 self.output.info("[dim]已取消[/dim]")
                 return 0
 
-        from src.core.database import get_db
-        db = get_db()
-        rows = db.execute("SELECT id FROM works").fetchall()
-        ids = {r["id"] for r in rows}
-        result = delete_book(ids, keep_file=False, clear_tables=not args.keep_tables)
+        from src.operations import delete_all_works
+        result = delete_all_works(keep_file=False, clear_tables=not args.keep_tables)
         if self.output.json_mode:
             return self.output.result(True, data=result)
         self.output.info(f"[green]✓[/green] 已清空库: 删除 {result['deleted']} 部作品")

@@ -2,26 +2,23 @@ import argparse
 
 from src.cli.base import BaseCommand
 from src.operations.matcher import resolve_work
-from src.core.database import get_db, short_id
+from src.core.database import short_id
 from src.core.logging import logger
 from src.operations import edit_book
 
 
 def _author_name(author_id: str) -> str:
+    from src.operations import get_author_name
     if not author_id:
         return ""
-    row = get_db().execute("SELECT name FROM authors WHERE id = ?", (author_id,)).fetchone()
-    return row["name"] if row else author_id
+    return get_author_name(author_id)
 
 
 def _series_name(series_id: str, author_id: str) -> str:
+    from src.operations import get_series_name
     if not series_id:
         return ""
-    row = get_db().execute(
-        "SELECT name FROM series WHERE id = ? AND author_id = ?",
-        (series_id, author_id),
-    ).fetchone()
-    return row["name"] if row else series_id
+    return get_series_name(series_id, author_id)
 
 
 class EditCommand(BaseCommand):
