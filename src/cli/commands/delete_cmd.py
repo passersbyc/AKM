@@ -1,7 +1,7 @@
 import argparse
 
 from src.cli.base import BaseCommand
-from src.cli.matcher import resolve_work, resolve_author
+from src.operations.matcher import resolve_work, resolve_author
 from src.core.database import short_id
 from src.core.logging import logger
 from src.operations import delete_book, delete_by_ids, delete_authors

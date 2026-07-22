@@ -93,7 +93,7 @@ def build_completer(app):
 
         def _query_authors(self, prefix: str, limit: int = 15) -> list[str]:
             try:
-                from src.cli.matcher import list_author_names
+                from src.operations.matcher import list_author_names
                 names = list_author_names(prefix, limit)
                 return [n for _, n in names]
             except Exception:

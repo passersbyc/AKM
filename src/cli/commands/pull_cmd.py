@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 
 from src.cli.base import BaseCommand
-from src.cli.downplugin import registry
+from src.downloader import registry
 from src.cli.commands._download_utils import DownloadGroupRunner
 from src.core.download import get_pending_urls
 from src.core.logging import logger

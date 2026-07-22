@@ -3,7 +3,7 @@ import importlib
 from pathlib import Path
 from typing import Optional
 
-from src.cli.downplugin.base import BaseDownloader
+from src.downloader.base import BaseDownloader
 
 
 class DownloaderRegistry:

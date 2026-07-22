@@ -51,7 +51,7 @@ def export_by_query(
 
 def export_work(target: str, dest_dir: Path,
                 output_format: str = "folder") -> dict:
-    from src.cli.matcher import resolve_work
+    from src.operations.matcher import resolve_work
     from src.core.work_repository import get_by_id
 
     work = resolve_work(target)
@@ -80,7 +80,7 @@ def export_work(target: str, dest_dir: Path,
 def export_author(target: str, dest_dir: Path,
                   filter_type: str | None = None, limit: int = 0,
                   output_format: str = "folder") -> dict:
-    from src.cli.matcher import resolve_author
+    from src.operations.matcher import resolve_author
 
     author = resolve_author(target)
     if not author:

@@ -1,7 +1,7 @@
 import argparse
 
 from src.cli.base import BaseCommand
-from src.cli.matcher import resolve_work
+from src.operations.matcher import resolve_work
 from src.core.database import get_db, short_id
 from src.core.logging import logger
 from src.operations import edit_book

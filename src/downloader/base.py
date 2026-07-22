@@ -101,6 +101,7 @@ class BaseDownloader(ABC):
 
     def set_download_control(self, ctrl: DownloadControl):
         self._ctrl = ctrl
+        ctrl.register_stop_event(self.stop_event)
 
     def _check_stop(self):
         if self.stop_event.is_set():
@@ -148,11 +149,14 @@ class BaseDownloader(ABC):
     ) -> list[tuple[float, int]]:
         executor = self._batch_executor(max_workers)
         try:
-            with tqdm(total=len(works), unit="个", desc=desc, ncols=80, colour='MAGENTA') as pbar:
+            with tqdm(total=len(works), unit="个", desc=desc, colour='MAGENTA',
+                      bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}{postfix}]') as pbar:
                 import concurrent.futures
                 timeline: list[tuple[float, int]] = []
                 start_time = time.monotonic()
                 completed = 0
+                counts = {"success": 0, "failed": 0, "skipped": 0}
+                pbar.set_postfix(成功=0, 失败=0, 跳过=0, 速率="0.0个/s", 预计="--")
                 all_futures: Dict[concurrent.futures.Future, Any] = {}
                 work_iter = iter(works)
                 paused_stage = 0  # 0=正常, 1=正在暂停, 2=已暂停
@@ -212,6 +216,13 @@ class BaseDownloader(ABC):
                                 result = future.result()
                                 if on_result_fn:
                                     on_result_fn(item, result)
+                                if result and hasattr(result, "status"):
+                                    counts[result.status] = counts.get(result.status, 0) + 1
+                                    elapsed = time.monotonic() - start_time
+                                    rate = completed / elapsed if elapsed > 0 else 0
+                                    eta = int((len(works) - completed) / rate) if rate > 0 else 0
+                                    pbar.set_postfix(成功=counts["success"], 失败=counts["failed"], 跳过=counts["skipped"],
+                                                     速率=f"{rate:.1f}个/s", 预计=f"{eta}s" if rate > 0 else "--")
                             except KeyboardInterrupt:
                                 raise
                             except Exception as e:

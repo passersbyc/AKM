@@ -13,7 +13,7 @@ from src.core.config import get_project_root
 from src.core.download import append_to_download_json
 from src.core.logging import get_logger
 from src.core.work_manager import WorkManager
-from src.cli.downplugin.pixiv.extractors import extract_pixiv_id
+from src.downloader.pixiv.extractors import extract_pixiv_id
 
 logger = get_logger("akm.source_op")
 
@@ -73,7 +73,7 @@ def follow_author_by_url(url: str) -> dict | None:
     Returns:
         {"uid", "name", "local_id", "already_followed", "row"} or None on failure.
     """
-    from src.cli.downplugin import registry
+    from src.downloader import registry
     cls = registry.resolve(url)
     if not cls:
         return None
@@ -262,7 +262,7 @@ def sync_one_author(row: dict, downloader=None, dry_run: bool = False,
         return result
 
     if not downloader:
-        from src.cli.downplugin import registry
+        from src.downloader import registry
         cls = registry.resolve(homepage)
         if not cls:
             return result

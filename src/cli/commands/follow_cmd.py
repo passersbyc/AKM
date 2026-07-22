@@ -33,7 +33,7 @@ class FollowCommand(BaseCommand):
 
     def _max_workers(self) -> int:
         try:
-            from src.cli.downplugin.pixiv.config import PixivConfig
+            from src.downloader.pixiv.config import PixivConfig
             return PixivConfig.from_file().max_workers
         except Exception:
             return 4
@@ -61,7 +61,7 @@ class FollowCommand(BaseCommand):
     # ── 关注 ──────────────────────────────────────────────
 
     def _follow_url(self, url: str) -> int:
-        from src.cli.downplugin import registry
+        from src.downloader import registry
         from src.core.download import append_or_update
         from src.operations import source_set
 
@@ -133,7 +133,7 @@ class FollowCommand(BaseCommand):
     # ── 同步 ──────────────────────────────────────────────
 
     def _sync(self, args: argparse.Namespace) -> int:
-        from src.cli.downplugin.pixiv.downloader import PixivDownloader
+        from src.downloader.pixiv.downloader import PixivDownloader
 
         candidates = source_op.resolve_sync_candidates(None, getattr(args, "favorite", False))
         if not candidates:

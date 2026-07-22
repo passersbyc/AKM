@@ -6,8 +6,8 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 
-from src.cli.downplugin.base import BaseDownloader, AuthError
-from src.cli.downplugin.context import DownloadContext, PipelineResult
+from src.downloader.base import BaseDownloader, AuthError
+from src.downloader.context import DownloadContext, DownloadControl, PipelineResult
 from .config import PixivConfig
 from .client import PixivClient
 from .types import ExtractMessage, WorkInfo
@@ -65,6 +65,10 @@ class PixivDownloader(BaseDownloader):
 
     def set_pull_base_mapping(self, mapping: dict):
         self._pull_base_mapping = mapping
+
+    def set_download_control(self, ctrl: DownloadControl):
+        super().set_download_control(ctrl)
+        ctrl.register_stop_event(self.client._stop_event)
 
     def authenticate(self) -> bool:
         return self.client.authenticate()

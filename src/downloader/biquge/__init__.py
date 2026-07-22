@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from src.cli.downplugin.base import BaseDownloader
-from src.cli.downplugin.biquge.client import BiqugeClient
+from src.downloader.base import BaseDownloader
+from src.downloader.biquge.client import BiqugeClient
 from src.core.logging import get_logger
 
 logger = get_logger("akm.biquge")

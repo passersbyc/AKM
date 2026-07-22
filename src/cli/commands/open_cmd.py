@@ -4,7 +4,7 @@ import webbrowser
 from pathlib import Path
 
 from src.cli.base import BaseCommand
-from src.cli.matcher import resolve_work, resolve_author
+from src.operations.matcher import resolve_work, resolve_author
 from src.core.logging import logger
 
 

@@ -93,7 +93,7 @@ class PixivClient:
                 try:
                     r = requests.post(OAUTH_URL, headers=headers, data=data, timeout=30)
                     if r.status_code == 429:
-                        time.sleep(30)
+                        self._stop_event.wait(30)
                         continue
                     if not r.ok:
                         logger.error("OAuth 登录失败: HTTP %d - %s", r.status_code, r.text[:200])
@@ -111,7 +111,7 @@ class PixivClient:
                 except Exception as e:
                     logger.error("OAuth 登录异常 (尝试 %d/3): %s", attempt + 1, e)
                     if attempt < 2:
-                        time.sleep(2 * (attempt + 1))
+                        self._stop_event.wait(2 * (attempt + 1))
             return False
 
     def get_json(self, url: str, params: Optional[dict] = None,
@@ -301,7 +301,7 @@ class PixivClient:
                 wait = self._api_rate_next_ts - now
                 self._api_rate_next_ts += interval
         if wait > 0:
-            time.sleep(wait)
+            self._stop_event.wait(wait)
 
     def _image_rate_limit(self):
         if self._is_authenticated():
@@ -320,7 +320,7 @@ class PixivClient:
                 wait = self._image_rate_next_ts - now
                 self._image_rate_next_ts += interval
         if wait > 0:
-            time.sleep(wait)
+            self._stop_event.wait(wait)
 
     def _switch_cookie(self) -> bool:
         with self._cookie_lock:
@@ -350,7 +350,7 @@ class PixivClient:
                 return True
             self._429_pause.set()
             logger.warning("HTTP 429 限流，Cookie 池已耗尽，全局暂停 %.0fs", wait)
-            time.sleep(wait)
+            self._stop_event.wait(wait)
             self._429_pause.clear()
             self._429_count = 0
             return True

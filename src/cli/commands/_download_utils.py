@@ -9,9 +9,9 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
-from src.cli.downplugin import registry
-from src.cli.downplugin.base import AuthError
-from src.cli.downplugin.context import DownloadControl
+from src.downloader import registry
+from src.downloader.base import AuthError
+from src.downloader.context import DownloadControl
 from src.core.logging import logger
 
 
@@ -39,7 +39,7 @@ def _key_listener(ctrl: DownloadControl):
                 sys.stderr.flush()
             elif key == 'c':
                 ctrl.pause.set()
-                ctrl.cancel.set()
+                ctrl.request_cancel()
                 sys.stderr.write("\r⏹ 退出中...\n")
                 sys.stderr.flush()
                 break
@@ -98,11 +98,7 @@ class DownloadGroupRunner:
                     sys.stderr.write("\r⏸ 正在暂停... (再按 Ctrl+C 强制退出)\n")
                     sys.stderr.flush()
                 else:
-                    self.ctrl.cancel.set()
-                    for d in downloaders.values():
-                        inst = d.get("instance")
-                        if inst:
-                            inst.stop()
+                    self.ctrl.request_cancel()
                     if executor_ref[0]:
                         executor_ref[0].shutdown(wait=False,
                                                   cancel_futures=True)

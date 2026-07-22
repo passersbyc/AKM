@@ -47,6 +47,7 @@ class DownloadControl:
         self.pause = threading.Event()
         self.cancel = threading.Event()
         self.sigint_count = 0
+        self._stop_events: list = []
 
     @property
     def paused(self) -> bool:
@@ -55,3 +56,14 @@ class DownloadControl:
     @property
     def cancelled(self) -> bool:
         return self.cancel.is_set()
+
+    def register_stop_event(self, event) -> None:
+        """注册下游 stop_event，取消时自动级联 set，实现单一取消源。"""
+        if event not in self._stop_events:
+            self._stop_events.append(event)
+
+    def request_cancel(self) -> None:
+        """统一取消入口：set cancel 并级联到所有已注册的 stop_event。"""
+        self.cancel.set()
+        for ev in self._stop_events:
+            ev.set()
