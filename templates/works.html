@@ -38,6 +38,11 @@
     {% for w in works %}
     <a href="/works/{{ w.id }}" class="work-card animate-in" style="animation-delay: {{ loop.index0 * 0.03 }}s">
         <div class="work-cover">
+            {% if w.file_ext == '.epub' %}
+            <img src="/works/{{ w.id }}/cover" alt="{{ w.title }}" class="cover-img"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <span class="work-cover-icon" style="display:none;">📖</span>
+            {% else %}
             <span class="work-cover-icon">
                 {% if '小说' in w.file_type %}📖
                 {% elif '漫' in w.file_type %}📕
@@ -45,6 +50,7 @@
                 {% elif '插' in w.file_type or '图' in w.file_type %}🎨
                 {% else %}📄{% endif %}
             </span>
+            {% endif %}
             {% if w.favorite %}<span class="work-fav">★</span>{% endif %}
         </div>
         <div class="work-info">

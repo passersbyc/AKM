@@ -803,6 +803,13 @@ body {
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
+}
+.cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .work-cover-icon {
   font-size: 36px;
@@ -916,6 +923,14 @@ body {
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.cover-img-detail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius);
 }
 .detail-cover-icon {
   font-size: 64px;

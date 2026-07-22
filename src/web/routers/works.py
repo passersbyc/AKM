@@ -1,11 +1,13 @@
-"""作品路由 — /works 列表+搜索, /works/{work_id} 详情。"""
+"""作品路由 — /works 列表+搜索, /works/{work_id} 详情, /works/{work_id}/cover 封面。"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, Query
+from fastapi.responses import Response
 from src.core.database import short_id
 
 from src.operations import search_works, get_info, get_related_works
 from src.web.app import templates
+from src.web.cover import extract_epub_cover
 
 router = APIRouter()
 
@@ -119,3 +121,25 @@ async def work_detail(request: Request, work_id: str):
         "work": work,
         "related": related,
     })
+
+
+@router.get("/works/{work_id}/cover")
+async def work_cover(work_id: str):
+    """EPUB 封面图片。无封面或非 EPUB 返回 404。"""
+    info = get_info(work_id, "book")
+    if not info:
+        return Response(status_code=404)
+
+    file_path = info.get("文件路径", "")
+    if not file_path or not file_path.lower().endswith(".epub"):
+        return Response(status_code=404)
+
+    cover = extract_epub_cover(file_path)
+    if not cover:
+        return Response(status_code=404)
+
+    return Response(
+        content=cover,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )

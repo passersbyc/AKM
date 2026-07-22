@@ -20,6 +20,11 @@
     <!-- 左侧：封面 + 操作 -->
     <div class="detail-left animate-in">
         <div class="detail-cover">
+            {% if work.file_ext == '.epub' %}
+            <img src="/works/{{ work.id }}/cover" alt="{{ work.title }}" class="cover-img-detail"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <span class="detail-cover-icon" style="display:none;">📖</span>
+            {% else %}
             <span class="detail-cover-icon">
                 {% if '小说' in work.file_type %}📖
                 {% elif '漫' in work.file_type %}📕
@@ -27,6 +32,7 @@
                 {% elif '插' in work.file_type or '图' in work.file_type %}🎨
                 {% else %}📄{% endif %}
             </span>
+            {% endif %}
         </div>
         <div class="detail-actions">
             {% if work.favorite %}
