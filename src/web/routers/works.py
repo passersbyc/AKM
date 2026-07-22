@@ -1,8 +1,11 @@
-"""作品路由 — /works 列表+搜索, /works/{work_id} 详情, /works/{work_id}/cover 封面。"""
+"""作品路由 — /works 列表+搜索, /works/{work_id} 详情, /works/{work_id}/cover 封面, /works/{work_id}/open 打开文件。"""
 from __future__ import annotations
 
+import subprocess
+import sys
+
 from fastapi import APIRouter, Request, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from src.core.database import short_id
 
 from src.operations import search_works, get_info, get_related_works
@@ -143,3 +146,30 @@ async def work_cover(work_id: str):
         media_type="image/jpeg",
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+@router.post("/works/{work_id}/open")
+async def work_open(work_id: str):
+    """用系统默认应用打开作品文件。"""
+    info = get_info(work_id, "book")
+    if not info:
+        return JSONResponse({"success": False, "error": "作品不存在"}, status_code=404)
+
+    file_path = info.get("文件路径", "")
+    if not file_path:
+        return JSONResponse({"success": False, "error": "无文件路径"}, status_code=400)
+
+    import os
+    if not os.path.exists(file_path):
+        return JSONResponse({"success": False, "error": "文件不存在"}, status_code=404)
+
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", file_path])
+        elif sys.platform == "win32":
+            os.startfile(file_path)
+        else:
+            subprocess.Popen(["xdg-open", file_path])
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
