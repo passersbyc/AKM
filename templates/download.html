@@ -39,15 +39,45 @@
     </div>
 </div>
 
+<!-- 添加下载 -->
+<div class="card add-download-card animate-in animate-in-delay-1">
+    <h2 class="card-title">
+        <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">➕</span>
+        添加下载
+    </h2>
+    {% if message %}
+    <div class="form-message form-message-{{ message_type }}">
+        {{ message }}
+    </div>
+    {% endif %}
+    <form method="post" action="/download/add" class="add-url-form">
+        <div class="url-input-wrap">
+            <textarea
+                name="urls"
+                class="url-textarea"
+                rows="3"
+                placeholder="粘贴作品 URL，每行一个&#10;支持 Pixiv 插画 / 漫画 / 小说&#10;&#10;https://www.pixiv.net/artworks/12345678&#10;https://www.pixiv.net/novel/show.php?id=12345678"
+            ></textarea>
+        </div>
+        <div class="url-form-footer">
+            <span class="url-hint">支持 Pixiv 作品链接，每行一个</span>
+            <button type="submit" class="search-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                加入队列
+            </button>
+        </div>
+    </form>
+</div>
+
 <!-- 筛选栏 -->
-<div class="filter-bar animate-in animate-in-delay-1">
+<div class="filter-bar animate-in animate-in-delay-2">
     <a href="?show_all=false" class="filter-tab {% if not show_all %}active{% endif %}">待下载</a>
     <a href="?show_all=true" class="filter-tab {% if show_all %}active{% endif %}">全部</a>
 </div>
 
 {% if queue %}
 <!-- 队列表格 -->
-<div class="card animate-in animate-in-delay-2">
+<div class="card animate-in animate-in-delay-3">
     <div class="queue-table-wrap">
         <table class="queue-table">
             <thead>
@@ -109,7 +139,7 @@
 <div class="empty-state animate-in">
     <div class="empty-icon-lg">📥</div>
     <p>下载队列为空</p>
-    <p class="empty-sub">通过 <code>akm follow &lt;url&gt;</code> 关注作者并自动入队</p>
+    <p class="empty-sub">在上方粘贴 URL 入队，或通过 <code>akm follow &lt;url&gt;</code> 关注作者</p>
 </div>
 {% endif %}
 

@@ -676,3 +676,38 @@ def save_updated_ids(sync_targets: list[dict], results: dict) -> None:
 def author_id_matches(rid: str, local_id: str) -> bool:
     """检查作品 ID 中是否嵌入了指定的作者 local ID。"""
     return len(rid) >= 1 + len(local_id) and rid[1:1 + len(local_id)] == local_id
+
+
+# ── URL 批量入队 ──────────────────────────────────────────
+
+
+def queue_urls(urls: list[str]) -> dict:
+    """批量将作品 URL 加入下载队列。
+
+    自动识别 Pixiv 作品/小说 URL，提取 work_id，判断类型。
+    不支持的 URL 会跳过。
+
+    Returns:
+        {"queued": int, "skipped": int, "invalid": [str]}
+    """
+    entries = []
+    invalid = []
+
+    for raw in urls:
+        url = raw.strip()
+        if not url:
+            continue
+
+        # Pixiv 作品/小说
+        if "pixiv.net" in url:
+            work_type = "novel" if "/novel/" in url else "illust"
+            entries.append({"url": url, "work_type": work_type})
+        else:
+            invalid.append(url)
+
+    queued = 0
+    if entries:
+        queued = append_to_download_json(entries)
+
+    skipped = len(entries) - queued
+    return {"queued": queued, "skipped": skipped, "invalid": invalid}
