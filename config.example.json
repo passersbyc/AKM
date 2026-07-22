@@ -1,0 +1,103 @@
+{
+    "project_settings": {
+        "library_path": "/Users/you/Desktop/library",
+        "db_path": "/Users/you/Desktop/AKM/library.db",
+        "convert_traditional": true,
+        "migrate_mode": "copy",
+        "pull_base_csv": "",
+        "export_path": "/Users/you/Desktop"
+    },
+    "log": {
+        "level": "INFO",
+        "file": {
+            "max_bytes": 10485760,
+            "backup_count": 5,
+            "encoding": "utf-8",
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            "datefmt": ""
+        },
+        "console": {
+            "show_time": false,
+            "show_level": false,
+            "show_path": false,
+            "markup": true,
+            "format": "%(message)s"
+        }
+    },
+    "filetype": {
+        "txt": "小说",
+        "epub": "小说",
+        "mobi": "小说",
+        "azw3": "小说",
+        "docx": "小说",
+        "doc": "小说",
+        "jpg": "图片",
+        "jpeg": "图片",
+        "png": "图片",
+        "gif": "图片",
+        "pdf": "漫画",
+        "zip": "漫画",
+        "mp4": "电影",
+        "avi": "电影",
+        "mkv": "电影",
+        "mp3": "音乐",
+        "flac": "音乐",
+        "wav": "音乐"
+    },
+    "translations": {
+        "usage: ": "用法: ",
+        "positional arguments": "位置参数",
+        "options": "选项",
+        "show this help message and exit": "显示此帮助信息并退出",
+        "unrecognized arguments": "无法识别的参数",
+        "the following arguments are required": "以下参数是必须的",
+        "No closing quotation": "引号未闭合"
+    },
+    "download": {
+        "max_workers": 10,
+        "timeout": 10,
+        "follow_max_workers": 3,
+        "rate_limit_rps": 2.0,
+        "image_rate_limit_rps": 6.0
+    },
+    "download_file_path": "downloads",
+    "pixiv": {
+        "refresh_token": "YOUR_PIXIV_REFRESH_TOKEN",
+        "cookie": "YOUR_PIXIV_COOKIE",
+        "extractor": {
+            "pixiv-user": {
+                "rate_limit_rps": 1.5
+            },
+            "pixiv-series": {
+                "rate_limit_rps": 1.5
+            },
+            "pixiv-work": {
+                "book_format": "epub",
+                "ugoira_format": "gif",
+                "image_quality": "high"
+            },
+            "pixiv-novel": {
+                "embeds": true,
+                "covers": true,
+                "book_format": "epub"
+            },
+            "pixiv-search": {
+                "max_pages": 10
+            },
+            "pixiv-ranking": {
+                "rate_limit_rps": 1.5
+            }
+        },
+        "download": {
+            "max_workers": 6,
+            "rate_limit_rps": 3.0,
+            "image_rate_limit_rps": 10.0,
+            "retry_429": true,
+            "retry_429_delay_seconds": 30
+        },
+        "cookie_pool": [
+            "YOUR_PIXIV_COOKIE_1",
+            "YOUR_PIXIV_COOKIE_2"
+        ]
+    }
+}

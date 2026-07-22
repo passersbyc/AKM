@@ -11,8 +11,13 @@ library/
 *.pdf
 *.bak
 
+# sensitive config (contains Pixiv credentials)
+config.json
+
 # databases
 *.db
+*.db-shm
+*.db-wal
 novel-page-snapshot
 
 # MCP logs
