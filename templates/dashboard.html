@@ -2,81 +2,93 @@
 {% block title %}AKM · 仪表盘{% endblock %}
 {% block content %}
 
+<!-- 页面标题 -->
+<div class="page-header">
+    <h1 class="page-title">仪表盘</h1>
+    <p class="page-subtitle">你的作品库一览</p>
+</div>
+
 <!-- 统计概览 -->
 <section class="stats-grid">
-    <div class="stat-card stat-purple">
+    <div class="stat-card stat-purple animate-in">
         <div class="stat-icon">📚</div>
         <div class="stat-info">
-            <div class="stat-value">{{ stats.total_books }}</div>
+            <div class="stat-value" data-count="{{ stats.total_books }}">0</div>
             <div class="stat-label">作品</div>
         </div>
     </div>
-    <div class="stat-card stat-pink">
+    <div class="stat-card stat-pink animate-in animate-in-delay-1">
         <div class="stat-icon">✍️</div>
         <div class="stat-info">
-            <div class="stat-value">{{ stats.total_authors }}</div>
+            <div class="stat-value" data-count="{{ stats.total_authors }}">0</div>
             <div class="stat-label">作者</div>
         </div>
     </div>
-    <div class="stat-card stat-teal">
+    <div class="stat-card stat-teal animate-in animate-in-delay-2">
         <div class="stat-icon">📁</div>
         <div class="stat-info">
-            <div class="stat-value">{{ stats.total_series }}</div>
+            <div class="stat-value" data-count="{{ stats.total_series }}">0</div>
             <div class="stat-label">系列</div>
         </div>
     </div>
-    <div class="stat-card stat-amber">
+    <div class="stat-card stat-amber animate-in animate-in-delay-3">
         <div class="stat-icon">⭐</div>
         <div class="stat-info">
-            <div class="stat-value">{{ stats.favorited_count }}</div>
+            <div class="stat-value" data-count="{{ stats.favorited_count }}">0</div>
             <div class="stat-label">收藏</div>
         </div>
     </div>
 </section>
 
 <!-- 最近活动 + 猜你喜欢 -->
-<div class="dashboard-row">
-    <section class="card activity-card">
-        <h2 class="card-title">最近活动</h2>
+<div class="dashboard-row row-2col">
+    <section class="card animate-in animate-in-delay-1">
+        <h2 class="card-title">
+            <span class="card-title-icon" style="background: rgba(92,184,138,0.1); color: #5cb88a;">📋</span>
+            最近活动
+        </h2>
         <div class="activity-columns">
             <div class="activity-col">
-                <h3 class="activity-header col-green">最近打开</h3>
+                <h3 class="activity-header col-green"><span class="dot"></span>最近打开</h3>
                 {% for item in activity.recent_open %}
                 <div class="activity-item">
                     <span class="item-id">{{ item.short_id }}</span>
                     <span class="item-title">{{ item.title[:15] }}</span>
                 </div>
                 {% else %}
-                <div class="empty-hint">暂无</div>
+                <div class="empty-hint"><div class="empty-icon">📭</div>暂无记录</div>
                 {% endfor %}
             </div>
             <div class="activity-col">
-                <h3 class="activity-header col-yellow">最近导入</h3>
+                <h3 class="activity-header col-yellow"><span class="dot"></span>最近导入</h3>
                 {% for item in activity.recent_import %}
                 <div class="activity-item">
                     <span class="item-id">{{ item.short_id }}</span>
                     <span class="item-title">{{ item.title[:15] }}</span>
                 </div>
                 {% else %}
-                <div class="empty-hint">暂无</div>
+                <div class="empty-hint"><div class="empty-icon">📭</div>暂无记录</div>
                 {% endfor %}
             </div>
             <div class="activity-col">
-                <h3 class="activity-header col-blue">最近下载</h3>
+                <h3 class="activity-header col-blue"><span class="dot"></span>最近下载</h3>
                 {% for item in activity.recent_download %}
                 <div class="activity-item">
                     <span class="item-id">{{ item.short_id }}</span>
                     <span class="item-title">{{ item.title[:15] }}</span>
                 </div>
                 {% else %}
-                <div class="empty-hint">暂无</div>
+                <div class="empty-hint"><div class="empty-icon">📭</div>暂无记录</div>
                 {% endfor %}
             </div>
         </div>
     </section>
 
-    <section class="card recommend-card">
-        <h2 class="card-title">猜你喜欢</h2>
+    <section class="card animate-in animate-in-delay-2">
+        <h2 class="card-title">
+            <span class="card-title-icon" style="background: rgba(232,160,191,0.12); color: #e8a0bf;">💡</span>
+            猜你喜欢
+        </h2>
         <div class="recommend-scroll">
             {% for item in recommendations %}
             <div class="recommend-item">
@@ -85,7 +97,6 @@
                 </div>
                 <div class="recommend-info">
                     <div class="recommend-title">
-                        {% if item.kind == 'series' %} {% endif %}
                         {{ item.title[:18] }}
                         {% if item.series_count %}<span class="series-count">{{ item.series_count }}本</span>{% endif %}
                     </div>
@@ -97,22 +108,25 @@
                 </div>
             </div>
             {% else %}
-            <div class="empty-hint">暂无推荐</div>
+            <div class="empty-hint"><div class="empty-icon">🔍</div>暂无推荐</div>
             {% endfor %}
         </div>
     </section>
 </div>
 
 <!-- 标签/作者/点赞排行 -->
-<div class="dashboard-row">
-    <section class="card">
-        <h2 class="card-title">标签 Top 10</h2>
+<div class="dashboard-row row-3col">
+    <section class="card animate-in animate-in-delay-2">
+        <h2 class="card-title">
+            <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">🏷️</span>
+            标签 Top 10
+        </h2>
         <div class="tag-bars">
             {% for tag, count in top_tags %}
             <div class="tag-bar-row">
                 <span class="tag-name">{{ tag }}</span>
                 <div class="tag-bar-track">
-                    <div class="tag-bar-fill" style="width: {{ (count / top_tags[0][1] * 100) | round }}%"></div>
+                    <div class="tag-bar-fill fill-{{ loop.index0 % 10 }}" style="width: {{ (count / top_tags[0][1] * 100) | round }}%"></div>
                 </div>
                 <span class="tag-count">{{ count }}</span>
             </div>
@@ -120,31 +134,37 @@
         </div>
     </section>
 
-    <section class="card">
-        <h2 class="card-title">作者 Top 5</h2>
+    <section class="card animate-in animate-in-delay-3">
+        <h2 class="card-title">
+            <span class="card-title-icon" style="background: rgba(232,180,88,0.1); color: #e8b458;">👑</span>
+            作者 Top 5
+        </h2>
         <div class="top-list">
             {% for r in top_authors %}
             <div class="top-list-item">
-                <span class="rank">#{{ loop.index }}</span>
+                <span class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% else %}rank-other{% endif %}">{{ loop.index }}</span>
                 <span class="top-name">{{ r.name }}</span>
-                <span class="top-badge">{{ r.cnt }} 作品</span>
+                <span class="top-badge badge-teal">{{ r.cnt }} 作品</span>
                 {% if r.fav_cnt %}<span class="top-fav">♥ {{ r.fav_cnt }}</span>{% endif %}
             </div>
             {% endfor %}
         </div>
     </section>
 
-    <section class="card">
-        <h2 class="card-title">点赞 Top 5</h2>
+    <section class="card animate-in animate-in-delay-4">
+        <h2 class="card-title">
+            <span class="card-title-icon" style="background: rgba(232,160,191,0.12); color: #e8a0bf;">❤️</span>
+            点赞 Top 5
+        </h2>
         <div class="top-list">
             {% for r in top_likes %}
             <div class="top-list-item">
-                <span class="rank">#{{ loop.index }}</span>
+                <span class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% else %}rank-other{% endif %}">{{ loop.index }}</span>
                 <div class="top-info">
                     <div class="top-title">{{ (r.title or '')[:16] }}</div>
                     <div class="top-sub">{{ r.author }}</div>
                 </div>
-                <span class="top-badge">{{ r.like_count }} ♥</span>
+                <span class="top-badge badge-pink">{{ r.like_count }} ♥</span>
             </div>
             {% endfor %}
         </div>
