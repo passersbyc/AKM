@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}AKM · 下载{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">下载队列</h1>
+    <p class="page-subtitle">管理作品下载任务</p>
+</div>
+
+<!-- 统计卡片 -->
+<div class="stats-grid stats-grid-4 animate-in">
+    <div class="stat-card stat-purple">
+        <div class="stat-icon">📋</div>
+        <div class="stat-info">
+            <div class="stat-value" data-count="{{ stats.total }}">0</div>
+            <div class="stat-label">总数</div>
+        </div>
+    </div>
+    <div class="stat-card stat-teal">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-info">
+            <div class="stat-value" data-count="{{ stats.pending }}">0</div>
+            <div class="stat-label">待下载</div>
+        </div>
+    </div>
+    <div class="stat-card stat-pink">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+            <div class="stat-value" data-count="{{ stats.downloaded }}">0</div>
+            <div class="stat-label">已下载</div>
+        </div>
+    </div>
+    <div class="stat-card stat-amber">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-info">
+            <div class="stat-value" data-count="{{ stats.invalid }}">0</div>
+            <div class="stat-label">无效</div>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选栏 -->
+<div class="filter-bar animate-in animate-in-delay-1">
+    <a href="?show_all=false" class="filter-tab {% if not show_all %}active{% endif %}">待下载</a>
+    <a href="?show_all=true" class="filter-tab {% if show_all %}active{% endif %}">全部</a>
+</div>
+
+{% if queue %}
+<!-- 队列表格 -->
+<div class="card animate-in animate-in-delay-2">
+    <div class="queue-table-wrap">
+        <table class="queue-table">
+            <thead>
+                <tr>
+                    <th>URL</th>
+                    <th>作者</th>
+                    <th>类型</th>
+                    <th>状态</th>
+                    <th>失败</th>
+                    <th>添加时间</th>
+                    <th>下载时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in queue %}
+                <tr class="{% if item.is_in_db %}row-done{% elif not item.is_valid %}row-invalid{% endif %}">
+                    <td class="cell-url">
+                        <a href="{{ item.url }}" target="_blank" class="url-link" title="{{ item.url }}">
+                            {{ item.url.split('/')[-1] }}
+                        </a>
+                    </td>
+                    <td>{{ item.author_name or '—' }}</td>
+                    <td><span class="type-tag">{{ item.work_type or '—' }}</span></td>
+                    <td>
+                        {% if item.is_in_db %}
+                        <span class="queue-status status-done">已下载</span>
+                        {% elif not item.is_valid %}
+                        <span class="queue-status status-invalid">无效</span>
+                        {% elif item.is_blacklisted %}
+                        <span class="queue-status status-blacklist">黑名单</span>
+                        {% else %}
+                        <span class="queue-status status-pending">待下载</span>
+                        {% endif %}
+                    </td>
+                    <td class="cell-center">{{ item.fail_count if item.fail_count else '' }}</td>
+                    <td class="cell-time">{{ (item.added_at or '')[:16] }}</td>
+                    <td class="cell-time">{{ (item.download_time or '')[:16] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 分页 -->
+{% if total_pages > 1 %}
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="?show_all={{ show_all }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
+    {% endif %}
+    <span class="page-info">{{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="?show_all={{ show_all }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state animate-in">
+    <div class="empty-icon-lg">📥</div>
+    <p>下载队列为空</p>
+    <p class="empty-sub">通过 <code>akm follow &lt;url&gt;</code> 关注作者并自动入队</p>
+</div>
+{% endif %}
+
+{% endblock %}

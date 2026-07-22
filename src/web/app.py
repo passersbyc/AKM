@@ -24,7 +24,10 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
     # 注册路由
-    from src.web.routers import dashboard
+    from src.web.routers import dashboard, works, authors, download
     app.include_router(dashboard.router)
+    app.include_router(works.router)
+    app.include_router(authors.router)
+    app.include_router(download.router)
 
     return app

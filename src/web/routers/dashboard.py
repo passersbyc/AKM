@@ -35,6 +35,7 @@ async def dashboard(request: Request):
 
     return templates.TemplateResponse(request, "dashboard.html", {
         "request": request,
+        "active_page": "dashboard",
         "stats": stats,
         "activity": activity,
         "top_authors": top_authors,

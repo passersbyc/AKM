@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}AKM · {{ work.title if work else '作品详情' }}{% endblock %}
+{% block content %}
+
+{% if error or not work %}
+<div class="empty-state animate-in">
+    <div class="empty-icon-lg">😕</div>
+    <p>{{ error or '作品不存在' }}</p>
+    <a href="/works" class="back-link">← 返回作品列表</a>
+</div>
+{% else %}
+
+<!-- 返回导航 -->
+<div class="detail-nav animate-in">
+    <a href="/works" class="back-link">← 返回列表</a>
+</div>
+
+<!-- 作品详情 -->
+<div class="detail-layout">
+    <!-- 左侧：封面 + 操作 -->
+    <div class="detail-left animate-in">
+        <div class="detail-cover">
+            <span class="detail-cover-icon">
+                {% if work.file_type == 'novel' %}📖
+                {% elif work.file_type == 'illust' %}🎨
+                {% elif work.file_type == 'manga' %}📕
+                {% elif work.file_type == 'ugoira' %}🎬
+                {% else %}📄{% endif %}
+            </span>
+        </div>
+        <div class="detail-actions">
+            {% if work.favorite %}
+            <span class="detail-badge badge-fav">★ 已收藏</span>
+            {% endif %}
+            {% if work.rating %}
+            <span class="detail-badge badge-rating">{{ work.rating }} 分</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 右侧：信息 -->
+    <div class="detail-right animate-in animate-in-delay-1">
+        <h1 class="detail-title">{{ work.title }}</h1>
+
+        <div class="detail-meta-grid">
+            <div class="meta-item">
+                <span class="meta-label">ID</span>
+                <span class="meta-value mono">{{ work.short_id }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">作者</span>
+                <span class="meta-value">{{ work.author_name or '未知' }}</span>
+            </div>
+            {% if work.series_name %}
+            <div class="meta-item">
+                <span class="meta-label">系列</span>
+                <span class="meta-value">{{ work.series_name }}</span>
+            </div>
+            {% endif %}
+            <div class="meta-item">
+                <span class="meta-label">类型</span>
+                <span class="meta-value">{{ work.file_type or '未知' }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">来源</span>
+                <span class="meta-value">{{ work.source or '本地' }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">文件大小</span>
+                <span class="meta-value">{{ '%.1f' | format(work.file_size_kb / 1024) if work.file_size_kb else '—' }} MB</span>
+            </div>
+            {% if work.likes %}
+            <div class="meta-item">
+                <span class="meta-label">点赞</span>
+                <span class="meta-value">♥ {{ work.likes }}</span>
+            </div>
+            {% endif %}
+            <div class="meta-item">
+                <span class="meta-label">导入时间</span>
+                <span class="meta-value">{{ (work.imported_at or '')[:10] }}</span>
+            </div>
+        </div>
+
+        {% if work.tags %}
+        <div class="detail-section">
+            <h3 class="detail-section-title">标签</h3>
+            <div class="detail-tags">
+                {% for tag in work.tags.split(',') %}
+                <span class="detail-tag">{{ tag.strip() }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if work.description %}
+        <div class="detail-section">
+            <h3 class="detail-section-title">简介</h3>
+            <p class="detail-desc">{{ work.description }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 同系列作品 -->
+{% if related %}
+<div class="detail-related animate-in animate-in-delay-2">
+    <h2 class="card-title">
+        <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">📚</span>
+        同系列作品
+    </h2>
+    <div class="works-grid works-grid-sm">
+        {% for w in related %}
+        <a href="/works/{{ w.id }}" class="work-card">
+            <div class="work-cover">
+                <span class="work-cover-icon">📖</span>
+            </div>
+            <div class="work-info">
+                <div class="work-title">{{ w.title[:20] }}</div>
+                <div class="work-meta">
+                    <span class="work-id">{{ w.short_id }}</span>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

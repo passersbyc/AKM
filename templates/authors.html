@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}AKM · 作者{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">作者</h1>
+    <p class="page-subtitle">共 {{ total }} 位作者</p>
+</div>
+
+<!-- 搜索栏 -->
+<div class="search-bar animate-in">
+    <form method="get" action="/authors" class="search-form">
+        <div class="search-input-wrap">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" name="q" value="{{ q }}" placeholder="搜索作者名..." class="search-input">
+        </div>
+        <button type="submit" class="search-btn">搜索</button>
+    </form>
+</div>
+
+{% if authors %}
+<div class="authors-grid">
+    {% for a in authors %}
+    <div class="author-card animate-in" style="animation-delay: {{ loop.index0 * 0.03 }}s">
+        <div class="author-avatar">
+            {{ a.name[:1] }}
+        </div>
+        <div class="author-info">
+            <div class="author-name">
+                {{ a.name }}
+                {% if a.favorite %}<span class="author-fav">★</span>{% endif %}
+            </div>
+            <div class="author-meta">
+                <span class="author-status {% if '正常' in a.status %}status-ok{% elif '停更' in a.status %}status-pause{% else %}status-dead{% endif %}">{{ a.status }}</span>
+                <span class="author-source">{{ a.source }}</span>
+            </div>
+        </div>
+        <div class="author-stats">
+            <div class="author-stat">
+                <span class="author-stat-value">{{ a.work_count }}</span>
+                <span class="author-stat-label">作品</span>
+            </div>
+            <div class="author-stat">
+                <span class="author-stat-value">{{ a.series_count }}</span>
+                <span class="author-stat-label">系列</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 分页 -->
+{% if total_pages > 1 %}
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="?q={{ q }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
+    {% endif %}
+    <span class="page-info">{{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="?q={{ q }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state animate-in">
+    <div class="empty-icon-lg">✍️</div>
+    <p>暂无作者</p>
+    <p class="empty-sub">通过 <code>akm follow</code> 关注作者</p>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}AKM · 作品{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">作品</h1>
+    <p class="page-subtitle">共 {{ total }} 件作品</p>
+</div>
+
+<!-- 搜索栏 -->
+<div class="search-bar animate-in">
+    <form method="get" action="/works" class="search-form">
+        <div class="search-input-wrap">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" name="q" value="{{ q }}" placeholder="搜索标题..." class="search-input">
+        </div>
+        <input type="text" name="author" value="{{ author }}" placeholder="作者" class="search-filter">
+        <input type="text" name="tags" value="{{ tags }}" placeholder="标签" class="search-filter">
+        <select name="file_type" class="search-filter search-select">
+            <option value="">全部类型</option>
+            <option value="novel" {% if file_type == 'novel' %}selected{% endif %}>小说</option>
+            <option value="illust" {% if file_type == 'illust' %}selected{% endif %}>插画</option>
+            <option value="manga" {% if file_type == 'manga' %}selected{% endif %}>漫画</option>
+            <option value="ugoira" {% if file_type == 'ugoira' %}selected{% endif %}>动图</option>
+        </select>
+        <select name="favorited" class="search-filter search-select">
+            <option value="">全部</option>
+            <option value="yes" {% if favorited == 'yes' %}selected{% endif %}>已收藏</option>
+            <option value="no" {% if favorited == 'no' %}selected{% endif %}>未收藏</option>
+        </select>
+        <button type="submit" class="search-btn">搜索</button>
+    </form>
+</div>
+
+<!-- 作品网格 -->
+{% if works %}
+<div class="works-grid">
+    {% for w in works %}
+    <a href="/works/{{ w.id }}" class="work-card animate-in" style="animation-delay: {{ loop.index0 * 0.03 }}s">
+        <div class="work-cover">
+            <span class="work-cover-icon">
+                {% if w.file_type == 'novel' %}📖
+                {% elif w.file_type == 'illust' %}🎨
+                {% elif w.file_type == 'manga' %}📕
+                {% elif w.file_type == 'ugoira' %}🎬
+                {% else %}📄{% endif %}
+            </span>
+            {% if w.favorite %}<span class="work-fav">★</span>{% endif %}
+        </div>
+        <div class="work-info">
+            <div class="work-title">{{ w.title[:20] }}</div>
+            <div class="work-meta">
+                <span class="work-author">{{ w.author_name or '未知' }}</span>
+                <span class="work-id">{{ w.short_id }}</span>
+            </div>
+            {% if w.tags %}
+            <div class="work-tags">
+                {% for tag in (w.tags or '').split(',')[:3] %}
+                <span class="work-tag">{{ tag.strip() }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+<!-- 分页 -->
+{% if total_pages > 1 %}
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="?q={{ q }}&author={{ author }}&tags={{ tags }}&file_type={{ file_type }}&favorited={{ favorited }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
+    {% endif %}
+    <span class="page-info">{{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="?q={{ q }}&author={{ author }}&tags={{ tags }}&file_type={{ file_type }}&favorited={{ favorited }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state animate-in">
+    <div class="empty-icon-lg">📚</div>
+    <p>暂无作品</p>
+    <p class="empty-sub">通过 <code>akm import</code> 导入或 <code>akm pull</code> 下载作品</p>
+</div>
+{% endif %}
+
+{% endblock %}
