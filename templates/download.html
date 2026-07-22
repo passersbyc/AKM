@@ -39,34 +39,76 @@
     </div>
 </div>
 
-<!-- 添加下载 -->
-<div class="card add-download-card animate-in animate-in-delay-1">
-    <h2 class="card-title">
-        <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">➕</span>
-        添加下载
-    </h2>
-    {% if message %}
-    <div class="form-message form-message-{{ message_type }}">
-        {{ message }}
-    </div>
-    {% endif %}
-    <form method="post" action="/download/add" class="add-url-form">
-        <div class="url-input-wrap">
+<!-- 操作区：添加下载 + 关注作者 + 开始下载 -->
+<div class="download-actions animate-in animate-in-delay-1">
+    <!-- 添加下载 -->
+    <div class="card action-card">
+        <h2 class="card-title">
+            <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">➕</span>
+            添加下载
+        </h2>
+        {% if message %}
+        <div class="form-message form-message-{{ message_type }}">{{ message }}</div>
+        {% endif %}
+        <form method="post" action="/download/add" class="add-url-form">
             <textarea
                 name="urls"
                 class="url-textarea"
                 rows="3"
-                placeholder="粘贴作品 URL，每行一个&#10;支持 Pixiv 插画 / 漫画 / 小说&#10;&#10;https://www.pixiv.net/artworks/12345678&#10;https://www.pixiv.net/novel/show.php?id=12345678"
+                placeholder="粘贴作品 URL，每行一个&#10;&#10;https://www.pixiv.net/artworks/12345678&#10;https://www.pixiv.net/novel/show.php?id=12345678"
             ></textarea>
-        </div>
-        <div class="url-form-footer">
-            <span class="url-hint">支持 Pixiv 作品链接，每行一个</span>
-            <button type="submit" class="search-btn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                加入队列
+            <div class="url-form-footer">
+                <span class="url-hint">支持 Pixiv 作品链接，每行一个</span>
+                <button type="submit" class="search-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    加入队列
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 关注作者 -->
+    <div class="card action-card">
+        <h2 class="card-title">
+            <span class="card-title-icon" style="background: rgba(232,160,191,0.12); color: #e8a0bf;">👤</span>
+            关注作者
+        </h2>
+        <form method="post" action="/download/follow" class="follow-form">
+            <input
+                type="text"
+                name="url"
+                class="search-input follow-input"
+                placeholder="粘贴作者主页 URL..."
+            >
+            <button type="submit" class="search-btn follow-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: -2px; margin-right: 4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                关注并入队
             </button>
+        </form>
+        <p class="action-hint">关注作者后自动将其全部作品加入下载队列</p>
+    </div>
+
+    <!-- 开始下载 -->
+    <div class="card action-card pull-card">
+        <h2 class="card-title">
+            <span class="card-title-icon" style="background: rgba(92,184,138,0.1); color: #5cb88a;">🚀</span>
+            执行下载
+        </h2>
+        <p class="action-hint">从下载队列中下载所有待下载作品</p>
+        <button id="pull-btn" class="pull-btn" onclick="startPull()" {% if pull_running %}disabled{% endif %}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span id="pull-btn-text">{{ '下载中...' if pull_running else '开始下载' }}</span>
+        </button>
+
+        <!-- 进度区（默认隐藏） -->
+        <div id="pull-progress" class="pull-progress" style="display: {% if pull_running %}block{% else %}none{% endif %};">
+            <div class="pull-status" id="pull-status">等待开始...</div>
+            <div class="pull-bar-track">
+                <div class="pull-bar-fill" id="pull-bar" style="width: 0%"></div>
+            </div>
+            <div class="pull-log" id="pull-log"></div>
         </div>
-    </form>
+    </div>
 </div>
 
 <!-- 筛选栏 -->
@@ -139,8 +181,134 @@
 <div class="empty-state animate-in">
     <div class="empty-icon-lg">📥</div>
     <p>下载队列为空</p>
-    <p class="empty-sub">在上方粘贴 URL 入队，或通过 <code>akm follow &lt;url&gt;</code> 关注作者</p>
+    <p class="empty-sub">在上方粘贴 URL 入队，或关注作者自动入队</p>
 </div>
 {% endif %}
+
+<script>
+let eventSource = null;
+
+function startPull() {
+    const btn = document.getElementById('pull-btn');
+    const btnText = document.getElementById('pull-btn-text');
+    const progress = document.getElementById('pull-progress');
+    const status = document.getElementById('pull-status');
+    const bar = document.getElementById('pull-bar');
+    const log = document.getElementById('pull-log');
+
+    // 禁用按钮
+    btn.disabled = true;
+    btnText.textContent = '下载中...';
+    progress.style.display = 'block';
+    status.textContent = '正在启动...';
+    log.innerHTML = '';
+
+    // 触发下载
+    fetch('/download/pull', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'already_running') {
+                status.textContent = '已有下载任务在进行中';
+            }
+        });
+
+    // SSE 监听进度
+    if (eventSource) eventSource.close();
+    eventSource = new EventSource('/download/pull/stream');
+
+    let totalWorks = 0;
+    let completedWorks = 0;
+    let successCount = 0;
+    let failCount = 0;
+    let skipCount = 0;
+
+    eventSource.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+
+        switch(data.event) {
+            case 'pull_start':
+                totalWorks = data.total_urls;
+                status.textContent = `开始下载 ${totalWorks} 个作品...`;
+                addLog(`📋 共 ${totalWorks} 个待下载`);
+                break;
+
+            case 'start':
+                const groups = data.groups || {};
+                const sites = Object.keys(groups);
+                if (sites.length) {
+                    addLog(`🌐 站点: ${sites.join(', ')}`);
+                }
+                if (data.unsupported && data.unsupported.length) {
+                    addLog(`⚠️ ${data.unsupported.length} 个不支持的链接`);
+                }
+                break;
+
+            case 'site_start':
+                status.textContent = `正在下载 [${data.site}] ${data.url_count} 个作品...`;
+                addLog(`⬇️ [${data.site}] 开始下载 ${data.url_count} 个作品`);
+                break;
+
+            case 'site_done':
+                const s = data.stats || {};
+                successCount += s.success || 0;
+                failCount += s.failed || 0;
+                skipCount += s.skipped || 0;
+                completedWorks = successCount + failCount + skipCount;
+                const pct = totalWorks ? Math.round(completedWorks / totalWorks * 100) : 0;
+                bar.style.width = pct + '%';
+                status.textContent = `[${data.site}] 完成 — 成功 ${s.success} / 失败 ${s.failed} / 跳过 ${s.skipped}`;
+                addLog(`✅ [${data.site}] 成功 ${s.success} / 失败 ${s.failed} / 跳过 ${s.skipped}`);
+                break;
+
+            case 'pull_done':
+                const r = data.results || {};
+                bar.style.width = '100%';
+                bar.classList.add('pull-bar-done');
+                status.textContent = `下载完成！成功 ${r.success} / 失败 ${r.failed} / 跳过 ${r.skipped}，耗时 ${r.elapsed}s`;
+                addLog(`🎉 全部完成！成功 ${r.success} / 失败 ${r.failed} / 跳过 ${r.skipped}，耗时 ${r.elapsed}s`);
+                btnText.textContent = '重新下载';
+                btn.disabled = false;
+                break;
+
+            case 'error':
+                status.textContent = `错误: ${data.message}`;
+                addLog(`❌ ${data.message}`);
+                btnText.textContent = '重试';
+                btn.disabled = false;
+                break;
+
+            case 'stream_end':
+                eventSource.close();
+                eventSource = null;
+                // 3秒后刷新页面更新队列
+                setTimeout(() => location.reload(), 3000);
+                break;
+        }
+    };
+
+    eventSource.onerror = function() {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+    };
+}
+
+function addLog(msg) {
+    const log = document.getElementById('pull-log');
+    const line = document.createElement('div');
+    line.className = 'pull-log-line';
+    line.textContent = msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+}
+
+// 如果页面加载时正在下载，自动连接 SSE
+{% if pull_running %}
+document.addEventListener('DOMContentLoaded', function() {
+    startPull();
+});
+{% endif %}
+</script>
 
 {% endblock %}
