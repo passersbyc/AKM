@@ -3,8 +3,8 @@ from .info_op import get_info, get_related_works, get_author_name, get_series_na
 from .edit_op import edit, edit_book, edit_author, edit_series, get_book
 from .delete_op import delete_book, filter_rows, delete_by_ids, delete_authors, delete_series, resolve_author_targets, delete_all_works
 from .search_op import search_works, search_by_label, search_authors
-from .stats_op import get_stats, aggregate
-from .verify_op import verify_integrity
+from .stats_op import get_stats, aggregate, get_recent_activity, get_raw_tags, get_top_authors, get_top_likes
+from .verify_op import verify_integrity, check_integrity
 from .import_op import import_file, import_files, register_entry
 from .export_op import export_by_query
 from .clean_op import read_all_entries, delete_entries as clean_delete_entries, source_set, get_pixiv_entries

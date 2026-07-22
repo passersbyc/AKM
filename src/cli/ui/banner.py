@@ -9,14 +9,15 @@ def _console():
     return Console(stderr=True)
 
 
-def _render_recommendations(console, db, recent_open, recent_import, recent_download) -> None:
+def _render_recommendations(console, recent_open, recent_import, recent_download) -> None:
     """猜你喜欢 — TF-IDF + 余弦相似度 + MMR 多样性选择，推荐 8 条。"""
     try:
         from rich.table import Table
         from rich import box
-        from src.core.database import short_id
+        from src.core.database import short_id, get_db
     except ImportError:
         return
+    db = get_db()
 
     # ── 收集三栏已展示的 work_id 和 series_id ──
     shown_ids: set[str] = set()
@@ -397,7 +398,7 @@ def show_interactive_banner(prog_name: str) -> None:
             console.print(activity)
 
             # ── 猜你喜欢（推荐） ──
-            _render_recommendations(console, db, recent_open, recent_import, recent_download)
+            _render_recommendations(console, recent_open, recent_import, recent_download)
 
         console.print()
         shortcuts = Table(show_header=False, box=box.SIMPLE, padding=(0, 3))

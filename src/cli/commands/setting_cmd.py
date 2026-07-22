@@ -187,122 +187,55 @@ class SettingCommand(BaseCommand):
     # ── check ───────────────────────────────────────────────
 
     def _check(self) -> int:
-        from src.core.work_manager import WorkManager
-        from src.core.hashing import generate_file_md5
-        from src.core.download import append_or_update, mark_not_in_db, get_by_url
-        from src.core.database import get_db
-        from src.core.config import get_library_path
+        from src.operations import check_integrity
+        from tqdm import tqdm
 
-        rows = WorkManager.read()
-        if not rows:
-            self.output.info("库里空空如也，无需检查")
+        state = {"pbar": None}
+
+        def _cb(event, **kw):
+            if event == "start":
+                total = kw.get("total", 0)
+                if not total:
+                    self.output.info("库里空空如也，无需检查")
+                    return
+                self.output.info(f"检查中... [bold]{total}[/bold] 个作品\n")
+                state["pbar"] = tqdm(total=total, desc="检查进度", unit="个",
+                                     colour="CYAN")
+            elif event == "progress":
+                msg = kw.get("msg", "")
+                if msg:
+                    logger.info(msg)
+                if state["pbar"]:
+                    state["pbar"].update(1)
+
+        result = check_integrity(progress_callback=_cb)
+        if state["pbar"]:
+            state["pbar"].close()
+
+        if not result["total"]:
             return 0
 
-        lib_path = get_library_path()
-        db = get_db()
+        ok = result["ok"]
+        queued = result["queued"]
+        deleted = result["deleted"]
+        cleaned = result["cleaned"]
+        total = result["total"]
 
-        ok_count = 0
-        queued_count = 0
-        deleted_count = 0
-
-        self.output.info(f"检查中... [bold]{len(rows)}[/bold] 个作品\n")
-
-        from tqdm import tqdm
-        pbar = tqdm(total=len(rows), desc="检查进度", unit="个", ncols=80,
-                     colour="CYAN")
-
-        existing_paths: set[str] = set()
-
-        for row in rows:
-            work_id = row.get("ID", "")
-            file_path_str = row.get("文件路径", "")
-            source_url = row.get("来源", "").strip()
-            md5_db = row.get("MD5", "").strip()
-            file_path = Path(file_path_str) if file_path_str else None
-
-            if file_path and file_path_str:
-                existing_paths.add(file_path_str)
-
-            # ① 检查文件是否存在
-            if file_path and file_path.exists():
-                # ② 检查 MD5
-                if md5_db:
-                    try:
-                        current_md5 = generate_file_md5(file_path)
-                    except Exception:
-                        current_md5 = ""
-                    if current_md5 and current_md5 == md5_db:
-                        ok_count += 1
-                        pbar.update(1)
-                        continue
-                    # MD5 不匹配
-                else:
-                    # 无 MD5，跳过验证
-                    ok_count += 1
-                    pbar.update(1)
-                    continue
-
-            # 文件不存在 或 MD5 不匹配 → 尝试恢复
-            queue_entry = get_by_url(source_url) if source_url else None
-            if source_url and "pixiv" in source_url.lower():
-                if queue_entry:
-                    if queue_entry.get("is_valid", 1):
-                        mark_not_in_db(source_url)
-                        queued_count += 1
-                        logger.info("⚡ 入队: %s → %s", work_id, source_url)
-                    else:
-                        deleted_count += 1
-                        logger.info("🗑 删除: %s (来源已无效)", work_id)
-                else:
-                    append_or_update([{"url": source_url, "is_in_db": 0}])
-                    queued_count += 1
-                    logger.info("⚡ 入队: %s → %s", work_id, source_url)
-                with db:
-                    db.execute("DELETE FROM works WHERE id = ?", (work_id,))
-            else:
-                with db:
-                    db.execute("DELETE FROM works WHERE id = ?", (work_id,))
-                deleted_count += 1
-                logger.info("🗑 删除: %s (文件缺失且无来源)", work_id)
-
-            pbar.update(1)
-
-        pbar.close()
-
-        # ③ 清理孤立文件
-        cleaned_count = 0
-        if lib_path.exists():
-            for f in lib_path.rglob("*"):
-                if f.is_file() and str(f.absolute()) not in existing_paths:
-                    try:
-                        f.unlink()
-                        cleaned_count += 1
-                    except Exception:
-                        pass
-            # 清理空目录
-            for d in sorted(lib_path.rglob("*"), key=lambda x: -len(str(x))):
-                if d.is_dir() and not any(d.iterdir()):
-                    try:
-                        d.rmdir()
-                    except Exception:
-                        pass
-
-        # ④ 报告
         self.output.info("")
-        self.output.info(f"[bold]检查完成: {len(rows)} 作品[/bold]")
-        self.output.info(f"  [green]✓ OK:       {ok_count}[/green]")
-        if queued_count:
-            self.output.info(f"  [yellow]⚡ 已入队:    {queued_count} (将重新下载)[/yellow]")
-        if deleted_count:
-            self.output.info(f"  [red]🗑 已删除:    {deleted_count} (无源可恢复)[/red]")
-        if cleaned_count:
-            self.output.info(f"  [dim]🧹 已清理:    {cleaned_count} (孤立文件)[/dim]")
-        if not queued_count and not deleted_count and not cleaned_count:
+        self.output.info(f"[bold]检查完成: {total} 作品[/bold]")
+        self.output.info(f"  [green]✓ OK:       {ok}[/green]")
+        if queued:
+            self.output.info(f"  [yellow]⚡ 已入队:    {queued} (将重新下载)[/yellow]")
+        if deleted:
+            self.output.info(f"  [red]🗑 已删除:    {deleted} (无源可恢复)[/red]")
+        if cleaned:
+            self.output.info(f"  [dim]🧹 已清理:    {cleaned} (孤立文件)[/dim]")
+        if not queued and not deleted and not cleaned:
             self.output.info(f"  [green]全部正常[/green]")
         else:
-            total_pending = queued_count + deleted_count
-            self.output.info(f"\n[dim]共 {total_pending} 项异常，{cleaned_count} 个孤立文件已清理[/dim]")
-            if queued_count:
+            total_pending = queued + deleted
+            self.output.info(f"\n[dim]共 {total_pending} 项异常，{cleaned} 个孤立文件已清理[/dim]")
+            if queued:
                 self.output.info("[yellow]运行 pull 重新下载已入队的作品[/yellow]")
 
         return 0
