@@ -1,4 +1,6 @@
 """source 操作 — 作者订阅管理与同步的业务逻辑层。"""
+from __future__ import annotations
+
 import time
 import requests
 from collections import Counter
@@ -89,6 +91,64 @@ def follow_author_by_url(url: str) -> dict | None:
         return None
     return {"uid": uid, "name": name, "local_id": row.get("id", ""),
             "already_followed": bool(already), "row": row}
+
+
+def queue_author_works(url: str) -> dict | None:
+    """关注作者并排队其全部作品到下载队列。
+
+    完整封装：resolve → get_author_info → extract_uid → upsert
+    → get_user_works → source_set 去重 → 构建 entries → append_or_update。
+    get_author_info 全程只调用一次（消除原 _follow_url 的重复网络调用）。
+
+    Returns:
+        {"uid", "name", "local_id", "already_followed", "row",
+         "total", "skipped", "queued"} or None on failure.
+        - total=0 表示作者已关注但无作品（仍 upsert，不入队）。
+    """
+    from src.downloader import registry
+    cls = registry.resolve(url)
+    if not cls:
+        return None
+    downloader = cls()
+
+    info = downloader.get_author_info(url)
+    if not info:
+        return None
+    name, _ = info
+    uid = downloader.extract_uid(url)
+
+    # 关注（upsert）——与 follow_author_by_url 相同的几行，独立实现以避免重复网络调用
+    already = resolve(uid) if uid else None
+    row = upsert(uid=uid, name=name, homepage=url)
+    if not row:
+        return None
+
+    # 拉作品（网络调用，包异常）
+    try:
+        works = downloader.get_user_works(url)
+    except Exception as e:
+        logger.error("获取作者 %s 作品列表失败: %s", name, e)
+        works = []
+
+    # source_set 去重 + 构建 entries（work_type 推断下沉到此）
+    in_library = WorkManager.source_set()
+    entries = []
+    skipped = 0
+    for w in works:
+        w_type = "novel" if "/novel/" in w else "illust"
+        in_db = 1 if w in in_library else 0
+        if in_db:
+            skipped += 1
+        entries.append({"url": w, "author_name": name,
+                        "work_type": w_type, "is_in_db": in_db})
+
+    added = append_to_download_json(entries)
+
+    return {
+        "uid": uid, "name": name, "local_id": row.get("id", ""),
+        "already_followed": bool(already), "row": row,
+        "total": len(works), "skipped": skipped, "queued": added,
+    }
 
 
 def follow_from_pixiv(cookie: str) -> dict:
@@ -239,6 +299,44 @@ def build_work_index(sync_targets: list[dict]) -> tuple[dict[str, set[str]], dic
                 work_index.setdefault(lid, set()).add(wid)
         source_to_id[r.get("来源", "")] = rid
     return work_index, source_to_id
+
+
+_sync_downloader_cache: dict[str, "BaseDownloader"] = {}
+
+
+def get_sync_downloader(url: str | None = None) -> "BaseDownloader" | None:
+    """获取同步用的下载器实例（按 name 缓存单例）。
+
+    优先按 url resolve；无 url 时取第一个已注册下载器。
+    缓存复用其 client/config/existing_sources 快照，避免重复实例化开销。
+
+    Returns:
+        BaseDownloader 实例 or None（无已注册下载器）。
+    """
+    from src.downloader import registry
+    cls = registry.resolve(url) if url else None
+    if not cls:
+        sites = registry.list_sites()
+        if not sites:
+            return None
+        cls = registry._entries.get(sites[0])
+    if not cls:
+        return None
+    key = cls.name
+    if key not in _sync_downloader_cache:
+        _sync_downloader_cache[key] = cls()
+    return _sync_downloader_cache[key]
+
+
+def get_sync_max_workers(downloader=None) -> int:
+    """获取同步线程数。
+
+    优先用 downloader.max_workers（如 PixivDownloader 的 property）；
+    基类无该属性则兜底 4。
+    """
+    if downloader is None:
+        downloader = get_sync_downloader()
+    return getattr(downloader, "max_workers", 4)
 
 
 def sync_one_author(row: dict, downloader=None, dry_run: bool = False,

@@ -15,4 +15,5 @@ from .source_op import (
     check_user_exists, fetch_work_details, compute_update_flags,
     update_single_work_metadata, reset_dead_authors,
     has_new_favorites, save_updated_ids, author_id_matches,
+    queue_author_works, get_sync_downloader, get_sync_max_workers,
 )

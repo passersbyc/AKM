@@ -31,13 +31,6 @@ class FollowCommand(BaseCommand):
     def _cookie(self) -> str:
         return self.config.get("pixiv", {}).get("cookie", "")
 
-    def _max_workers(self) -> int:
-        try:
-            from src.downloader.pixiv.config import PixivConfig
-            return PixivConfig.from_file().max_workers
-        except Exception:
-            return 4
-
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("url", type=str, nargs="?", default=None,
                             help="Pixiv 作者主页 URL（提供时为关注；省略时为同步）")
@@ -61,54 +54,29 @@ class FollowCommand(BaseCommand):
     # ── 关注 ──────────────────────────────────────────────
 
     def _follow_url(self, url: str) -> int:
-        from src.downloader import registry
-        from src.core.download import append_or_update
-        from src.operations import source_set
-
-        cls = registry.resolve(url)
-        if not cls:
-            self.output.info(f"不支持的链接: {url}")
-            return 1
-        downloader = cls()
-
-        info = downloader.get_author_info(url)
-        if not info:
+        result = source_op.queue_author_works(url)
+        if not result:
             self.output.info("无法获取作者信息，请检查 URL 或 Cookie")
             return 1
-        name, _ = info
-        uid = downloader.extract_uid(url)
 
+        name = result["name"]
+        uid = result["uid"]
         self.output.info(f"作者: {name}" + (f" (UID: {uid})" if uid else ""))
 
-        works = downloader.get_user_works(url)
-        if not works:
+        lid = result["local_id"]
+        self.output.info(f"已关注: {name} (本地ID: {lid})")
+
+        total = result["total"]
+        if total == 0:
             self.output.info("未获取到任何作品，作者可能已清空或账号异常")
-            result = source_op.follow_author_by_url(url)
-            if result:
-                self.output.info(f"已关注: {name}")
             return 1
 
-        result = source_op.follow_author_by_url(url)
-        if result:
-            lid = result["local_id"]
-            tag = "已关注" if result["already_followed"] else "已关注"
-            self.output.info(f"{tag}: {name} (本地ID: {lid})")
-
-        in_library = source_set()
-        entries = []
-        skipped = 0
-        for w in works:
-            w_type = "novel" if "/novel/" in w else "illust"
-            in_db = 1 if w in in_library else 0
-            if in_db:
-                skipped += 1
-            entries.append({"url": w, "author_name": name, "work_type": w_type, "is_in_db": in_db})
-        added = append_or_update(entries)
-
-        self.output.info(f"作品总数: {len(works)} | 已入库跳过: {skipped} | 新加入队列: {added}")
+        self.output.info(
+            f"作品总数: {total} | 已入库跳过: {result['skipped']} | 新加入队列: {result['queued']}"
+        )
         return self.output.result(True, data={
-            "author": name, "uid": uid, "total": len(works),
-            "skipped": skipped, "queued": added,
+            "author": name, "uid": uid, "total": total,
+            "skipped": result["skipped"], "queued": result["queued"],
         })
 
     def _follow_pixiv(self) -> int:
@@ -133,8 +101,6 @@ class FollowCommand(BaseCommand):
     # ── 同步 ──────────────────────────────────────────────
 
     def _sync(self, args: argparse.Namespace) -> int:
-        from src.downloader.pixiv.downloader import PixivDownloader
-
         candidates = source_op.resolve_sync_candidates(None, getattr(args, "favorite", False))
         if not candidates:
             self.output.info("没有来源可同步")
@@ -159,7 +125,11 @@ class FollowCommand(BaseCommand):
         if recheck_dead:
             parts.append(f"{len(recheck_dead)} 名重试")
         self.output.info(f"共 {' + '.join(parts)} 作者需更新" if parts else "无作者需更新")
-        max_workers = self._max_workers()
+        downloader = source_op.get_sync_downloader()
+        if not downloader:
+            self.output.info("未找到已注册的下载器")
+            return 1
+        max_workers = source_op.get_sync_max_workers(downloader)
         self.output.info(f"运行模式: 并行，{max_workers} 线程。[dim](Ctrl+C 退出)[/dim]")
         self.output.info("")
 
@@ -184,7 +154,6 @@ class FollowCommand(BaseCommand):
 
         name_width = max((_dwidth(str(r.get("name", ""))) for r in sync_targets), default=0)
 
-        downloader = PixivDownloader()
         work_index, source_to_id = source_op.build_work_index(sync_targets)
 
         results: dict[str, dict] = {}
