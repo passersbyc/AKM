@@ -11,6 +11,46 @@ router = APIRouter()
 
 PAGE_SIZE = 24
 
+# 中文 key → 英文 key 映射（operations 层返回中文，模板用英文）
+_KEY_MAP = {
+    "ID": "id",
+    "标题": "title",
+    "作者": "author_name",
+    "系列": "series_name",
+    "标签": "tags",
+    "来源": "source",
+    "源状态": "source_status",
+    "后缀": "file_ext",
+    "分类": "file_type",
+    "导入时间": "imported_at",
+    "文件大小(KB)": "file_size_kb",
+    "MD5": "md5",
+    "文件路径": "file_path",
+    "收藏": "favorite",
+    "评分": "rating",
+    "简介": "description",
+    "点赞": "likes",
+}
+
+
+def _normalize_work(raw: dict) -> dict:
+    """将 operations 层的中文 key 映射为模板用的英文 key。"""
+    w = {}
+    for zh_key, en_key in _KEY_MAP.items():
+        w[en_key] = raw.get(zh_key, "")
+    # 类型转换
+    try:
+        w["file_size_kb"] = float(w["file_size_kb"]) if w["file_size_kb"] else 0
+    except (ValueError, TypeError):
+        w["file_size_kb"] = 0
+    try:
+        w["likes"] = int(w["likes"]) if w["likes"] else 0
+    except (ValueError, TypeError):
+        w["likes"] = 0
+    w["favorite"] = w.get("favorite") in ("是", True, 1, "1")
+    w["short_id"] = short_id(w.get("id", ""))
+    return w
+
 
 @router.get("/works")
 async def works_list(
@@ -35,11 +75,7 @@ async def works_list(
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, total_pages)
     start = (page - 1) * PAGE_SIZE
-    items = results[start:start + PAGE_SIZE]
-
-    # 加 short_id
-    for item in items:
-        item["short_id"] = short_id(item.get("id", ""))
+    items = [_normalize_work(w) for w in results[start:start + PAGE_SIZE]]
 
     return templates.TemplateResponse(request, "works.html", {
         "request": request,
@@ -69,18 +105,17 @@ async def work_detail(request: Request, work_id: str):
             "error": f"未找到作品 {work_id}",
         })
 
-    info["short_id"] = short_id(info.get("id", ""))
+    work = _normalize_work(info)
 
     # 同系列相关作品
     related = []
-    if info.get("series_id"):
-        related = get_related_works(info["series_id"], exclude_id=info["id"])
-        for r in related:
-            r["short_id"] = short_id(r.get("id", ""))
+    if work.get("series_name"):
+        for r in get_related_works(work["series_name"], exclude_id=work["id"]):
+            related.append(_normalize_work(r))
 
     return templates.TemplateResponse(request, "work_detail.html", {
         "request": request,
         "active_page": "works",
-        "work": info,
+        "work": work,
         "related": related,
     })

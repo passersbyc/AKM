@@ -39,10 +39,10 @@
     <a href="/works/{{ w.id }}" class="work-card animate-in" style="animation-delay: {{ loop.index0 * 0.03 }}s">
         <div class="work-cover">
             <span class="work-cover-icon">
-                {% if w.file_type == 'novel' %}📖
-                {% elif w.file_type == 'illust' %}🎨
-                {% elif w.file_type == 'manga' %}📕
-                {% elif w.file_type == 'ugoira' %}🎬
+                {% if '小说' in w.file_type %}📖
+                {% elif '漫' in w.file_type %}📕
+                {% elif '动' in w.file_type %}🎬
+                {% elif '插' in w.file_type or '图' in w.file_type %}🎨
                 {% else %}📄{% endif %}
             </span>
             {% if w.favorite %}<span class="work-fav">★</span>{% endif %}

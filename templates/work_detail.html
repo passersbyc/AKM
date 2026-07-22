@@ -21,10 +21,10 @@
     <div class="detail-left animate-in">
         <div class="detail-cover">
             <span class="detail-cover-icon">
-                {% if work.file_type == 'novel' %}📖
-                {% elif work.file_type == 'illust' %}🎨
-                {% elif work.file_type == 'manga' %}📕
-                {% elif work.file_type == 'ugoira' %}🎬
+                {% if '小说' in work.file_type %}📖
+                {% elif '漫' in work.file_type %}📕
+                {% elif '动' in work.file_type %}🎬
+                {% elif '插' in work.file_type or '图' in work.file_type %}🎨
                 {% else %}📄{% endif %}
             </span>
         </div>
