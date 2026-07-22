@@ -40,7 +40,7 @@ class StartUICommand(BaseCommand):
             self.output.error(f"端口 {args.port}~{args.port + 9} 均被占用，请手动指定: --port <port>")
             return 1
         if port != args.port:
-            self.output.warning(f"端口 {args.port} 被占用，自动切换到 {port}")
+            self.output.warn(f"端口 {args.port} 被占用，自动切换到 {port}")
 
         app = create_app()
         url = f"http://{args.host}:{port}"
