@@ -55,11 +55,11 @@
 {% if total_pages > 1 %}
 <div class="pagination">
     {% if page > 1 %}
-    <a href="?q={{ q }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
+    <a href="/authors?q={{ q }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
     {% endif %}
     <span class="page-info">{{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
-    <a href="?q={{ q }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
+    <a href="/authors?q={{ q }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
     {% endif %}
 </div>
 {% endif %}

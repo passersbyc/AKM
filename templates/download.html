@@ -115,8 +115,8 @@
 
 <!-- 筛选栏 -->
 <div class="filter-bar animate-in animate-in-delay-2">
-    <a href="?show_all=false" class="filter-tab {% if not show_all %}active{% endif %}">待下载</a>
-    <a href="?show_all=true" class="filter-tab {% if show_all %}active{% endif %}">全部</a>
+    <a href="/download?show_all=false" class="filter-tab {% if not show_all %}active{% endif %}">待下载</a>
+    <a href="/download?show_all=true" class="filter-tab {% if show_all %}active{% endif %}">全部</a>
 </div>
 
 {% if queue %}
@@ -170,11 +170,11 @@
 {% if total_pages > 1 %}
 <div class="pagination">
     {% if page > 1 %}
-    <a href="?show_all={{ show_all }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
+    <a href="/download?show_all={{ show_all }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
     {% endif %}
     <span class="page-info">{{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
-    <a href="?show_all={{ show_all }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
+    <a href="/download?show_all={{ show_all }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
     {% endif %}
 </div>
 {% endif %}

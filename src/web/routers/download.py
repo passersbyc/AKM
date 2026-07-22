@@ -4,9 +4,10 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Query, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, RedirectResponse
 
 from src.operations import list_download_queue, queue_urls, queue_author_works
 from src.web.app import templates
@@ -102,9 +103,12 @@ async def download_queue(
     request: Request,
     show_all: bool = Query(False),
     page: int = Query(1, ge=1),
+    message: str = Query(""),
+    message_type: str = Query(""),
 ):
     """下载队列页。"""
-    return _render_download_page(request, show_all=show_all, page=page)
+    return _render_download_page(request, message=message, message_type=message_type,
+                                 show_all=show_all, page=page)
 
 
 @router.post("/download/add")
@@ -126,7 +130,10 @@ async def download_add(
     message = "，".join(parts) if parts else "未识别到有效 URL"
     message_type = "success" if result["queued"] else "warning"
 
-    return _render_download_page(request, message=message, message_type=message_type)
+    return RedirectResponse(
+        f"/download?message={quote(message)}&message_type={message_type}",
+        status_code=303,
+    )
 
 
 @router.post("/download/follow")
@@ -137,11 +144,17 @@ async def download_follow(
     """关注作者并将其全部作品入队。"""
     url = url.strip()
     if not url:
-        return _render_download_page(request, message="请输入作者 URL", message_type="warning")
+        return RedirectResponse(
+            f"/download?message={quote('请输入作者 URL')}&message_type=warning",
+            status_code=303,
+        )
 
     result = queue_author_works(url)
     if not result:
-        return _render_download_page(request, message=f"无法识别或访问: {url}", message_type="warning")
+        return RedirectResponse(
+            f"/download?message={quote(f'无法识别或访问: {url}')}&message_type=warning",
+            status_code=303,
+        )
 
     parts = [f"已关注 {result['name']}"]
     if result.get("already_followed"):
@@ -151,7 +164,10 @@ async def download_follow(
     elif result.get("total") == 0:
         parts.append("，无新作品")
 
-    return _render_download_page(request, message="".join(parts), message_type="success")
+    return RedirectResponse(
+        f"/download?message={quote(''.join(parts))}&message_type=success",
+        status_code=303,
+    )
 
 
 @router.post("/download/pull")
