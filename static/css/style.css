@@ -265,7 +265,9 @@ a { color: var(--primary); }
   width: 42px; height: 56px; border-radius: var(--radius-xs);
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;
   font-size: 18px; position: relative; overflow: hidden;
+  background: var(--bg-subtle);
 }
+.rec-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .placeholder-cover { background: linear-gradient(135deg, var(--primary), var(--primary-light)); }
 .placeholder-cover::after {
   content: ''; position: absolute; inset: 0;
@@ -287,6 +289,47 @@ a { color: var(--primary); }
   font-size: 10px; padding: 2px 8px; border-radius: 4px;
   background: var(--primary-glow); color: var(--primary); font-weight: 500;
 }
+
+/* 推荐区打开按钮 */
+.rec-open-btn {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: var(--radius-xs);
+  background: var(--bg); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); cursor: pointer; transition: all var(--transition);
+  align-self: center;
+}
+.rec-open-btn:hover {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+}
+
+/* 作者卡片（详情页） */
+.author-chip {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; margin-bottom: 20px;
+  background: var(--bg); border-radius: var(--radius-sm);
+  text-decoration: none; color: var(--text);
+  transition: all var(--transition);
+  border: 1px solid var(--border-light);
+}
+.author-chip:hover {
+  background: var(--primary-glow); border-color: var(--primary);
+  transform: translateX(3px);
+}
+.author-chip-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; flex-shrink: 0;
+}
+.author-chip-name { font-weight: 700; font-size: 14px; }
+.author-chip-arrow {
+  margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 标签链接样式 */
+a.detail-tag { text-decoration: none; transition: all var(--transition); }
+a.detail-tag:hover { background: var(--primary); color: #fff; }
 
 /* ── Tag Bars ── */
 .tag-bars { display: flex; flex-direction: column; gap: 8px; }

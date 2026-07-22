@@ -60,14 +60,19 @@
     <div class="detail-right animate-in animate-in-delay-1">
         <h1 class="detail-title">{{ work.title }}</h1>
 
+        <!-- 作者卡片 -->
+        {% if work.author_name and work.author_name != '未知' %}
+        <a href="/works?author={{ work.author_name }}" class="author-chip">
+            <span class="author-chip-avatar">{{ work.author_name[:1] }}</span>
+            <span class="author-chip-name">{{ work.author_name }}</span>
+            <span class="author-chip-arrow">查看该作者全部作品 →</span>
+        </a>
+        {% endif %}
+
         <div class="detail-meta-grid">
             <div class="meta-item">
                 <span class="meta-label">ID</span>
                 <span class="meta-value mono">{{ work.short_id }}</span>
-            </div>
-            <div class="meta-item">
-                <span class="meta-label">作者</span>
-                <span class="meta-value">{{ work.author_name or '未知' }}</span>
             </div>
             {% if work.series_name %}
             <div class="meta-item">
@@ -80,8 +85,8 @@
                 <span class="meta-value">{{ work.file_type or '未知' }}</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">来源</span>
-                <span class="meta-value">{{ work.source or '本地' }}</span>
+                <span class="meta-label">格式</span>
+                <span class="meta-value">{{ work.file_ext or '—' }}</span>
             </div>
             <div class="meta-item">
                 <span class="meta-label">文件大小</span>
@@ -104,7 +109,10 @@
             <h3 class="detail-section-title">标签</h3>
             <div class="detail-tags">
                 {% for tag in work.tags.split(',') %}
-                <span class="detail-tag">{{ tag.strip() }}</span>
+                {% set tag_stripped = tag.strip() %}
+                {% if tag_stripped %}
+                <a href="/works?tags={{ tag_stripped }}" class="detail-tag">{{ tag_stripped }}</a>
+                {% endif %}
                 {% endfor %}
             </div>
         </div>
@@ -123,14 +131,20 @@
 {% if related %}
 <div class="detail-related animate-in animate-in-delay-2">
     <h2 class="card-title">
-        <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">📚</span>
+        <span class="card-title-icon" style="background: var(--primary-glow); color: var(--primary);">📚</span>
         同系列作品
     </h2>
     <div class="works-grid works-grid-sm">
         {% for w in related %}
         <a href="/works/{{ w.id }}" class="work-card">
             <div class="work-cover">
+                {% if w.file_ext == '.epub' %}
+                <img src="/works/{{ w.id }}/cover" alt="{{ w.title }}" class="cover-img"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                <span class="work-cover-icon" style="display:none;">📖</span>
+                {% else %}
                 <span class="work-cover-icon">📖</span>
+                {% endif %}
             </div>
             <div class="work-info">
                 <div class="work-title">{{ w.title[:20] }}</div>

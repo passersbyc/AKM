@@ -53,10 +53,10 @@
             <div class="activity-col">
                 <h3 class="activity-header col-green"><span class="dot"></span>最近打开</h3>
                 {% for item in activity.recent_open %}
-                <div class="activity-item">
+                <a href="/works/{{ item.work_id }}" class="activity-item" style="text-decoration:none;color:inherit;">
                     <span class="item-id">{{ item.short_id }}</span>
                     <span class="item-title">{{ item.title[:15] }}</span>
-                </div>
+                </a>
                 {% else %}
                 <div class="empty-hint"><div class="empty-icon">📭</div>暂无记录</div>
                 {% endfor %}
@@ -64,10 +64,10 @@
             <div class="activity-col">
                 <h3 class="activity-header col-yellow"><span class="dot"></span>最近导入</h3>
                 {% for item in activity.recent_import %}
-                <div class="activity-item">
+                <a href="/works/{{ item.id }}" class="activity-item" style="text-decoration:none;color:inherit;">
                     <span class="item-id">{{ item.short_id }}</span>
                     <span class="item-title">{{ item.title[:15] }}</span>
-                </div>
+                </a>
                 {% else %}
                 <div class="empty-hint"><div class="empty-icon">📭</div>暂无记录</div>
                 {% endfor %}
@@ -75,10 +75,10 @@
             <div class="activity-col">
                 <h3 class="activity-header col-blue"><span class="dot"></span>最近下载</h3>
                 {% for item in activity.recent_download %}
-                <div class="activity-item">
+                <a href="/works/{{ item.id }}" class="activity-item" style="text-decoration:none;color:inherit;">
                     <span class="item-id">{{ item.short_id }}</span>
                     <span class="item-title">{{ item.title[:15] }}</span>
-                </div>
+                </a>
                 {% else %}
                 <div class="empty-hint"><div class="empty-icon">📭</div>暂无记录</div>
                 {% endfor %}
@@ -88,14 +88,16 @@
 
     <section class="card animate-in animate-in-delay-2">
         <h2 class="card-title">
-            <span class="card-title-icon" style="background: rgba(232,160,191,0.12); color: #e8a0bf;">💡</span>
+            <span class="card-title-icon" style="background: var(--accent-glow); color: var(--accent);">💡</span>
             猜你喜欢
         </h2>
         <div class="recommend-scroll">
             {% for item in recommendations %}
-            <div class="recommend-item">
-                <div class="recommend-cover placeholder-cover">
-                    <span class="cover-type">{{ '📕' if item.kind == 'series' else '📖' }}</span>
+            <div class="recommend-item" onclick="window.location='/works/{{ item.work_id }}'">
+                <div class="recommend-cover">
+                    <img src="/works/{{ item.work_id }}/cover" alt="" class="rec-cover-img"
+                         onerror="this.style.display='none';this.parentElement.classList.add('placeholder-cover');this.nextElementSibling.style.display='flex';">
+                    <span class="cover-type" style="display:none;">{{ '📕' if item.kind == 'series' else '📖' }}</span>
                 </div>
                 <div class="recommend-info">
                     <div class="recommend-title">
@@ -108,6 +110,9 @@
                         {% endfor %}
                     </div>
                 </div>
+                <button class="rec-open-btn" onclick="event.stopPropagation();openWork('{{ item.work_id }}')" title="本地打开">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </button>
             </div>
             {% else %}
             <div class="empty-hint"><div class="empty-icon">🔍</div>暂无推荐</div>
@@ -172,5 +177,14 @@
         </div>
     </section>
 </div>
+
+<script>
+function openWork(id) {
+    fetch(`/works/${id}/open`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { if (!data.success) alert(data.error || '打开失败'); })
+        .catch(() => alert('打开失败'));
+}
+</script>
 
 {% endblock %}
