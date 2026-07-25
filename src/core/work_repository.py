@@ -263,15 +263,28 @@ def update_entry_full(book_id: str, field_updates: dict,
 
 def delete_entries(ids: set[str]) -> list[dict]:
     deleted = []
+    source_urls = []
     for bid in ids:
         row = get_by_id(bid)
         if row:
             deleted.append(row)
+            src = row.get("来源", "") or ""
+            if src:
+                source_urls.append(src)
     if deleted:
         db = get_db()
         with db:
             placeholders = ",".join("?" for _ in ids)
             db.execute(f"DELETE FROM works WHERE id IN ({placeholders})", list(ids))
+            # 联动：重置 download_queue 中对应 URL 的 is_in_db=0
+            # 防止作品被删后队列仍标记"已下载"，导致 follow 无法重新入队
+            if source_urls:
+                q_placeholders = ",".join("?" for _ in source_urls)
+                db.execute(
+                    f"UPDATE download_queue SET is_in_db=0, is_valid=1, fail_count=0 "
+                    f"WHERE url IN ({q_placeholders}) AND is_in_db=1",
+                    source_urls,
+                )
     return deleted
 
 

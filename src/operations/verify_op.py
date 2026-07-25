@@ -107,5 +107,15 @@ def check_integrity(progress_callback=None) -> dict:
                 except Exception:
                     pass
 
+    # 兜底：扫描 download_queue 中 is_in_db=1 但 works 表无记录的 stale 行
+    stale_reset = 0
+    with db:
+        result = db.execute(
+            "UPDATE download_queue SET is_in_db=0, is_valid=1, fail_count=0 "
+            "WHERE is_in_db=1 "
+            "AND NOT EXISTS (SELECT 1 FROM works w WHERE w.source = download_queue.url)"
+        )
+        stale_reset = result.rowcount
+
     return {"ok": ok_count, "queued": queued_count, "deleted": deleted_count,
-            "cleaned": cleaned_count, "total": len(rows)}
+            "cleaned": cleaned_count, "stale_reset": stale_reset, "total": len(rows)}
