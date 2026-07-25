@@ -26,10 +26,11 @@ def read_download_json() -> dict:
 
 def append_or_update(entries: list[dict]) -> int:
     """插入或更新队列。
-    已存在且 is_in_db=1 → 跳过。
+    已存在且 is_in_db=1 且 works 表有记录 → 跳过。
+    已存在且 is_in_db=1 但 works 表无记录 → 重置 is_in_db=0（文件已丢失，重新入队）。
     已存在且 is_in_db=0 → 更新作者/类型，重置 valid/fail_count。
     不存在 → 插入。
-    返回新增的待下载数量。
+    返回新增/重置的待下载数量。
     """
     init_db()
     db = get_db()
@@ -44,12 +45,26 @@ def append_or_update(entries: list[dict]) -> int:
             ).fetchone()
             if existing:
                 if existing["is_in_db"]:
-                    continue
-                db.execute(
-                    "UPDATE download_queue SET author_name=?, work_type=?, "
-                    "is_valid=1, is_blacklisted=0, fail_count=0, "
-                    "added_at=datetime('now') WHERE url=?",
-                    (e.get("author_name", ""), e.get("work_type", ""), url))
+                    # 检查 works 表是否真有对应记录
+                    work_row = db.execute(
+                        "SELECT 1 FROM works WHERE source = ?", (url,)
+                    ).fetchone()
+                    if work_row:
+                        continue  # 确实已下载，跳过
+                    # works 表无记录但 is_in_db=1 → 文件已丢失，重置
+                    db.execute(
+                        "UPDATE download_queue SET is_in_db=0, is_valid=1, "
+                        "is_blacklisted=0, fail_count=0, "
+                        "author_name=?, work_type=?, "
+                        "added_at=datetime('now') WHERE url=?",
+                        (e.get("author_name", ""), e.get("work_type", ""), url))
+                    added += 1
+                else:
+                    db.execute(
+                        "UPDATE download_queue SET author_name=?, work_type=?, "
+                        "is_valid=1, is_blacklisted=0, fail_count=0, "
+                        "added_at=datetime('now') WHERE url=?",
+                        (e.get("author_name", ""), e.get("work_type", ""), url))
             else:
                 db.execute(
                     "INSERT INTO download_queue "
