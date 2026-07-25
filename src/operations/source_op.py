@@ -359,6 +359,14 @@ def sync_one_author(row: dict, downloader=None, dry_run: bool = False,
     if not homepage or (stop_event and stop_event.is_set()):
         return result
 
+    # 数据库写操作辅助函数——多线程同步时必须用同一个锁串行化所有写操作，
+    # 避免 SQLite bad parameter or other API misuse 错误
+    def _db_write(fn):
+        if download_lock:
+            with download_lock:
+                return fn()
+        return fn()
+
     if not downloader:
         from src.downloader import registry
         cls = registry.resolve(homepage)
@@ -374,14 +382,16 @@ def sync_one_author(row: dict, downloader=None, dry_run: bool = False,
 
     if not works:
         if not check_user_exists(uid, None):
-            update(uid, follow_status="dead",
-                   last_checked=time.strftime("%Y-%m-%d %H:%M:%S"))
+            _db_write(lambda: update(uid, follow_status="dead",
+                   last_checked=time.strftime("%Y-%m-%d %H:%M:%S")))
             return result
         logger.warning("%s (%s) App API 返回空，但 Web API 确认账号存在，恢复为活跃状态",
                        name, uid)
-        upsert(uid=uid, name=name, homepage=homepage, latest_work_id="")
-        update(uid, follow_status="active",
-               last_checked=time.strftime("%Y-%m-%d %H:%M:%S"))
+        _db_write(lambda: (
+            upsert(uid=uid, name=name, homepage=homepage, latest_work_id=""),
+            update(uid, follow_status="active",
+                   last_checked=time.strftime("%Y-%m-%d %H:%M:%S")),
+        ))
         return result
 
     work_ids = {extract_pixiv_id(u) for u in works}
@@ -402,26 +412,30 @@ def sync_one_author(row: dict, downloader=None, dry_run: bool = False,
     new_works = work_ids - local_ids
     deleted_works = local_ids - work_ids
 
-    upsert(uid=uid, name=name, homepage=homepage,
-           latest_work_id=max(work_ids, key=int) if work_ids else "")
-    update(uid, last_checked=time.strftime("%Y-%m-%d %H:%M:%S"))
+    _db_write(lambda: (
+        upsert(uid=uid, name=name, homepage=homepage,
+               latest_work_id=max(work_ids, key=int) if work_ids else ""),
+        update(uid, last_checked=time.strftime("%Y-%m-%d %H:%M:%S")),
+    ))
 
     if deleted_works and not dry_run:
-        if source_to_id is not None:
-            urls_to_mark = {s for s, rid in source_to_id.items()
-                            if author_id_matches(rid, local_id)
-                            and extract_pixiv_id(s) in deleted_works}
-        else:
-            rows = WorkManager.read()
-            urls_to_mark = set()
-            for r in rows:
-                if not author_id_matches(r.get("ID", ""), local_id):
-                    continue
-                src = r.get("来源", "")
-                if extract_pixiv_id(src) in deleted_works:
-                    urls_to_mark.add(src)
-        if urls_to_mark:
-            WorkManager.mark_deleted(urls_to_mark)
+        def _mark_deleted():
+            if source_to_id is not None:
+                urls_to_mark = {s for s, rid in source_to_id.items()
+                                if author_id_matches(rid, local_id)
+                                and extract_pixiv_id(s) in deleted_works}
+            else:
+                rows = WorkManager.read()
+                urls_to_mark = set()
+                for r in rows:
+                    if not author_id_matches(r.get("ID", ""), local_id):
+                        continue
+                    src = r.get("来源", "")
+                    if extract_pixiv_id(src) in deleted_works:
+                        urls_to_mark.add(src)
+            if urls_to_mark:
+                WorkManager.mark_deleted(urls_to_mark)
+        _db_write(_mark_deleted)
 
     if new_works:
         new_urls = [u for u in works if extract_pixiv_id(u) in new_works]
