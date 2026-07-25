@@ -9,7 +9,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Query, Form
 from fastapi.responses import StreamingResponse, RedirectResponse
 
-from src.operations import list_download_queue, queue_urls, queue_author_works
+from src.operations import list_download_queue, queue_urls, queue_author_works, get_download_stats
 from src.web.app import templates
 
 router = APIRouter()
@@ -33,6 +33,9 @@ def _pull_callback(event: str, **kw):
         _pull_state["events"].append((_pull_state["seq"], {
             "event": event, **kw,
         }))
+        # 防止无限增长：保留最近 500 条
+        if len(_pull_state["events"]) > 500:
+            _pull_state["events"] = _pull_state["events"][-500:]
 
 
 def _run_pull_thread():
@@ -74,12 +77,8 @@ def _render_download_page(request: Request, *, message="", message_type="",
     page = min(page, total_pages)
     start = (page - 1) * PAGE_SIZE
     items = all_items[start:start + PAGE_SIZE]
-    stats = {
-        "total": len(all_items),
-        "pending": sum(1 for i in all_items if not i.get("is_in_db") and i.get("is_valid")),
-        "downloaded": sum(1 for i in all_items if i.get("is_in_db")),
-        "invalid": sum(1 for i in all_items if not i.get("is_valid")),
-    }
+    # stats 用单条 SQL 统计全量，不受 show_all/分页影响
+    stats = get_download_stats()
     return templates.TemplateResponse(request, "download.html", {
         "request": request,
         "active_page": "download",
@@ -123,8 +122,10 @@ async def download_add(
     parts = []
     if result["queued"]:
         parts.append(f"新增 {result['queued']} 条")
-    if result["skipped"]:
-        parts.append(f"跳过 {result['skipped']} 条（已存在）")
+    if result.get("skipped_downloaded"):
+        parts.append(f"已下载 {result['skipped_downloaded']} 条")
+    if result.get("skipped_exists"):
+        parts.append(f"已在队列 {result['skipped_exists']} 条")
     if result["invalid"]:
         parts.append(f"无效 {len(result['invalid'])} 条")
     message = "，".join(parts) if parts else "未识别到有效 URL"

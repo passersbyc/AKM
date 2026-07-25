@@ -72,27 +72,47 @@ def _write_download_json(data: dict) -> None:
 
 
 def pop_download_json(urls: list[str]) -> list[dict]:
+    """弹出并删除指定 URL 的队列记录（兼容旧调用）。"""
     db = get_db()
     popped = []
     with db:
         for url in urls:
             row = db.execute(
-                "SELECT url, author_id, status, added_at "
+                "SELECT url, author_id, added_at "
                 "FROM download_queue WHERE url = ?", (url,)
             ).fetchone()
             if row:
                 popped.append({"url": row[0], "author_id": row[1] or "",
-                               "status": row[2], "added_at": row[3]})
+                               "added_at": row[2]})
                 db.execute("DELETE FROM download_queue WHERE url = ?", (url,))
     return popped
 
 
 def mark_downloaded(url: str) -> None:
+    """标记为已下载，并从 works/authors 表回填 author_name（如果空）。"""
     db = get_db()
     with db:
-        db.execute(
-            "UPDATE download_queue SET is_in_db=1, download_time=datetime('now'), "
-            "fail_count=0 WHERE url=?", (url,))
+        # 查 works 表 → authors 表获取作者名
+        author_name = ""
+        work_row = db.execute(
+            "SELECT author_id FROM works WHERE source = ?", (url,)
+        ).fetchone()
+        if work_row and work_row[0]:
+            name_row = db.execute(
+                "SELECT name FROM authors WHERE id = ?", (work_row[0],)
+            ).fetchone()
+            if name_row and name_row[0]:
+                author_name = name_row[0]
+
+        if author_name:
+            db.execute(
+                "UPDATE download_queue SET is_in_db=1, download_time=datetime('now'), "
+                "fail_count=0, author_name=? WHERE url=?",
+                (author_name, url))
+        else:
+            db.execute(
+                "UPDATE download_queue SET is_in_db=1, download_time=datetime('now'), "
+                "fail_count=0 WHERE url=?", (url,))
 
 
 def mark_invalid(url: str) -> None:

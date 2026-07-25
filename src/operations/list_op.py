@@ -113,13 +113,35 @@ def list_authors_with_status() -> list[dict]:
 
 
 def list_download_queue(show_all: bool = False) -> list[dict]:
-    """返回下载队列。show_all=True 含已下载/无效/拉黑，否则仅待下载。"""
+    """返回下载队列。show_all=True 含已下载/无效/拉黑，否则仅待下载（排除黑名单）。"""
     from src.core.database import get_db
     db = get_db()
-    where = "" if show_all else "WHERE is_in_db = 0 "
+    where = "" if show_all else "WHERE is_in_db = 0 AND is_blacklisted = 0 "
     rows = db.execute(
         "SELECT url, author_name, work_type, is_valid, is_in_db, "
         "is_blacklisted, fail_count, download_time, added_at "
         f"FROM download_queue {where}ORDER BY added_at DESC"
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_download_stats() -> dict:
+    """用单条 SQL 统计队列各状态数量（不受 show_all 影响）。"""
+    from src.core.database import get_db
+    db = get_db()
+    row = db.execute(
+        "SELECT "
+        "COUNT(*) as total, "
+        "SUM(CASE WHEN is_valid=1 AND is_in_db=0 AND is_blacklisted=0 THEN 1 ELSE 0 END) as pending, "
+        "SUM(CASE WHEN is_in_db=1 THEN 1 ELSE 0 END) as downloaded, "
+        "SUM(CASE WHEN is_valid=0 AND is_in_db=0 THEN 1 ELSE 0 END) as invalid, "
+        "SUM(CASE WHEN is_blacklisted=1 THEN 1 ELSE 0 END) as blacklisted "
+        "FROM download_queue"
+    ).fetchone()
+    return {
+        "total": row["total"] or 0,
+        "pending": row["pending"] or 0,
+        "downloaded": row["downloaded"] or 0,
+        "invalid": row["invalid"] or 0,
+        "blacklisted": row["blacklisted"] or 0,
+    }

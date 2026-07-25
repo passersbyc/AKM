@@ -706,8 +706,27 @@ def queue_urls(urls: list[str]) -> dict:
             invalid.append(url)
 
     queued = 0
+    skipped_downloaded = 0
+    skipped_exists = 0
     if entries:
+        # 先查已存在的，区分"已下载跳过"和"重复入队跳过"
+        from src.core.database import get_db
+        db = get_db()
+        urls_to_check = [e["url"] for e in entries]
+        placeholders = ",".join("?" * len(urls_to_check))
+        rows = db.execute(
+            f"SELECT url, is_in_db FROM download_queue WHERE url IN ({placeholders})",
+            urls_to_check,
+        ).fetchall()
+        existing_map = {r["url"]: r["is_in_db"] for r in rows}
+        skipped_downloaded = sum(1 for v in existing_map.values() if v)
+        skipped_exists = sum(1 for v in existing_map.values() if not v)
+
         queued = append_to_download_json(entries)
 
-    skipped = len(entries) - queued
-    return {"queued": queued, "skipped": skipped, "invalid": invalid}
+    return {
+        "queued": queued,
+        "skipped_downloaded": skipped_downloaded,
+        "skipped_exists": skipped_exists,
+        "invalid": invalid,
+    }
