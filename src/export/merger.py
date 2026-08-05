@@ -255,6 +255,9 @@ def merge_series_group(series_groups: dict[str, list[dict]], content_dir: Path,
             if merge_to_zip(srows, output):
                 count += 1
 
+        if progress:
+            progress.advance(progress.task_ids[0])
+
     return count
 
 

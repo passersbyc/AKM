@@ -58,7 +58,7 @@ def _normalize_work(raw: dict) -> dict:
 
 
 @router.get("/works")
-async def works_list(
+def works_list(
     request: Request,
     q: str = Query("", description="标题关键词"),
     author: str = Query("", description="作者名"),
@@ -99,7 +99,7 @@ async def works_list(
 
 
 @router.get("/works/{work_id}")
-async def work_detail(request: Request, work_id: str):
+def work_detail(request: Request, work_id: str):
     """作品详情页。"""
     info = get_info(work_id, "book")
     if not info:
@@ -107,7 +107,7 @@ async def work_detail(request: Request, work_id: str):
             "request": request,
             "active_page": "works",
             "work": None,
-            "error": f"未找到作品 {work_id}",
+            "error": f"(・_・;)? 找不到这个作品呀～再检查一下 ID（{work_id}）？",
         })
 
     work = _normalize_work(info)
@@ -127,7 +127,7 @@ async def work_detail(request: Request, work_id: str):
 
 
 @router.get("/works/{work_id}/cover")
-async def work_cover(work_id: str):
+def work_cover(work_id: str):
     """EPUB 封面图片。无封面或非 EPUB 返回 404。"""
     info = get_info(work_id, "book")
     if not info:
@@ -149,19 +149,19 @@ async def work_cover(work_id: str):
 
 
 @router.post("/works/{work_id}/open")
-async def work_open(work_id: str):
+def work_open(work_id: str):
     """用系统默认应用打开作品文件。"""
     info = get_info(work_id, "book")
     if not info:
-        return JSONResponse({"success": False, "error": "作品不存在"}, status_code=404)
+        return JSONResponse({"success": False, "error": "(・_・;)? 作品不存在呀～"}, status_code=404)
 
     file_path = info.get("文件路径", "")
     if not file_path:
-        return JSONResponse({"success": False, "error": "无文件路径"}, status_code=400)
+        return JSONResponse({"success": False, "error": "(T_T) 没有文件路径呀～"}, status_code=400)
 
     import os
     if not os.path.exists(file_path):
-        return JSONResponse({"success": False, "error": "文件不存在"}, status_code=404)
+        return JSONResponse({"success": False, "error": "(T_T) 文件不存在呀～"}, status_code=404)
 
     try:
         if sys.platform == "darwin":
@@ -172,4 +172,4 @@ async def work_open(work_id: str):
             subprocess.Popen(["xdg-open", file_path])
         return {"success": True}
     except Exception as e:
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+        return JSONResponse({"success": False, "error": f"(T_T) 打开失败呀～ {e}"}, status_code=500)

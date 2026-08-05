@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import io
 import zipfile
+from collections import OrderedDict
 from pathlib import Path
 
 from src.core.logging import logger
 
-# 内存缓存：{file_path: (mtime, cover_bytes)}
-_cover_cache: dict[str, tuple[float, bytes | None]] = {}
+# 内存缓存：{file_path: (mtime, cover_bytes)}，LRU 淘汰防止无限增长
+_MAX_CACHE_ENTRIES = 500
+_cover_cache: "OrderedDict[str, tuple[float, bytes | None]]" = OrderedDict()
 
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
@@ -21,7 +23,7 @@ def extract_epub_cover(file_path: str, max_width: int = 300) -> bytes | None:
     2. 文件名含 "cover" 的图片
     3. 第一张图片
 
-    结果缓存（按文件路径 + mtime）。
+    结果缓存（按文件路径 + mtime，LRU 上限 _MAX_CACHE_ENTRIES 条）。
     """
     path = Path(file_path)
     if not path.exists() or path.suffix.lower() != ".epub":
@@ -33,10 +35,14 @@ def extract_epub_cover(file_path: str, max_width: int = 300) -> bytes | None:
     if cache_key in _cover_cache:
         cached_mtime, cached_data = _cover_cache[cache_key]
         if cached_mtime == mtime:
+            _cover_cache.move_to_end(cache_key)
             return cached_data
 
     cover_bytes = _extract_cover(path, max_width)
     _cover_cache[cache_key] = (mtime, cover_bytes)
+    _cover_cache.move_to_end(cache_key)
+    while len(_cover_cache) > _MAX_CACHE_ENTRIES:
+        _cover_cache.popitem(last=False)
     return cover_bytes
 
 

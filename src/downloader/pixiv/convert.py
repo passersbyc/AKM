@@ -18,6 +18,12 @@ from .types import ExtractMessage
 logger = get_logger("akm.pixiv_convert")
 
 
+def _frame_sort_key(name: str) -> int:
+    """按文件名中的数字排序（0.jpg,1.jpg,...,43.jpg），避免字典序造成帧错乱。"""
+    m = re.search(r"(\d+)", name)
+    return int(m.group(1)) if m else 0
+
+
 def _unique_path(base: Path, stem: str, ext: str) -> Path:
     return base / f"{stem}{ext}"
 
@@ -420,7 +426,7 @@ def download_ugoira_gif(client, pid: str, title: str, save_dir: Path,
             return None
 
         with zipfile.ZipFile(tmp_path, "r") as zf:
-            names = sorted(zf.namelist())
+            names = sorted(zf.namelist(), key=_frame_sort_key)
             frames = []
             for name in names:
                 if stop_event and stop_event.is_set():
@@ -479,18 +485,20 @@ def get_illust_pages(client, pid: str) -> tuple[list[str], bool]:
     url = f"https://www.pixiv.net/ajax/illust/{pid}/pages"
     d = client.get_json(url)
     if not d or d.get("error"):
+        # 响应为 None 时可能是网络失败/用户取消/429，只有状态码确实是 404 才视为作品删除
         is_404 = False
-        if d is None:
-            is_404 = True
-        elif isinstance(d.get("error"), dict):
+        if isinstance(d, dict) and isinstance(d.get("error"), dict):
             is_404 = str(d["error"].get("code", "")) == "404"
+        elif d is None and getattr(client, "last_status", 0) == 404:
+            is_404 = True
         get_logger("akm.pixiv_extractor").warning(
             "/ajax/illust/%s/pages 返回空或错误 "
-            "(error=%s, is_404=%s, "
+            "(error=%s, is_404=%s, last_status=%s, "
             "可能原因: R-18限制 / 作品已删除 / Cookie失效)",
             pid,
             d.get('error') if d else 'None',
             is_404,
+            getattr(client, "last_status", 0),
         )
         return [], is_404
     pages = d.get("body", [])

@@ -14,7 +14,7 @@ from src.core.work_repository import (
 from src.core.work_search import search
 from src.core.work_stats import get_stats, aggregate
 from src.core.work_index import (
-    reindex_groups, reindex_all, delete_and_reindex,
+    reindex_groups, reindex_all, reindex_by_sources, delete_and_reindex,
     _update_file_prefix,
 )
 from src.core.work_source import (
@@ -95,6 +95,10 @@ class WorkManager:
     @classmethod
     def reindex_groups(cls, rows: list[dict], sort_key=None) -> list[dict]:
         return reindex_groups(rows, sort_key)
+
+    @classmethod
+    def reindex_by_sources(cls, urls: set[str], sort_key=None) -> None:
+        return reindex_by_sources(urls, sort_key)
 
     @classmethod
     def delete_and_reindex(cls, ids: set[str], keep_file: bool = False,

@@ -64,21 +64,29 @@ def check_integrity(progress_callback=None) -> dict:
 
         queue_entry = get_by_url(source_url) if source_url else None
         if source_url and "pixiv" in source_url.lower():
+            # 文件损坏/丢失：先删残留文件再重新入队。
+            # 否则重下时 target 仍存在，_pipeline_move_file 报"目标已存在"，
+            # 连续失败 3 次会被拉黑，作品永远无法修复。
+            if file_path and file_path.exists():
+                try:
+                    file_path.unlink()
+                except Exception:
+                    pass
             if queue_entry:
                 if queue_entry.get("is_valid", 1):
                     mark_not_in_db(source_url)
                     queued_count += 1
                     status = "queued"
-                    msg = f"⚡ 入队: {work_id} → {source_url}"
+                    msg = f"(=^▽^=) 入队: {work_id} → {source_url}"
                 else:
                     deleted_count += 1
                     status = "deleted"
-                    msg = f"🗑 删除: {work_id} (来源已无效)"
+                    msg = f"QAQ 删除: {work_id} (来源已无效)"
             else:
                 append_or_update([{"url": source_url, "is_in_db": 0}])
                 queued_count += 1
                 status = "queued"
-                msg = f"⚡ 入队: {work_id} → {source_url}"
+                msg = f"(=^▽^=) 入队: {work_id} → {source_url}"
             with db:
                 db.execute("DELETE FROM works WHERE id = ?", (work_id,))
         else:
@@ -86,7 +94,7 @@ def check_integrity(progress_callback=None) -> dict:
                 db.execute("DELETE FROM works WHERE id = ?", (work_id,))
             deleted_count += 1
             status = "deleted"
-            msg = f"🗑 删除: {work_id} (文件缺失且无来源)"
+            msg = f"QAQ 删除: {work_id} (文件缺失且无来源)"
 
         if progress_callback:
             progress_callback("progress", work_id=work_id, status=status, msg=msg)

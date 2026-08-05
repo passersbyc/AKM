@@ -22,8 +22,12 @@ def search(query: str = "", author: str = "", series: str = "",
         if use_regex:
             try:
                 r = re_mod.compile(pattern, re_mod.IGNORECASE)
-            except re_mod.error:
-                return None
+            except re_mod.error as e:
+                # 非法正则：不能静默跳过筛选（否则返回全库误导用户），
+                # 返回"全不匹配"使结果为空的 matcher，并告警说明原因
+                from src.core.logging import logger
+                logger.warning("非法正则 %r 已忽略该筛选条件: %s", pattern, e)
+                return lambda v: False
             return lambda v: bool(r.search(v or ""))
         lowered = pattern.lower().split()
         return lambda v: all(k in (v or "").lower() for k in lowered)

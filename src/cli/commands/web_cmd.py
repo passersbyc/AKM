@@ -26,10 +26,10 @@ class StartUICommand(BaseCommand):
     description = "启动 Web UI 界面（自动打开浏览器）"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--host", default="127.0.0.1", help="绑定地址（默认 127.0.0.1）")
-        parser.add_argument("--port", type=int, default=8000, help="端口（默认 8000，被占用时自动递增）")
-        parser.add_argument("--reload", action="store_true", help="热重载（开发模式）")
-        parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
+        parser.add_argument("--host", default="127.0.0.1", help="绑定地址（默认 127.0.0.1）～")
+        parser.add_argument("--port", type=int, default=8000, help="端口（默认 8000，被占用时自动递增）～")
+        parser.add_argument("--reload", action="store_true", help="热重载（开发模式）～")
+        parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         import uvicorn
@@ -37,18 +37,26 @@ class StartUICommand(BaseCommand):
 
         port = _find_free_port(args.host, args.port)
         if port == -1:
-            self.output.error(f"端口 {args.port}~{args.port + 9} 均被占用，请手动指定: --port <port>")
+            self.output.error(f"(T_T) 端口 {args.port}~{args.port + 9} 均被占用，请手动指定: --port <port>")
             return 1
         if port != args.port:
-            self.output.warn(f"端口 {args.port} 被占用，自动切换到 {port}")
+            self.output.warn(f"(・_・;) 端口 {args.port} 被占用，自动切换到 {port} 啦～")
 
         app = create_app()
         url = f"http://{args.host}:{port}"
-        self.output.info(f"AKM WebUI 启动中... {url}")
+        self.output.info(f"(=^▽^=) AKM WebUI 启动中... {url}")
 
         # 延迟 1.5s 打开浏览器，等 uvicorn 起来
         if not args.no_browser:
             threading.Timer(1.5, lambda: webbrowser.open(url)).start()
 
-        uvicorn.run(app, host=args.host, port=port, reload=args.reload)
+        # reload 模式要求 import 字符串 + factory=True（传 app 对象会直接退出）
+        if args.reload:
+            uvicorn.run(
+                "src.web.app:create_app",
+                host=args.host, port=port,
+                reload=True, factory=True,
+            )
+        else:
+            uvicorn.run(app, host=args.host, port=port)
         return 0

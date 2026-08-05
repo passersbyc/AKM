@@ -124,10 +124,15 @@ def upsert(uid: str = "", name: str = "", homepage: str = "",
            latest_work_id: str = "", note: str = "", **_: Any) -> dict | None:
     db = get_db()
     existing = None
-    if name:
-        existing = get_by_name(name)
-    if not existing and uid and uid != "local":
+    # pixiv_uid 是作者唯一身份，优先匹配（pixiv 作者重名很常见）。
+    # 按名字兜底时：仅当命中行【没有 pixiv 身份】（本地导入作者升级为
+    # pixiv 关注）才合并；命中行已有其他 pixiv_uid → 重名作者，必须分开。
+    if uid and uid != "local":
         existing = get_by_pixiv_uid(uid)
+    if not existing and name:
+        found_by_name = get_by_name(name)
+        if found_by_name and (not uid or not found_by_name.get("pixiv_uid")):
+            existing = found_by_name
 
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     is_pixiv = bool(uid and uid != "local")
@@ -258,11 +263,22 @@ def delete_by_id(author_id: str) -> bool:
                     p.unlink()
             except Exception:
                 pass
+    # 删除关联作品的来源 URL（避免队列残留 stale 记录，pull 不再自动拉回）
+    source_rows = db.execute(
+        "SELECT source FROM works WHERE author_id = ? AND source != ''", (author_id,)
+    ).fetchall()
+    source_urls = [r[0] for r in source_rows]
     with db:
         db.execute("DELETE FROM works WHERE author_id = ?", (author_id,))
         db.execute("DELETE FROM series WHERE author_id = ?", (author_id,))
         db.execute("DELETE FROM pixiv_trackings WHERE author_id = ?", (author_id,))
         db.execute("DELETE FROM authors WHERE id = ?", (author_id,))
+        if source_urls:
+            placeholders = ",".join("?" for _ in source_urls)
+            db.execute(
+                f"DELETE FROM download_queue WHERE url IN ({placeholders})",
+                source_urls,
+            )
     return True
 
 

@@ -39,24 +39,21 @@ def _pull_callback(event: str, **kw):
 
 
 def _run_pull_thread():
-    """后台线程：执行下载并更新状态。"""
+    """后台线程：执行下载（含重索引）并更新状态。"""
     global _pull_state
     try:
         from src.core.download import get_pending_urls
-        from src.downloader.runner import run_download_groups
+        from src.operations.pull_op import pull_and_import
 
         pending = get_pending_urls()
         urls = [p["url"] for p in pending]
         if not urls:
-            _pull_callback("error", message="下载队列为空")
+            _pull_callback("error", message="(・ω・) 下载队列空空的呢～先去上面加些 URL 吧")
             return
 
         _pull_callback("pull_start", total_urls=len(urls))
 
-        results = run_download_groups(
-            urls, mode="both",
-            progress_callback=_pull_callback,
-        )
+        results = pull_and_import(urls, mode="both", progress_callback=_pull_callback)
 
         with _pull_lock:
             _pull_state["result"] = results
@@ -98,7 +95,7 @@ def _render_download_page(request: Request, *, message="", message_type="",
 
 
 @router.get("/download")
-async def download_queue(
+def download_queue(
     request: Request,
     show_all: bool = Query(False),
     page: int = Query(1, ge=1),
@@ -111,7 +108,7 @@ async def download_queue(
 
 
 @router.post("/download/add")
-async def download_add(
+def download_add(
     request: Request,
     urls: str = Form(...),
 ):
@@ -121,14 +118,14 @@ async def download_add(
 
     parts = []
     if result["queued"]:
-        parts.append(f"新增 {result['queued']} 条")
+        parts.append(f"(^_^) 新增 {result['queued']} 条")
     if result.get("skipped_downloaded"):
         parts.append(f"已下载 {result['skipped_downloaded']} 条")
     if result.get("skipped_exists"):
         parts.append(f"已在队列 {result['skipped_exists']} 条")
     if result["invalid"]:
         parts.append(f"无效 {len(result['invalid'])} 条")
-    message = "，".join(parts) if parts else "未识别到有效 URL"
+    message = "，".join(parts) if parts else "(・_・;)? 没找到有效的 URL 呢～"
     message_type = "success" if result["queued"] else "warning"
 
     return RedirectResponse(
@@ -138,7 +135,7 @@ async def download_add(
 
 
 @router.post("/download/follow")
-async def download_follow(
+def download_follow(
     request: Request,
     url: str = Form(...),
 ):
@@ -146,24 +143,26 @@ async def download_follow(
     url = url.strip()
     if not url:
         return RedirectResponse(
-            f"/download?message={quote('请输入作者 URL')}&message_type=warning",
+            f"/download?message={quote('(・_・;)? 请输入作者 URL 呀～')}&message_type=warning",
             status_code=303,
         )
 
     result = queue_author_works(url)
     if not result:
         return RedirectResponse(
-            f"/download?message={quote(f'无法识别或访问: {url}')}&message_type=warning",
+            f"/download?message={quote(f'(T_T) 无法识别或访问呀～ URL: {url}')}&message_type=warning",
             status_code=303,
         )
 
-    parts = [f"已关注 {result['name']}"]
+    parts = [f"(^_^) 已关注 {result['name']} 啦"]
     if result.get("already_followed"):
-        parts.append("（之前已关注）")
+        parts.append("（之前已关注哦～）")
     if result.get("queued"):
-        parts.append(f"，入队 {result['queued']} 个作品")
+        parts.append(f"，新增入队 {result['queued']} 个作品呢～")
+    if result.get("already_queued"):
+        parts.append(f"，{result['already_queued']} 个已在队列中")
     elif result.get("total") == 0:
-        parts.append("，无新作品")
+        parts.append("，没有新作品呢～")
 
     return RedirectResponse(
         f"/download?message={quote(''.join(parts))}&message_type=success",
@@ -172,7 +171,7 @@ async def download_follow(
 
 
 @router.post("/download/pull")
-async def download_pull(request: Request):
+def download_pull(request: Request):
     """触发下载（后台线程），返回 SSE 流地址。"""
     with _pull_lock:
         if _pull_state["running"]:
@@ -204,11 +203,14 @@ async def download_pull_stream(request: Request):
 
             # 下载结束且没有更多事件 → 关闭流
             if not running and not new_events:
-                # 再等一拍确认没有新事件
-                await asyncio.sleep(0.5)
+                # 刚连接时（从未收到事件）给 2s 宽容期：
+                # 前端可能在 POST 返回前就建立连接，任务线程尚未置 running=True
+                await asyncio.sleep(2.0 if last_seq == 0 else 0.5)
                 with _pull_lock:
                     more = any(s > last_seq for s, _ in _pull_state["events"])
-                if not more:
+                    running_now = _pull_state["running"]
+                # 同时检查 running：等待期间任务才启动时不能关流
+                if not running_now and not more:
                     yield f"data: {json.dumps({'event': 'stream_end'}, ensure_ascii=False)}\n\n"
                     break
 

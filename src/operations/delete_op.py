@@ -67,6 +67,11 @@ def _parse_range(range_str: str) -> list[str]:
                 s2, w2 = end[4:6], int(end[6:], 36)
                 import string
                 b36 = string.digits + string.ascii_lowercase
+
+                def _enc_series(s: int) -> str:
+                    # 2 位 base36（00~zz），s 可达 1295，不能直接用 b36[s]
+                    return b36[s // 36] + b36[s % 36]
+
                 result = []
                 for s in range(int(s1, 36), int(s2, 36) + 1):
                     ws = w1 if s == int(s1, 36) else 0
@@ -77,7 +82,7 @@ def _parse_range(range_str: str) -> list[str]:
                         for _ in range(4):
                             wid = b36[val % 36] + wid
                             val //= 36
-                        result.append(f"{t}{a}{b36[s].zfill(2)}{wid}")
+                        result.append(f"{t}{a}{_enc_series(s)}{wid}")
                 return result
             except (ValueError, IndexError):
                 pass
@@ -119,9 +124,16 @@ def delete_series(series_targets: list[str], author: str = "",
 
 
 def delete_all_works(keep_file: bool = False, clear_tables: bool = True) -> dict:
-    """清空所有作品，返回 {deleted, ids}。"""
+    """清空所有作品，返回 {deleted, ids}。
+
+    "清空整个库"语义：同步清空下载队列。
+    否则 delete_entries 的单作品联动逻辑会把全部队列记录重置为待下载，
+    pull 会把刚删掉的作品全部重新下载回来（delete all 形同虚设）。
+    """
     from src.core.database import get_db
     db = get_db()
+    with db:
+        db.execute("DELETE FROM download_queue")
     rows = db.execute("SELECT id FROM works").fetchall()
     ids = {r["id"] for r in rows}
     return delete_book(ids, keep_file=keep_file, clear_tables=clear_tables)

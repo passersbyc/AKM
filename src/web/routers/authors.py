@@ -12,7 +12,7 @@ PAGE_SIZE = 30
 
 
 @router.get("/authors")
-async def authors_list(
+def authors_list(
     request: Request,
     q: str = Query("", description="作者名搜索"),
     page: int = Query(1, ge=1),

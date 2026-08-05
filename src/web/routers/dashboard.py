@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/")
-async def dashboard(request: Request):
+def dashboard(request: Request):
     """仪表盘：统计概览 + 最近活动 + 猜你喜欢 + 标签/作者/点赞排行。"""
     stats = get_stats()
     activity = get_recent_activity()

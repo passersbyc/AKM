@@ -13,22 +13,22 @@ class ListCommand(BaseCommand):
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("number", type=int, nargs="?", default=0,
-                            help="限制显示数量（默认 300）")
+                            help="限制显示数量（默认 300）～")
         parser.add_argument("--sort-by", type=str, default="id",
                             choices=["author", "id", "title", "series", "like", "rating", "favorite"],
-                            help="排序方式")
-        parser.add_argument("--author", type=str, default="", help="按作者筛选")
-        parser.add_argument("--type", type=str, default="", help="按分类筛选")
-        parser.add_argument("--favorite", action="store_true", help="仅收藏项")
-        parser.add_argument("--no-limit", action="store_true", help="输出全部")
+                            help="排序方式～")
+        parser.add_argument("--author", type=str, default="", help="按作者筛选～")
+        parser.add_argument("--type", type=str, default="", help="按分类筛选～")
+        parser.add_argument("--favorite", action="store_true", help="仅收藏项～")
+        parser.add_argument("--no-limit", action="store_true", help="输出全部～")
 
     def configure_noun_parser(self, parser: argparse.ArgumentParser, noun: str) -> None:
         if noun == "author":
             parser.add_argument("number", type=int, nargs="?", default=0,
-                                help="限制显示数量")
-            parser.add_argument("--favorite", action="store_true", help="仅收藏作者")
+                                help="限制显示数量～")
+            parser.add_argument("--favorite", action="store_true", help="仅收藏作者～")
         elif noun == "download":
-            parser.add_argument("--all", action="store_true", help="显示全部（含已下载/无效/拉黑）")
+            parser.add_argument("--all", action="store_true", help="显示全部（含已下载/无效/拉黑）～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         if noun == "author":
@@ -53,7 +53,7 @@ class ListCommand(BaseCommand):
             return self.output.result(True, data={"works": items, "total": total})
 
         if not items:
-            logger.info("库里空空如也")
+            logger.info("(・ω・) 书架空空如也～")
             return 0
 
         limit = args.number if args.number > 0 else (0 if args.no_limit else 300)
@@ -86,7 +86,7 @@ class ListCommand(BaseCommand):
                 author,
                 row.get("系列", "-") or "-",
                 row.get("分类", "") or "未知",
-                "♥" if row.get("收藏", "否") == "是" else "",
+                ">w<" if row.get("收藏", "否") == "是" else "",
                 likes if int(likes) > 0 else "",
                 rating if float(rating) > 0 else "",
                 end_section=is_last_of_author,
@@ -107,7 +107,7 @@ class ListCommand(BaseCommand):
             return self.output.result(True, data={"authors": items, "total": len(items)})
 
         if not items:
-            logger.info("还没有作者")
+            logger.info("(・ω・) 还没有作者呢～")
             return 0
 
         from rich.table import Table
@@ -154,7 +154,7 @@ class ListCommand(BaseCommand):
         rows = list_download_queue(show_all=getattr(args, "all", False))
 
         if not rows:
-            self.output.info("下载队列为空")
+            self.output.info("(・ω・) 下载队列空空如也～")
             return 0
 
         if self.output.json_mode:

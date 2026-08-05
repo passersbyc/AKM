@@ -11,20 +11,20 @@ class SearchCommand(BaseCommand):
     description = "搜索作品、作者或标签"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("rest", type=str, nargs="*", help="搜索关键词 [数量]")
-        parser.add_argument("--author", type=str, default="", help="按作者筛选")
-        parser.add_argument("--type", type=str, default="", help="按分类筛选")
-        parser.add_argument("--tag", type=str, default="", help="按标签筛选")
-        parser.add_argument("--favorite", choices=["yes", "no"], help="按收藏状态筛选")
-        parser.add_argument("--regex", action="store_true", help="使用正则表达式匹配")
+        parser.add_argument("rest", type=str, nargs="*", help="搜索关键词 [数量]～")
+        parser.add_argument("--author", type=str, default="", help="按作者筛选～")
+        parser.add_argument("--type", type=str, default="", help="按分类筛选～")
+        parser.add_argument("--tag", type=str, default="", help="按标签筛选～")
+        parser.add_argument("--favorite", choices=["yes", "no"], help="按收藏状态筛选～")
+        parser.add_argument("--regex", action="store_true", help="使用正则表达式匹配～")
 
     def configure_noun_parser(self, parser: argparse.ArgumentParser, noun: str) -> None:
         if noun == "author":
-            parser.add_argument("query", type=str, help="作者名称关键词")
-            parser.add_argument("number", type=int, nargs="?", default=0, help="限制输出数量")
+            parser.add_argument("query", type=str, help="作者名称关键词～")
+            parser.add_argument("number", type=int, nargs="?", default=0, help="限制输出数量～")
         elif noun == "label":
-            parser.add_argument("query", type=str, help="标签关键词")
-            parser.add_argument("number", type=int, nargs="?", default=0, help="限制输出数量")
+            parser.add_argument("query", type=str, help="标签关键词～")
+            parser.add_argument("number", type=int, nargs="?", default=0, help="限制输出数量～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         if noun == "author":
@@ -46,7 +46,7 @@ class SearchCommand(BaseCommand):
 
     def _search_work(self, args: argparse.Namespace, query: str, number: int) -> int:
         if not query:
-            return self.output.result(False, error="请输入搜索关键词")
+            return self.output.result(False, error="告诉我搜索关键词哦～")
         items = search_works(
             query=query or "",
             author=args.author or "",
@@ -62,10 +62,10 @@ class SearchCommand(BaseCommand):
             return self.output.result(True, {"total": total, "items": items})
 
         if not items:
-            self.output.info("[yellow]什么都没有找到[/yellow]")
+            self.output.info("[yellow](・ω・)? 什么都没有找到哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan]找到 {total} 个结果：[/cyan]")
+        self.output.info(f"[cyan](^_^) 找到 {total} 个结果：[/cyan]")
         columns = [
             {"header": "ID", "width": 10},
             {"header": "标题", "style": "green"},
@@ -82,7 +82,7 @@ class SearchCommand(BaseCommand):
                 row.get("标题", ""),
                 row.get("作者", "未知"),
                 row.get("分类", "") or "未知",
-                "♥" if row.get("收藏", "否") == "是" else "",
+                ">w<" if row.get("收藏", "否") == "是" else "",
                 rating if float(rating) > 0 else "",
             ])
         self.output.table("搜索结果", columns, rows)
@@ -99,10 +99,10 @@ class SearchCommand(BaseCommand):
             return self.output.result(True, {"total": total, "items": [dict(r) for r in rows]})
 
         if not rows:
-            self.output.info(f"[yellow]没有找到标签 [{args.query}] 的作品[/yellow]")
+            self.output.info(f"[yellow](・ω・)? 没有找到标签 [{args.query}] 的作品哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan]标签 [{args.query}] 找到 {total} 个作品：[/cyan]")
+        self.output.info(f"[cyan](^_^) 标签 [{args.query}] 找到 {total} 个作品：[/cyan]")
         self.output.table("标签搜索结果", [
             {"header": "ID", "width": 10},
             {"header": "标题", "style": "green"},
@@ -117,7 +117,7 @@ class SearchCommand(BaseCommand):
                 r["author_name"] or "未知",
                 r["file_type"] or "未知",
                 r["tags"] or "",
-                "♥" if r["favorite"] else "",
+                ">w<" if r["favorite"] else "",
             ]
             for r in rows
         ])
@@ -132,17 +132,17 @@ class SearchCommand(BaseCommand):
             return self.output.result(True, {"total": total, "authors": [dict(r) for r in rows]})
 
         if not rows:
-            self.output.info("[yellow]没有找到匹配的作者[/yellow]")
+            self.output.info("[yellow](・ω・)? 没有找到匹配的作者哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan]找到 {total} 位作者：[/cyan]")
+        self.output.info(f"[cyan](^_^) 找到 {total} 位作者：[/cyan]")
         self.output.table("作者搜索结果", [
             {"header": "ID", "style": "magenta", "width": 6},
             {"header": "名称", "style": "bold"},
             {"header": "收藏", "style": "red", "width": 4},
             {"header": "作品数", "justify": "right", "style": "green"},
         ], [
-            [r["id"], r["name"], "♥" if r["favorite"] else "", str(r["work_count"])]
+            [r["id"], r["name"], ">w<" if r["favorite"] else "", str(r["work_count"])]
             for r in rows
         ])
         return 0

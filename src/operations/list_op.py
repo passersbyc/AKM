@@ -8,7 +8,7 @@ def list_items(target_type: str, sort_by: str = "id", number: int = 0) -> dict:
     if target_type in ("book", "b"):
         items = WorkManager.read()
         if sort_by == "author":
-            items.sort(key=lambda r: (r.get("ID", "")[1:3], r.get("ID", "")))
+            items.sort(key=lambda r: (r.get("ID", "")[1:4], r.get("ID", "")))
         elif sort_by == "id":
             items.sort(key=lambda r: (
                 r.get("ID", "")[1:4],
@@ -113,10 +113,10 @@ def list_authors_with_status() -> list[dict]:
 
 
 def list_download_queue(show_all: bool = False) -> list[dict]:
-    """返回下载队列。show_all=True 含已下载/无效/拉黑，否则仅待下载（排除黑名单）。"""
+    """返回下载队列。show_all=True 含已下载/无效/拉黑，否则仅待下载（排除无效与黑名单）。"""
     from src.core.database import get_db
     db = get_db()
-    where = "" if show_all else "WHERE is_in_db = 0 AND is_blacklisted = 0 "
+    where = "" if show_all else "WHERE is_valid = 1 AND is_in_db = 0 AND is_blacklisted = 0 "
     rows = db.execute(
         "SELECT url, author_name, work_type, is_valid, is_in_db, "
         "is_blacklisted, fail_count, download_time, added_at "

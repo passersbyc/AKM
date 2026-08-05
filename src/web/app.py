@@ -18,6 +18,10 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 def create_app() -> FastAPI:
     """创建并配置 FastAPI 应用。"""
+    from src.core.database import init_db
+    # 全新环境（无 library.db）直接启动 WebUI 时初始化表结构
+    init_db()
+
     app = FastAPI(title="AKM WebUI", version="0.1.0")
 
     # 静态文件

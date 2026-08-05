@@ -132,6 +132,20 @@ def queue_author_works(url: str) -> dict | None:
 
     # source_set 去重 + 构建 entries（work_type 推断下沉到此）
     in_library = WorkManager.source_set()
+
+    # 批量查队列中已有的 URL，区分"新增"与"已在队列（未下载）"
+    from src.core.database import get_db
+    db = get_db()
+    already_queued = 0
+    new_queued = 0
+    existing_urls: set[str] = set()
+    if works:
+        placeholders = ",".join("?" * len(works))
+        existing_urls = {r[0] for r in db.execute(
+            f"SELECT url FROM download_queue WHERE url IN ({placeholders})",
+            works,
+        ).fetchall()}
+
     entries = []
     skipped = 0
     for w in works:
@@ -139,15 +153,20 @@ def queue_author_works(url: str) -> dict | None:
         in_db = 1 if w in in_library else 0
         if in_db:
             skipped += 1
+        elif w in existing_urls:
+            already_queued += 1
+        else:
+            new_queued += 1
         entries.append({"url": w, "author_name": name,
                         "work_type": w_type, "is_in_db": in_db})
 
-    added = append_to_download_json(entries)
+    append_to_download_json(entries)
 
     return {
         "uid": uid, "name": name, "local_id": row.get("id", ""),
         "already_followed": bool(already), "row": row,
-        "total": len(works), "skipped": skipped, "queued": added,
+        "total": len(works), "skipped": skipped, "queued": new_queued,
+        "already_queued": already_queued,
     }
 
 

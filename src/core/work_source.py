@@ -19,8 +19,11 @@ def is_source_imported(url: str) -> bool:
 
 
 def mark_deleted(source_urls: set[str]) -> int:
+    if not source_urls:
+        return 0
+    from src.core.work_repository import _lock
     db = get_db()
-    with db:
+    with _lock, db:
         placeholders = ",".join("?" for _ in source_urls)
         cur = db.execute(
             f"UPDATE works SET source_status = 'deleted' WHERE source IN ({placeholders})",

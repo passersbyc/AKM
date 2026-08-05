@@ -5,7 +5,7 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">作品</h1>
-        <p class="page-subtitle">共 {{ total }} 件作品</p>
+        <p class="page-subtitle">共 {{ total }} 件作品呢～</p>
     </div>
 </div>
 
@@ -20,17 +20,18 @@
         <input type="text" name="tags" value="{{ tags }}" placeholder="标签" class="search-filter">
         <select name="file_type" class="search-filter search-select">
             <option value="">全部类型</option>
-            <option value="novel" {% if file_type == 'novel' %}selected{% endif %}>小说</option>
-            <option value="illust" {% if file_type == 'illust' %}selected{% endif %}>插画</option>
-            <option value="manga" {% if file_type == 'manga' %}selected{% endif %}>漫画</option>
-            <option value="ugoira" {% if file_type == 'ugoira' %}selected{% endif %}>动图</option>
+            <option value="小说" {% if file_type == '小说' %}selected{% endif %}>小说</option>
+            <option value="漫画" {% if file_type == '漫画' %}selected{% endif %}>漫画</option>
+            <option value="音乐" {% if file_type == '音乐' %}selected{% endif %}>音乐</option>
+            <option value="电影" {% if file_type == '电影' %}selected{% endif %}>电影</option>
+            <option value="图片" {% if file_type == '图片' %}selected{% endif %}>图片</option>
         </select>
         <select name="favorited" class="search-filter search-select">
             <option value="">全部</option>
             <option value="yes" {% if favorited == 'yes' %}selected{% endif %}>已收藏</option>
             <option value="no" {% if favorited == 'no' %}selected{% endif %}>未收藏</option>
         </select>
-        <button type="submit" class="search-btn">搜索</button>
+        <button type="submit" class="search-btn">搜索～</button>
     </form>
 </div>
 
@@ -89,8 +90,8 @@
 {% else %}
 <div class="empty-state animate-in">
     <div class="empty-icon-lg">📚</div>
-    <p>暂无作品</p>
-    <p class="empty-sub">通过 <code>akm import</code> 导入或 <code>akm pull</code> 下载作品</p>
+    <p>(・ω・) 书架空空如也～</p>
+    <p class="empty-sub">通过 <code>akm import</code> 导入或 <code>akm pull</code> 下载作品吧～</p>
 </div>
 {% endif %}
 

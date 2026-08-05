@@ -18,14 +18,10 @@ class FollowCommand(BaseCommand):
         super().__init__()
         self._stop_event = threading.Event()
         self._download_lock = threading.Lock()
-        try:
-            signal.signal(signal.SIGINT, self._handle_sigint)
-        except (ValueError, OSError):
-            pass
 
     def _handle_sigint(self, signum, frame):
         if not self._stop_event.is_set():
-            self.output.info("\n[yellow]🛑 收到停止信号[/yellow]")
+            self.output.info("\n[yellow](T_T) 收到停止信号[/yellow]")
         self._stop_event.set()
 
     def _cookie(self) -> str:
@@ -33,11 +29,11 @@ class FollowCommand(BaseCommand):
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("url", type=str, nargs="?", default=None,
-                            help="Pixiv 作者主页 URL（提供时为关注；省略时为同步）")
+                            help="告诉我 Pixiv 作者主页 URL（提供时为关注；省略时为同步）")
         parser.add_argument("--pixiv", action="store_true",
-                            help="导入当前 Pixiv 账号的全部关注作者")
-        parser.add_argument("--dry-run", action="store_true", help="仅对比不修改")
-        parser.add_argument("--favorite", action="store_true", help="仅同步收藏作者")
+                            help="导入当前 Pixiv 账号的全部关注作者～")
+        parser.add_argument("--dry-run", action="store_true", help="仅对比不修改（只看不动手）～")
+        parser.add_argument("--favorite", action="store_true", help="仅同步收藏作者～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         # --pixiv: 批量导入关注列表
@@ -56,35 +52,46 @@ class FollowCommand(BaseCommand):
     def _follow_url(self, url: str) -> int:
         result = source_op.queue_author_works(url)
         if not result:
-            self.output.info("无法获取作者信息，请检查 URL 或 Cookie")
+            self.output.info("(T_T) 无法获取作者信息，再检查一下 URL 或 Cookie 吧？")
             return 1
 
         name = result["name"]
         uid = result["uid"]
-        self.output.info(f"作者: {name}" + (f" (UID: {uid})" if uid else ""))
-
-        lid = result["local_id"]
-        self.output.info(f"已关注: {name} (本地ID: {lid})")
-
         total = result["total"]
+        skipped = result["skipped"]
+        queued = result["queued"]
+        already_queued = result.get("already_queued", 0)
+
         if total == 0:
-            self.output.info("未获取到任何作品，作者可能已清空或账号异常")
+            self.output.info(f"(・ω・) 已关注: {name}" + (f" ({uid})" if uid else "") + "，但没看到任何作品，作者可能已清空或账号异常")
             return 1
 
-        self.output.info(
-            f"作品总数: {total} | 已入库跳过: {result['skipped']} | 新加入队列: {result['queued']}"
-        )
+        if queued == total:
+            queue_desc = f"[green]{total}[/green] 个作品已全部加入下载队列"
+        else:
+            parts = []
+            if queued:
+                parts.append(f"[green]{queued}[/green] 个新加入下载队列")
+            if already_queued:
+                parts.append(f"[dim]{already_queued}[/dim] 个已在队列中")
+            if skipped:
+                parts.append(f"跳过 [dim]{skipped}[/dim] 个已入库")
+            queue_desc = "，".join(parts) if parts else "(・ω・)? 没有新作品"
+
+        self.output.info(f"[green](^_^)[/green] 已关注: [bold]{name}[/bold]" + (f" (UID: {uid})" if uid else ""))
+        self.output.info(f"    {queue_desc}")
         return self.output.result(True, data={
             "author": name, "uid": uid, "total": total,
             "skipped": result["skipped"], "queued": result["queued"],
+            "already_queued": already_queued,
         })
 
     def _follow_pixiv(self) -> int:
         cookie = self._cookie()
         if not cookie:
-            self.output.info("未配置 Cookie，请先配置 Pixiv Cookie")
+            self.output.info("(・_・;) 还没配置 Cookie 哦，请先配置 Pixiv Cookie～")
             return 1
-        self.output.info("[bold]正在获取 Pixiv 关注列表...[/bold]")
+        self.output.info("[bold](=^▽^=) 正在获取 Pixiv 关注列表...[/bold]")
         result = source_op.follow_from_pixiv(cookie)
         if result["error"]:
             self.output.info(result["error"])
@@ -93,9 +100,9 @@ class FollowCommand(BaseCommand):
             self.output.info(f"  + {u['name']} ({u['uid']})")
         self.output.info("")
         if result["new"]:
-            self.output.info(f"[green]新增 {result['new']} 位作者[/green]")
+            self.output.info(f"[green]ヽ(≧▽≦)ノ 新增 {result['new']} 位作者[/green]")
         if result["skipped"]:
-            self.output.info(f"[dim]跳过 {result['skipped']} 位（已关注）[/dim]")
+            self.output.info(f"[dim]跳过 {result['skipped']} 位（早就关注过啦）[/dim]")
         return 0
 
     # ── 同步 ──────────────────────────────────────────────
@@ -103,7 +110,7 @@ class FollowCommand(BaseCommand):
     def _sync(self, args: argparse.Namespace) -> int:
         candidates = source_op.resolve_sync_candidates(None, getattr(args, "favorite", False))
         if not candidates:
-            self.output.info("没有来源可同步")
+            self.output.info("(・ω・) 没有来源可同步呢～")
             return 0
 
         source_op.backfill_homepages(candidates)
@@ -118,21 +125,21 @@ class FollowCommand(BaseCommand):
             if source_op.should_recheck_dead(r.get("last_checked", ""), now_ts)
         ]
 
-        self.output.info("[bold]请稍等，正在检查更新...[/bold]")
+        self.output.info("[bold](=^▽^=) 请稍等，正在检查更新...[/bold]")
         parts = []
         if active:
             parts.append(f"{len(active)} 名活跃")
         if recheck_dead:
             parts.append(f"{len(recheck_dead)} 名重试")
-        self.output.info(f"共 {' + '.join(parts)} 作者需更新" if parts else "无作者需更新")
+        self.output.info(f"共 {' + '.join(parts)} 作者需更新" if parts else "(・ω・) 无作者需更新～")
         # 用第一个活跃作者的 homepage resolve 正确的下载器（避免取到 biquge）
         first_url = next((r.get("homepage", "") for r in (active + recheck_dead) if r.get("homepage")), None)
         downloader = source_op.get_sync_downloader(first_url)
         if not downloader:
-            self.output.info("未找到已注册的下载器")
+            self.output.info("(・_・;)? 找不到已注册的下载器哦～")
             return 1
         max_workers = source_op.get_sync_max_workers(downloader)
-        self.output.info(f"运行模式: 并行，{max_workers} 线程。[dim](Ctrl+C 退出)[/dim]")
+        self.output.info(f"运行模式: 并行，{max_workers} 线程。[dim](Ctrl+C 可退出哦)[/dim]")
         self.output.info("")
 
         sync_targets = active + recheck_dead
@@ -159,38 +166,47 @@ class FollowCommand(BaseCommand):
         work_index, source_to_id = source_op.build_work_index(sync_targets)
 
         results: dict[str, dict] = {}
-        from tqdm import tqdm
+        from src.core.progress import make_progress, advance
         total = len(sync_targets)
+        counts = {"success": 0, "failed": 0, "skipped": 0}
+        progress, main_task, counts_task = make_progress(counts, "同步检查", total=total)
+        progress.start()
 
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futures = {}
-            for row in sync_targets:
-                uid_key = row.get("pixiv_uid", "")
-                futures[pool.submit(
-                    source_op.sync_one_author, row, downloader, getattr(args, "dry_run", False),
-                    work_index, source_to_id, self._stop_event, self._download_lock,
-                )] = uid_key
+        # SIGINT 只在同步期间局部生效，避免劫持整个 CLI 的 Ctrl+C
+        old_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, self._handle_sigint)
+        try:
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futures = {}
+                for row in sync_targets:
+                    uid_key = row.get("pixiv_uid", "")
+                    futures[pool.submit(
+                        source_op.sync_one_author, row, downloader, getattr(args, "dry_run", False),
+                        work_index, source_to_id, self._stop_event, self._download_lock,
+                    )] = uid_key
 
-            pbar = tqdm(total=total, desc="同步检查", unit="人", ncols=80)
-            try:
-                for future in as_completed(futures):
-                    if self._stop_event.is_set():
-                        pool.shutdown(wait=False, cancel_futures=True)
-                        break
-                    uid_key = futures[future]
-                    try:
-                        results[uid_key] = future.result()
-                    except Exception as e:
-                        logger.error("同步 %s 异常: %s", uid_key, e)
-                    pbar.update(1)
-            except KeyboardInterrupt:
-                self._stop_event.set()
-                pool.shutdown(wait=False, cancel_futures=True)
-            finally:
-                pbar.close()
+                try:
+                    for future in as_completed(futures):
+                        if self._stop_event.is_set():
+                            pool.shutdown(wait=False, cancel_futures=True)
+                            break
+                        uid_key = futures[future]
+                        try:
+                            results[uid_key] = future.result()
+                            counts["success"] += 1
+                        except Exception as e:
+                            logger.error("同步 %s 异常: %s", uid_key, e)
+                            counts["failed"] += 1
+                        advance(progress, main_task, counts_task)
+                except KeyboardInterrupt:
+                    self._stop_event.set()
+                    pool.shutdown(wait=False, cancel_futures=True)
+        finally:
+            progress.stop()
+            signal.signal(signal.SIGINT, old_handler)
 
         if self._stop_event.is_set():
-            self.output.info("[dim]同步已中断[/dim]")
+            self.output.info("[dim](T_T) 同步已中断[/dim]")
 
         changed_count = 0
         unchanged: list[str] = []
@@ -210,7 +226,7 @@ class FollowCommand(BaseCommand):
                 if r.get("deleted"):
                     parts.append(f"[red]-{r['deleted']}[/red]")
                 n = _rpad(name, name_width)
-                fav_icon = " [red]♥[/red]" if is_fav else ""
+                fav_icon = " [red]>w<[/red]" if is_fav else ""
                 line = f"  {n}{fav_icon} ({uid})  {', '.join(parts)}"
                 added = r.get("downloaded", 0)
                 if added:
@@ -233,21 +249,21 @@ class FollowCommand(BaseCommand):
                 unchanged.append(name)
 
         if unchanged:
-            self.output.info(f"\n[dim]无更新 ({len(unchanged)}): {', '.join(unchanged)}[/dim]")
+            self.output.info(f"\n[dim](・ω・) 无更新 ({len(unchanged)}): {', '.join(unchanged)}[/dim]")
 
         if paused:
             self.output.info("")
             for p in paused:
                 name = p.get("name", "")
                 uid = (p.get("pixiv_uid") or "").strip()
-                self.output.info(f"[yellow]停止追更: {name}" + (f" ({uid})" if uid else "") + "[/yellow]")
+                self.output.info(f"[yellow](・ω・) 停止追更: {name}" + (f" ({uid})" if uid else "") + "[/yellow]")
 
         if dead:
             self.output.info("")
             for d in dead:
                 name = d.get("name", "")
                 uid = (d.get("pixiv_uid") or "").strip()
-                self.output.info(f"[dim]已停更: {name}" + (f" ({uid})" if uid else "") + "[/dim]")
+                self.output.info(f"[dim](T_T) 已停更: {name}" + (f" ({uid})" if uid else "") + "[/dim]")
 
         if changed_count > 0 or source_op.has_new_favorites():
             source_op.save_updated_ids(sync_targets, results)

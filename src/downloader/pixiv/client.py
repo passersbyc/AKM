@@ -36,6 +36,9 @@ class PixivClient:
         self._429_count = 0
         self._cookie_index = 0
         self._cookie_lock = threading.Lock()
+        # 最近一次 API 请求的 HTTP 状态码（0=未知/网络失败），
+        # 用于区分 404（作品确实删除）与网络抖动/取消（响应为 None）
+        self.last_status: int = 0
 
         retry_strategy = Retry(
             total=0,
@@ -62,7 +65,7 @@ class PixivClient:
 
     def authenticate(self) -> bool:
         if not self._refresh_token:
-            logger.info("未配置 refresh_token，只能获取公开作品。关注/收藏等鉴权功能不可用。")
+            logger.info("(・ω・) 未配置 refresh_token，只能获取公开作品。关注/收藏等鉴权功能不可用。")
             return False
 
         with self._token_lock:
@@ -96,20 +99,20 @@ class PixivClient:
                         self._stop_event.wait(30)
                         continue
                     if not r.ok:
-                        logger.error("OAuth 登录失败: HTTP %d - %s", r.status_code, r.text[:200])
+                        logger.error("(T_T) OAuth 登录失败: HTTP %d - %s", r.status_code, r.text[:200])
                         return False
                     result = r.json()
                     self._access_token = result.get("access_token")
                     if not self._access_token:
-                        logger.error("OAuth 响应中无 access_token")
+                        logger.error("(T_T) OAuth 响应中无 access_token")
                         return False
                     new_refresh = result.get("refresh_token")
                     if new_refresh and new_refresh != self._refresh_token:
                         self._refresh_token = new_refresh
-                    logger.debug("Pixiv OAuth 登录成功")
+                    logger.debug("(^_^) Pixiv OAuth 登录成功")
                     return True
                 except Exception as e:
-                    logger.error("OAuth 登录异常 (尝试 %d/3): %s", attempt + 1, e)
+                    logger.error("(T_T) OAuth 登录异常 (尝试 %d/3): %s", attempt + 1, e)
                     if attempt < 2:
                         self._stop_event.wait(2 * (attempt + 1))
             return False
@@ -128,6 +131,7 @@ class PixivClient:
                 headers = self._build_request_headers()
                 r = self._session.get(url, params=params, headers=headers, timeout=effective_timeout)
                 last_status = r.status_code
+                self.last_status = r.status_code
 
                 if self._handle_429(r):
                     continue
@@ -137,7 +141,7 @@ class PixivClient:
                         continue
                     raise Exception(f"HTTP {r.status_code} at {url}")
                 if r.status_code == 404:
-                    logger.warning("404 Not Found: %s", url)
+                    logger.warning("(・_・;) 404 Not Found: %s", url)
                     return None
 
                 r.raise_for_status()
@@ -148,7 +152,7 @@ class PixivClient:
                 if attempt < max_retries - 1:
                     self._stop_event.wait(2 * (attempt + 1))
                     continue
-                logger.warning("API 请求最终失败 (%d/%d): %s 状态码=%d 异常=%s",
+                logger.warning("(T_T) API 请求最终失败 (%d/%d): %s 状态码=%d 异常=%s",
                                 attempt + 1, max_retries, url, last_status, e)
                 return None
 
@@ -247,9 +251,9 @@ class PixivClient:
                     if future.result():
                         success += 1
                     else:
-                        logger.warning("下载失败: %s", url)
+                        logger.warning("(T_T) 下载失败: %s", url)
                 except Exception as e:
-                    logger.warning("下载异常: %s %s", url, e)
+                    logger.warning("(>_<) 下载异常: %s %s", url, e)
             return success
 
     def get_text(self, url: str, timeout: int = 15) -> Optional[str]:
@@ -262,7 +266,7 @@ class PixivClient:
             r.raise_for_status()
             return r.text
         except Exception as e:
-            logger.debug("get_text 失败: %s - %s", url, e)
+            logger.debug("(T_T) get_text 失败: %s - %s", url, e)
             return None
 
     def stop(self):
@@ -338,9 +342,9 @@ class PixivClient:
             if self._switch_cookie():
                 self._429_count += 1
                 if self._429_count == 1:
-                    logger.warning("HTTP 429 限流，已切换 Cookie，不等待")
+                    logger.warning("(・_・;) HTTP 429 限流，已切换 Cookie，不等待")
                 else:
-                    logger.debug("HTTP 429，再次切换 Cookie")
+                    logger.debug("(・_・;) HTTP 429，再次切换 Cookie")
                 return True
             retry_after = response.headers.get("Retry-After")
             wait = float(retry_after) if retry_after else float(self._config.retry_429_delay)
@@ -349,7 +353,7 @@ class PixivClient:
                 self._429_pause.wait()
                 return True
             self._429_pause.set()
-            logger.warning("HTTP 429 限流，Cookie 池已耗尽，全局暂停 %.0fs", wait)
+            logger.warning("(>_<) HTTP 429 限流，Cookie 池已耗尽，全局暂停 %.0fs", wait)
             self._stop_event.wait(wait)
             self._429_pause.clear()
             self._429_count = 0

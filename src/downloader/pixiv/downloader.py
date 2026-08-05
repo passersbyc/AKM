@@ -1,7 +1,6 @@
 import json
 import re
 import time
-import signal
 import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
@@ -15,7 +14,6 @@ from .extractors import (
     PixivBaseExtractor, PixivWorkExtractor,
     PixivUserExtractor, PixivSeriesExtractor,
     PixivNovelSeriesExtractor, PixivSearchExtractor, PixivRankingExtractor,
-    extract_pixiv_id,
 )
 from src.core.config import get_project_root
 from src.core.logging import logger
@@ -47,21 +45,11 @@ class PixivDownloader(BaseDownloader):
         self.config = PixivConfig.from_file()
         self.client = PixivClient(self.config)
         self._load_existing_sources()
-        self._install_signal_handler()
         self._pull_base_mapping: dict = {}
 
     @property
     def max_workers(self) -> int:
         return self.config.max_workers
-
-    def _install_signal_handler(self):
-        def handler(signum, frame):
-            self.stop_event.set()
-            self.client.stop()
-        try:
-            signal.signal(signal.SIGINT, handler)
-        except (ValueError, OSError):
-            pass
 
     def set_pull_base_mapping(self, mapping: dict):
         self._pull_base_mapping = mapping
@@ -85,12 +73,12 @@ class PixivDownloader(BaseDownloader):
                 if msg.type == "metadata":
                     return msg.data
                 if msg.type == "error":
-                    self._set_last_error(msg.error or "获取信息失败")
+                    self._set_last_error(msg.error or "获取信息失败 (T_T)")
                     return None
         except AuthError:
             raise
         except Exception as e:
-            self._set_last_error(f"解析失败: {e}")
+            self._set_last_error(f"(T_T) 解析失败: {e}")
             return None
         return None
 
@@ -111,7 +99,7 @@ class PixivDownloader(BaseDownloader):
             elif msg.type == "file":
                 return msg.path, metadata or msg.data
             elif msg.type == "error":
-                self._set_last_error(msg.error or "下载失败")
+                self._set_last_error(msg.error or "下载失败 (T_T)")
                 return None, None
 
         return None, None
@@ -151,7 +139,7 @@ class PixivDownloader(BaseDownloader):
         # ①② 获取网页内容并处理为暂存文件
         info = self._pipeline_fetch(ctx)
         if not ctx.temp_file:
-            return PipelineResult.failed(ctx.work_url, ctx.error or "下载处理失败")
+            return PipelineResult.failed(ctx.work_url, ctx.error or "下载处理翻车了……")
         ctx.metadata = self._build_metadata(info, ctx.work_url)
 
         # ③ 生成作品信息
@@ -167,9 +155,9 @@ class PixivDownloader(BaseDownloader):
             from src.core.work_repository import delete_entries
             try:
                 delete_entries({ctx.entry["ID"]})
-                logger.warning("移动文件失败，已回滚 works 记录: %s", ctx.entry["ID"])
+                logger.warning("(T_T) 移动文件失败，已回滚 works 记录: %s", ctx.entry["ID"])
             except Exception:
-                logger.error("移动文件失败且回滚 works 记录失败: %s", ctx.entry["ID"])
+                logger.error("(T_T) 移动文件失败且回滚 works 记录失败: %s", ctx.entry["ID"])
             raise
 
         # ⑥ 清理暂存
@@ -188,7 +176,7 @@ class PixivDownloader(BaseDownloader):
         if not old_path.is_absolute():
             return PipelineResult.failed(ctx.work_url, "旧库文件路径非绝对路径")
         if not old_path.exists():
-            logger.warning("旧库文件不存在，回退正常下载: %s", old_path)
+            logger.warning("(・_・;) 旧库文件不存在，回退正常下载: %s", old_path)
             return self._run_normal_pipeline(ctx)
 
         info = self.get_info(ctx.work_url)
@@ -201,7 +189,7 @@ class PixivDownloader(BaseDownloader):
         tmp_dir = Path(tempfile.mkdtemp())
         ctx.temp_file = tmp_dir / old_path.name
         shutil.copy2(old_path, ctx.temp_file)
-        logger.info("复用旧库文件: %s → %s", old_path.name, ctx.work_url)
+        logger.info("(^_^) 复用旧库文件: %s → %s", old_path.name, ctx.work_url)
 
         self._pipeline_build_entry(ctx)
         self._pipeline_write_db(ctx)
@@ -238,6 +226,7 @@ class PixivDownloader(BaseDownloader):
 
         entry = {
             "ID": book_id, "标题": title, "作者": author or "佚名",
+            "_user_id": info.get("user_id", ""),
             "系列": series or "", "标签": ",".join(str(t) for t in tags if t) if isinstance(tags, list) else str(tags or ""),
             "来源": ctx.work_url, "源状态": "metadata_only", "后缀": suffix,
             "分类": file_type, "导入时间": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -303,6 +292,7 @@ class PixivDownloader(BaseDownloader):
             "ID": book_id,
             "标题": title or fp.stem,
             "作者": author or "佚名",
+            "_user_id": user_id,
             "系列": series,
             "标签": tags_str,
             "来源": ctx.work_url,
@@ -347,7 +337,19 @@ class PixivDownloader(BaseDownloader):
         target.parent.mkdir(parents=True, exist_ok=True)
 
         if target.exists():
-            raise ValueError(f"目标已存在: {target}")
+            # 正常情况下 `_is_source_in_manifest` 会先拦截已入库的 URL；
+            # 走到这里说明 works 无同 source 记录，目标文件是孤儿残留
+            # （如 verify 判定损坏但删除失败的文件），直接删除后重下，
+            # 避免连续失败触发队列拉黑导致作品永远无法修复。
+            from src.core.work_repository import get_by_source
+            if not get_by_source(ctx.work_url):
+                logger.warning("(・_・;) 目标已存在但 works 无记录，删除孤儿文件后重试: %s", target)
+                try:
+                    target.unlink()
+                except OSError:
+                    raise ValueError(f"(T_T) 目标已存在且无法删除: {target}")
+            else:
+                raise ValueError(f"(・ω・) 这个位置已经有文件啦～: {target}")
 
         shutil.copy2(ctx.temp_file, target)
         file_size_kb = round(target.stat().st_size / 1024, 2)
@@ -378,7 +380,7 @@ class PixivDownloader(BaseDownloader):
         self._download_mode = mode
 
         if not self.check_network("https://www.pixiv.net"):
-            logger.error("无法访问 Pixiv，下载已停止")
+            logger.error("(T_T) 连不上 Pixiv 啦，下载已停止")
             return stats
 
         works = []
@@ -388,19 +390,19 @@ class PixivDownloader(BaseDownloader):
             u = url.strip()
             if not u:
                 return stats
-            logger.info("解析链接: %s", u)
+            logger.info("(=^▽^=) 解析链接: %s", u)
             supported = ("/users/", "/series/", "/novel/series/", "/artworks/", "/novel/show.php")
             if any(prefix in u for prefix in supported):
                 works = self.expand_urls([u])
             else:
-                logger.warning("不支持的链接: %s", u)
+                logger.warning("(・_・;) 不支持的链接: %s", u)
                 return stats
 
         works = list(dict.fromkeys(works))
         if not works:
             return stats
 
-        logger.info("共 %d 个作品待下载，线程数: %d", len(works), self.max_workers)
+        logger.info("(^_^) 共 %d 个作品待下载，线程数: %d", len(works), self.max_workers)
 
         lock = threading.Lock()
 
@@ -408,42 +410,27 @@ class PixivDownloader(BaseDownloader):
             with lock:
                 if result.status == "success":
                     stats["success"] += 1
-                    from src.core.download import mark_downloaded
-                    mark_downloaded(work_url)
                 elif result.status == "skipped":
                     stats["skipped"] += 1
-                    from src.core.download import mark_downloaded
-                    mark_downloaded(work_url)
                 else:
-                    stats["failed"] += 1
-                    logger.warning("下载失败: %s 原因: %s", work_url, result.reason)
-                    if result.reason == "用户取消":
-                        # 用户主动取消，不计失败次数，避免误拉黑
-                        pass
-                    else:
-                        reason_lower = result.reason.lower()
-                        if any(code in reason_lower for code in ("404", "401", "403")):
-                            from src.core.download import mark_invalid
-                            mark_invalid(work_url)
-                        else:
-                            from src.core.download import mark_failed
-                            mark_failed(work_url)
+                    logger.warning("(T_T) 下载失败: %s 原因: %s", work_url, result.reason)
+                    if result.reason != "用户取消":
+                        stats["failed"] += 1
+                # 队列状态统一由基类契约回写
+                self._apply_queue_result(work_url, result.status, result.reason)
 
         def _worker(work_url: str) -> PipelineResult:
             return self._retry(lambda: self._run_pipeline(work_url), work_url)
 
         try:
             timeline = self._run_batch(works, _worker, _on_result, self.max_workers)
-            logger.info("完成: 成功 %d | 跳过 %d | 失败 %d",
+            logger.info("(^_^) 完成: 成功 %d | 跳过 %d | 失败 %d",
                         stats['success'], stats['skipped'], stats['failed'])
         except KeyboardInterrupt:
-            logger.info("收到停止信号")
+            logger.info("(・_・;) 收到停止信号")
             self.stop_event.set()
             self.client.stop()
             stats["_interrupted"] = True
-        finally:
-            if works:
-                self._reindex_works(works)
 
         return stats
 
@@ -573,34 +560,6 @@ class PixivDownloader(BaseDownloader):
                 "user_id": info.get("user_id", ""),
             })
         return meta
-
-    def _reindex_works(self, urls: List[str]) -> None:
-        from src.core.work_manager import WorkManager
-
-        url_set = set(urls)
-        all_rows = WorkManager.read()
-        if not all_rows:
-            return
-
-        affected_keys = set()
-        for row in all_rows:
-            if row.get("来源", "") in url_set:
-                key = f"{row.get('分类', '')}||{row.get('作者', '')}||{row.get('系列', '') or ''}"
-                affected_keys.add(key)
-        if not affected_keys:
-            return
-
-        affected_rows = [r for r in all_rows
-                         if f"{r.get('分类', '')}||{r.get('作者', '')}||{r.get('系列', '') or ''}" in affected_keys]
-        WorkManager.reindex_groups(affected_rows, sort_key=lambda r: int(extract_pixiv_id(r.get("来源", "")) or 0))
-
-        reindexed = {r["来源"]: r for r in affected_rows}
-        for row in all_rows:
-            source = row.get("来源", "")
-            if source in reindexed:
-                row.update(reindexed[source])
-
-        WorkManager.write(all_rows)
 
     def stop(self):
         super().stop()

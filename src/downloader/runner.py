@@ -63,7 +63,7 @@ def run_download_groups(
         groups[cls.name].append(u)
 
     for u in unsupported:
-        logger.warning(f"不支持的链接: {u}")
+        logger.warning(f"(・_・;) 不支持的链接: {u}")
         results["failed"] += 1
 
     if progress_callback:
@@ -89,7 +89,7 @@ def run_download_groups(
 
         if downloader.supports_expand:
             work_urls = downloader.expand_urls(site_urls)
-            logger.info(f"[{site_name}] {len(site_urls)} 个链接 → "
+            logger.info(f"(=^▽^=) [{site_name}] {len(site_urls)} 个链接 → "
                         f"展开为 {len(work_urls)} 个作品")
         else:
             work_urls = site_urls
@@ -103,7 +103,7 @@ def run_download_groups(
         except AuthError:
             raise
         except Exception as e:
-            logger.error(f"[{site_name}] 处理失败: {e}")
+            logger.error(f"(T_T) [{site_name}] 处理翻车了……: {e}")
             group_stats["failed"] += len(work_urls)
             return group_stats
 
@@ -132,7 +132,7 @@ def run_download_groups(
                 except AuthError:
                     raise
                 except Exception as e:
-                    logger.error(f"[{name}] 站点处理异常: {e}")
+                    logger.error(f"(>_<) [{name}] 站点处理异常: {e}")
                     continue
                 with lock:
                     results["success"] += stats.get("success", 0)

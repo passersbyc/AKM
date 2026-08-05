@@ -25,7 +25,7 @@ class NoExitArgumentParser(argparse.ArgumentParser):
 
 
 class CLIApp:
-    def __init__(self, prog_name: str = "akm", description: str = "作品管理系统 CLI"):
+    def __init__(self, prog_name: str = "akm", description: str = "作品管理系统 CLI (^_^)"):
         self.prog_name = prog_name
         self.description = description
         self.parser = NoExitArgumentParser(prog=prog_name, description=description)
@@ -110,13 +110,13 @@ class CLIApp:
                 command = self._commands[verb]
                 command.set_flags(args.json, args.no_confirm)
                 noun = getattr(args, "noun", None)
-                if command.nouns and not noun:
-                    noun = command.nouns[0]
+                # 未指定 noun 时保持 None（走命令默认路径），
+                # 不能默认成 nouns[0]：`akm --json list` 会被误分发成列作者
                 return command.execute(args, noun=noun)
 
             command = self._commands.get(verb)
             if command is None:
-                logger.error(f"未知命令: {verb}")
+                logger.error(f"(・_・;) 未知命令: {verb}")
                 return 1
 
             # 如果 verb 有 nouns 且第一个非 flag 参数匹配某 noun，用 noun subparser
@@ -137,7 +137,7 @@ class CLIApp:
                 noun = first_pos
                 noun_parser = self._noun_parsers.get((verb, noun))
                 if noun_parser is None:
-                    logger.error(f"noun {noun} 未注册")
+                    logger.error(f"(・_・;) noun {noun} 未注册")
                     return 1
                 noun_args = remaining[:first_pos_idx] + remaining[first_pos_idx + 1:]
                 args = noun_parser.parse_args(noun_args)
@@ -149,7 +149,7 @@ class CLIApp:
                 # 用 verb exec parser（无 subparsers，不会拦截 positional）
                 verb_parser = self._exec_parsers.get(verb)
                 if verb_parser is None:
-                    logger.error(f"verb {verb} 未注册")
+                    logger.error(f"(・_・;) verb {verb} 未注册")
                     return 1
                 args = verb_parser.parse_args(remaining)
                 args.verb = verb
@@ -159,35 +159,35 @@ class CLIApp:
         except ArgumentParserError as e:
             if "Exited with status 0" in str(e):
                 return 0
-            logger.error(f"用法错误: {translate_error(str(e))}")
+            logger.error(f"(>_<) 用法错误: {translate_error(str(e))}")
             return 1
         except Exception as e:
-            logger.error(f"错误: {e}")
+            logger.error(f"(T_T) 错误: {e}")
             return 1
 
     def _print_interactive_help(self) -> None:
         groups = [
-            ("浏览", [
-                ("list [N]", "列出作品"),
-                ("list author [N]", "列出作者"),
-                ("open <id/名称>", "打开作品文件"),
-                ("open url <id/名称/作者>", "打开来源网址"),
-                ("search <关键词> [N]", "搜索作品"),
-                ("search author <关键词> [N]", "搜索作者"),
-                ("search label <标签> [N]", "按标签搜索"),
-                ("stats", "库仪表盘"),
+            ("浏览 (・ω・)", [
+                ("list [N]", "列出作品～"),
+                ("list author [N]", "列出作者～"),
+                ("open <id/名称>", "打开作品文件哦"),
+                ("open url <id/名称/作者>", "打开来源网址呀"),
+                ("search <关键词> [N]", "搜索作品呀"),
+                ("search author <关键词> [N]", "搜索作者呀"),
+                ("search label <标签> [N]", "按标签搜索啦"),
+                ("stats", "库仪表盘 (・ω・)"),
             ]),
-            ("增删改", [
-                ("import <路径>", "导入文件"),
-                ("edit <id/名称>", "交互式编辑作品"),
-                ("delete <id/名称>", "删除作品"),
-                ("delete author <id/名称>", "删除作者"),
-                ("delete all", "清空库"),
+            ("增删改 (・ω・)", [
+                ("import <路径>", "导入文件～"),
+                ("edit <id/名称>", "交互式编辑作品哦"),
+                ("delete <id/名称>", "删除作品呀"),
+                ("delete author <id/名称>", "删除作者呀"),
+                ("delete all", "清空库哦"),
             ]),
-            ("订阅", [
-                ("follow", "同步下载队列"),
-                ("follow <url>", "关注作者"),
-                ("pull", "下载队列作品"),
+            ("订阅 (・ω・)", [
+                ("follow", "同步下载队列～"),
+                ("follow <url>", "关注作者 (^_^)"),
+                ("pull", "下载队列作品 (^_^)"),
             ]),
         ]
         try:
@@ -206,19 +206,19 @@ class CLIApp:
                     content.append(f"  {desc}\n", style="dim")
             console.print(Panel(
                 content,
-                title="[bold]可用命令[/bold]",
-                subtitle="[dim]输入 <命令> --help 查看参数  |  exit 退出[/dim]",
+                title="[bold]可用的命令们 (・ω・)[/bold]",
+                subtitle="[dim]输入 <命令> --help 查看参数  |  exit 退出哦[/dim]",
                 box=box.ROUNDED,
                 border_style="bright_cyan",
                 padding=(1, 2),
             ))
         except ImportError:
-            print(f"\n可用命令:")
+            print(f"\n可用的命令们 (・ω・):")
             for group_name, cmds in groups:
                 print(f"\n  {group_name}")
                 for canonical, desc in cmds:
                     print(f"    {canonical:<28}  {desc}")
-            print("\n输入 <命令> --help 查看参数  |  exit 退出\n")
+            print("\n输入 <命令> --help 查看参数  |  exit 退出哦\n")
 
     def run_interactive(self) -> int:
         from src.cli.ui.banner import show_interactive_banner
@@ -248,7 +248,7 @@ class CLIApp:
                 try:
                     argv = shlex.split(user_input, posix=not is_windows)
                 except ValueError as e:
-                    print(f"解析错误: {translate_error(str(e))}")
+                    print(f"(>_<) 解析错误: {translate_error(str(e))}")
                     continue
                 if is_windows:
                     argv = [arg.strip("\"'") for arg in argv]
@@ -256,15 +256,15 @@ class CLIApp:
                 try:
                     self.run(argv)
                 except ArgumentParserError as e:
-                    print(f"错误: {e}")
+                    print(f"(T_T) 错误: {e}")
                 except SystemExit:
                     pass
             except KeyboardInterrupt:
-                print("\n输入 'exit' 退出程序。")
+                print("\n输入 'exit' 退出程序哦。")
             except EOFError:
-                print("\n正在退出...")
+                print("\n(・ω・) 正在退出...")
                 break
             except Exception as e:
-                print(f"意外错误: {e}")
+                print(f"(>_<) 意外错误: {e}")
 
         return 0

@@ -12,24 +12,24 @@ class ImportCommand(BaseCommand):
     description = "将文件导入到作品库中（自动识别单文件 / cdbook 目录 / 普通文件夹）"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("files", type=str, nargs="+", help="要导入的文件路径")
-        parser.add_argument("-a", "--author", type=str, default="", help="作者名称")
-        parser.add_argument("-s", "--series", type=str, default="", help="系列名称")
-        parser.add_argument("-t", "--tags", type=str, default="", help="标签（逗号分隔）")
-        parser.add_argument("-o", "--source", type=str, default="", help="来源URL")
-        parser.add_argument("-f", "--favorite", action="store_true", help="标记为收藏")
-        parser.add_argument("-r", "--rating", type=float, default=0.0, help="评分 (0-10，支持小数)")
-        parser.add_argument("-d", "--description", type=str, default="", help="简介")
+        parser.add_argument("files", type=str, nargs="+", help="要导入的文件路径～")
+        parser.add_argument("-a", "--author", type=str, default="", help="作者名称～")
+        parser.add_argument("-s", "--series", type=str, default="", help="系列名称～")
+        parser.add_argument("-t", "--tags", type=str, default="", help="标签（逗号分隔）～")
+        parser.add_argument("-o", "--source", type=str, default="", help="来源 URL 哦～")
+        parser.add_argument("-f", "--favorite", action="store_true", help="标记为收藏～")
+        parser.add_argument("-r", "--rating", type=float, default=0.0, help="评分 (0-10，支持小数) 哦～")
+        parser.add_argument("-d", "--description", type=str, default="", help="简介～")
         parser.add_argument("--target-format", type=str, default="epub",
-                            choices=["epub", "txt"], help="doc/docx转换的目标格式（默认epub）")
-        parser.add_argument("--dry-run", action="store_true", help="预览模式，不实际导入")
-        parser.add_argument("--limit", type=int, default=0, help="限制导入文件数量（测试用）")
-        parser.add_argument("-y", "--yes", action="store_true", help="跳过确认提示")
+                            choices=["epub", "txt"], help="doc/docx 转换的目标格式（默认 epub）～")
+        parser.add_argument("--dry-run", action="store_true", help="预览模式，不实际导入（只看不动）～")
+        parser.add_argument("--limit", type=int, default=0, help="限制导入文件数量（测试用）～")
+        parser.add_argument("-y", "--yes", action="store_true", help="跳过确认提示（爽快党）～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         rating = args.rating
         if not (0.0 <= rating <= 10.0):
-            return self.output.result(False, error="评分必须在 0-10 之间")
+            return self.output.result(False, error="(>_<) 评分必须在 0-10 之间哦！")
 
         paths = [Path(f) for f in args.files]
         cdbook_dirs = [p for p in paths if p.is_dir() and p.name.lower() == "cdbook"]
@@ -38,7 +38,7 @@ class ImportCommand(BaseCommand):
 
         if non_cdbook_dirs:
             if cdbook_dirs or files or len(non_cdbook_dirs) > 1:
-                return self.output.result(False, error="文件夹导入不能与其他路径混合，且一次只能一个")
+                return self.output.result(False, error="(・_・;) 文件夹导入不能与其他路径混合啦，一次只能一个哦～")
             folder = str(non_cdbook_dirs[0])
             logger.info(f"检测到文件夹，作者: {non_cdbook_dirs[0].name}，进入批量导入模式...")
             return self._report_batch(
@@ -50,7 +50,7 @@ class ImportCommand(BaseCommand):
 
         if cdbook_dirs:
             if len(cdbook_dirs) > 1 or files:
-                return self.output.result(False, error="cdbook 目录导入不能与其他路径混合，且一次只能一个")
+                return self.output.result(False, error="(・_・;) cdbook 目录导入不能与其他路径混合啦，一次只能一个哦～")
             logger.info("检测到 cdbook 目录，进入批量导入模式...")
             return self._report_batch(
                 batch_import_cdbook(directory=str(cdbook_dirs[0]),
@@ -59,7 +59,7 @@ class ImportCommand(BaseCommand):
             )
 
         if not files:
-            return self.output.result(False, error="未找到有效的文件或 cdbook 目录")
+            return self.output.result(False, error="(・_・;)? 找不到有效的文件或 cdbook 目录哦～")
 
         results = import_files_batch(
             files=[str(f) for f in files], author=args.author or "佚名", series=args.series,

@@ -172,6 +172,8 @@ def _copy_standalone(standalone: list[dict], content_dir: Path,
     for row in standalone:
         src = Path(row.get("文件路径", ""))
         if not src.exists():
+            if progress:
+                progress.advance(progress.task_ids[0])
             continue
         filename = row.get("标题", "") or src.stem
         if not filename.lower().endswith(src.suffix.lower()):
@@ -182,6 +184,8 @@ def _copy_standalone(standalone: list[dict], content_dir: Path,
             count += 1
         except Exception as e:
             logger.error(f"复制文件失败 {filename}: {e}")
+        if progress:
+            progress.advance(progress.task_ids[0])
     return count
 
 
@@ -223,7 +227,7 @@ def _do_epub_export(plan: ExportPlan, request: ExportRequest) -> ExportResult:
             try:
                 count = _epub_export_group(
                     plan.standalone, plan.series_groups, content_dir,
-                    plan.is_tag_mode, request.query
+                    plan.is_tag_mode, request.query, progress
                 )
             finally:
                 if progress:
@@ -237,7 +241,8 @@ def _do_epub_export(plan: ExportPlan, request: ExportRequest) -> ExportResult:
 
 
 def _epub_export_group(standalone: list[dict], series_groups: dict[str, list[dict]],
-                       content_dir: Path, is_tag_mode: bool, query: str) -> int:
+                       content_dir: Path, is_tag_mode: bool, query: str,
+                       progress: object | None = None) -> int:
     epub_suffixes = {'.txt', '.doc', '.docx'}
     work = content_dir / "_epub_work"
     work.mkdir(exist_ok=True)
@@ -248,6 +253,8 @@ def _epub_export_group(standalone: list[dict], series_groups: dict[str, list[dic
         for row in standalone:
             src = Path(row.get("文件路径", ""))
             if not src.exists():
+                if progress:
+                    progress.advance(progress.task_ids[0])
                 continue
             title = row.get("标题", "") or src.stem
             suffix = src.suffix.lower()
@@ -261,6 +268,8 @@ def _epub_export_group(standalone: list[dict], series_groups: dict[str, list[dic
             else:
                 shutil.copy2(src, content_dir / _safe_name(f"{title}{suffix}"))
                 count += 1
+            if progress:
+                progress.advance(progress.task_ids[0])
 
         # 2. Series: convert each to epub, then merge (PDF series merged separately)
         for series_name, srows in series_groups.items():
@@ -306,6 +315,9 @@ def _epub_export_group(standalone: list[dict], series_groups: dict[str, list[dic
                         dest = content_dir / _safe_name(f"{pdf.stem}.pdf")
                         shutil.copy2(pdf, dest)
                         count += 1
+
+            if progress:
+                progress.advance(progress.task_ids[0])
 
     finally:
         shutil.rmtree(work, ignore_errors=True)

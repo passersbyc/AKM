@@ -92,7 +92,7 @@ def resolve_author(target: str, output=None) -> dict | None:
     if output:
         output.info(f"找到 {len(rows)} 个匹配作者:")
         for i, r in enumerate(rows[:20]):
-            fav = " ♥" if r["favorite"] else ""
+            fav = " >w<" if r["favorite"] else ""
             output.info(f"  [{i}] [cyan]{r['id']}[/cyan] {r['name']}{fav}")
         if len(rows) > 20:
             output.info(f"  ... 还有 {len(rows) - 20} 个")

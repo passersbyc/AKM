@@ -5,7 +5,7 @@
 {% if error or not work %}
 <div class="empty-state animate-in">
     <div class="empty-icon-lg">😕</div>
-    <p>{{ error or '作品不存在' }}</p>
+    <p>{{ error or '(・_・;)? 作品不存在呀～' }}</p>
     <a href="/works" class="back-link">← 返回作品列表</a>
 </div>
 {% else %}
@@ -46,12 +46,12 @@
             {% if work.source %}
             <a href="{{ work.source }}" target="_blank" class="detail-btn btn-source">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                打开网址
+                打开网址～
             </a>
             {% endif %}
             <button onclick="openWork('{{ work.id }}')" class="detail-btn btn-open">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                本地打开
+                本地打开～
             </button>
         </div>
     </div>
@@ -65,7 +65,7 @@
         <a href="/works?author={{ work.author_name }}" class="author-chip">
             <span class="author-chip-avatar">{{ work.author_name[:1] }}</span>
             <span class="author-chip-name">{{ work.author_name }}</span>
-            <span class="author-chip-arrow">查看该作者全部作品 →</span>
+            <span class="author-chip-arrow">查看该作者的全部作品吧 →</span>
         </a>
         {% endif %}
 
@@ -165,9 +165,9 @@ function openWork(id) {
     fetch(`/works/${id}/open`, { method: 'POST' })
         .then(r => r.json())
         .then(data => {
-            if (!data.success) alert(data.error || '打开失败');
+            if (!data.success) alert(data.error || '(T_T) 打开失败呀～');
         })
-        .catch(() => alert('打开失败'));
+        .catch(() => alert('(T_T) 打开失败呀～'));
 }
 </script>
 

@@ -22,12 +22,12 @@ class PullCommand(BaseCommand):
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--site", "-s", type=str, default=None,
-                            help=f"指定下载源 (可用: {', '.join(registry.list_sites())})")
+                            help=f"指定下载源 (可用: {', '.join(registry.list_sites())})～")
         parser.add_argument("-c", "--chart", action="store_true",
-                            help="下载完成后显示统计图表")
+                            help="下载完成后显示统计图表～")
         parser.add_argument("-m", "--mode", type=str, default="both",
                             choices=["both", "meta", "works"],
-                            help="下载模式: both(完整)/meta(仅元数据)/works(仅作品文件)")
+                            help="下载模式: both(完整)/meta(仅元数据)/works(仅作品文件)～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         self.args = args
@@ -35,7 +35,7 @@ class PullCommand(BaseCommand):
         all_urls = [e["url"] for e in entries]
 
         if not all_urls:
-            self.output.info("下载队列为空，先用 follow 同步收集新作再 pull")
+            self.output.info("(・ω・) 下载队列空空如也，先用 follow 同步收集新作再 pull 哦～")
             return 0
 
         logger.info(f"从下载队列拉取 {len(all_urls)} 个作品")
@@ -47,6 +47,10 @@ class PullCommand(BaseCommand):
             show_chart=getattr(args, "chart", False),
         )
         results = runner.run()
+
+        # 库级重索引由编排层统一执行（下载器不再感知书库管理）
+        from src.operations.pull_op import reindex_after_pull
+        reindex_after_pull(all_urls)
 
         delete_downloads_file()
 

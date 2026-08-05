@@ -65,7 +65,7 @@ class StatsCommand(BaseCommand):
 
             def _fmt(row, id_key):
                 if not row:
-                    return "[dim]无[/dim]"
+                    return "[dim]无 (・ω・)[/dim]"
                 sid = short_id(row[id_key])
                 t = (row["title"] or "")[:12]
                 return f"[cyan]{sid}[/cyan] {t}"

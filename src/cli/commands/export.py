@@ -27,33 +27,33 @@ class ExportCommand(BaseCommand):
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         defaults = _get_export_defaults()
         parser.add_argument("target", nargs="?", default=None,
-                            help="作品 ID 或名称")
+                            help="作品 ID 或名称～")
         parser.add_argument("dest", nargs="?", default=defaults["dest"],
-                            help="导出目标路径")
+                            help="导出目标路径～")
         parser.add_argument("--format", default=defaults["format"],
                             choices=["folder", "zip", "epub"],
-                            help="导出格式")
+                            help="导出格式～")
 
     def configure_noun_parser(self, parser: argparse.ArgumentParser,
                                noun: str) -> None:
         defaults = _get_export_defaults()
         if noun == "author":
-            parser.add_argument("target", type=str, help="作者 ID 或名称")
+            parser.add_argument("target", type=str, help="作者 ID 或名称～")
             parser.add_argument("dest", nargs="?", default=defaults["dest"],
-                                help="导出目标路径")
+                                help="导出目标路径～")
             parser.add_argument("--format", default=defaults["format"],
                                 choices=["folder", "zip", "epub"])
-            parser.add_argument("--type", type=str, help="按分类筛选")
+            parser.add_argument("--type", type=str, help="按分类筛选～")
             parser.add_argument("--number", type=int, default=0,
-                                help="按点赞量限制数量")
+                                help="按点赞量限制数量～")
         elif noun in ("mylikeauthor", "mylikeworks"):
             parser.add_argument("dest", nargs="?", default=defaults["dest"],
-                                help="导出目标路径")
+                                help="导出目标路径～")
             parser.add_argument("--format", default=defaults["format"],
                                 choices=["folder", "zip", "epub"])
-            parser.add_argument("--type", type=str, help="按分类筛选")
+            parser.add_argument("--type", type=str, help="按分类筛选～")
             parser.add_argument("--number", type=int, default=0,
-                                help="按点赞量限制数量")
+                                help="按点赞量限制数量～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         if noun == "author":
@@ -72,20 +72,20 @@ class ExportCommand(BaseCommand):
         try:
             dest_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            self.output.error(f"无法创建目标目录: {e}")
+            self.output.error(f"(T_T) 无法创建目标目录: {e}")
             return None
         return dest_dir
 
     def _print_result(self, result: dict, fmt_label: str) -> int:
         if not result["success"]:
-            self.output.info(f"导出失败: {result.get('error', '未知错误')}")
+            self.output.info(f"(T_T) 导出失败: {result.get('error', '未知错误')}")
             return 1
         dest = result.get("destination", "")
         try:
             dest = str(Path(dest).relative_to(Path.cwd()))
         except ValueError:
             pass
-        self.output.info(f"[green]导出完成:[/green] {fmt_label} "
+        self.output.info(f"[green]ヽ(≧▽≦)ノ 导出完成:[/green] {fmt_label} "
                          f"[bright_green]{dest}[/bright_green] "
                          f"[yellow]({result['exported']} 项)[/yellow]")
         return 0

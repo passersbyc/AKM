@@ -74,7 +74,7 @@ def import_one(file_path: str, author: str = "", series: str = "",
             return ImportResult(success=False, error=f"文档转换失败: {e}", file_name=original_fp.name)
 
     try:
-        source_md5 = generate_file_md5(original_fp)
+        source_md5 = generate_file_md5(fp)
         is_dup, dup_name = check_duplicate_by_md5(source_md5)
         if is_dup:
             for tf in temp_files_to_clean:
@@ -127,6 +127,10 @@ def import_one(file_path: str, author: str = "", series: str = "",
             if is_traditional_chinese(tags):
                 tags = convert_to_simplified(tags)
 
+        # 存储文件经转换/繁简处理后内容已变化，需按最终落盘文件记录 MD5，
+        # 否则 verify 完整性检查比对必不相等，会把记录误删。
+        stored_md5 = generate_file_md5(target)
+
         final_create_date = create_date
         if create_date and "T" in create_date:
             normalized = create_date.split("+")[0].split("Z")[0].replace("T", " ")
@@ -137,6 +141,7 @@ def import_one(file_path: str, author: str = "", series: str = "",
             "ID": book_id,
             "标题": final_title,
             "作者": final_author,
+            "_user_id": user_id,
             "系列": final_series,
             "标签": tags,
             "来源": source or "local",
@@ -145,7 +150,7 @@ def import_one(file_path: str, author: str = "", series: str = "",
             "分类": file_type,
             "导入时间": final_create_date or time.strftime("%Y-%m-%d %H:%M:%S"),
             "文件大小(KB)": str(file_size_kb),
-            "MD5": source_md5,
+            "MD5": stored_md5,
             "文件路径": str(target.absolute()),
             "收藏": "是" if favorited else "否",
             "评分": str(rating) if 0.0 < rating <= 10.0 else "",
@@ -167,7 +172,7 @@ def import_one(file_path: str, author: str = "", series: str = "",
         return ImportResult(
             success=True, file_name=target.name, book_id=book_id,
             file_type=file_type, file_size_kb=file_size_kb,
-            storage_path=str(target.absolute()), md5=source_md5
+            storage_path=str(target.absolute()), md5=stored_md5
         )
     except Exception as e:
         for tf in temp_files_to_clean:

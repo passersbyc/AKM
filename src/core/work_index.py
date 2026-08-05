@@ -188,6 +188,47 @@ def reindex_all(sort_key=None) -> None:
     write_all(rows)
 
 
+def reindex_by_sources(urls: set[str], sort_key=None) -> None:
+    """按来源 URL 匹配的作品组执行重索引。
+
+    幂等：URL 未匹配到任何作品时无操作。
+    整个 read-modify-write 周期持锁（write_all 是 DELETE 全表重写，
+    若期间其他线程 append_one 新行，快照覆盖会丢行）。
+
+    调用方：pull 完成后对已下载的 URL 组重排 ID，
+    保持作品序号与 pixiv 作品 ID 顺序一致。
+    """
+    if not urls:
+        return
+    from src.core.work_repository import _lock
+
+    url_set = set(urls)
+    with _lock:
+        all_rows = read_all()
+        if not all_rows:
+            return
+
+        affected_keys = set()
+        for row in all_rows:
+            if row.get("来源", "") in url_set:
+                key = f"{row.get('分类', '')}||{row.get('作者', '')}||{row.get('系列', '') or ''}"
+                affected_keys.add(key)
+        if not affected_keys:
+            return
+
+        affected_rows = [r for r in all_rows
+                         if f"{r.get('分类', '')}||{r.get('作者', '')}||{r.get('系列', '') or ''}" in affected_keys]
+        reindex_groups(affected_rows, sort_key)
+
+        reindexed = {r["来源"]: r for r in affected_rows}
+        for row in all_rows:
+            source = row.get("来源", "")
+            if source in reindexed:
+                row.update(reindexed[source])
+
+        write_all(all_rows)
+
+
 def delete_and_reindex(ids: set[str], *, keep_file: bool = False,
                        clear_tables: bool = False) -> list[dict]:
     """删除作品并重排剩余。keep_file 保留文件，clear_tables 清空关联表。"""

@@ -17,7 +17,10 @@ from src.core.queries import JOIN_SQL, row_to_manifest
 from src.core.author_manager import rename as _rename
 from src.domain.cdbook import normalize_series_name
 
-_lock = threading.Lock()
+# 写操作串行化锁：read-modify-write 周期（如 _reindex_works 的全表重写）
+# 与并发 append_one 之间必须互斥，否则快照覆盖会丢失其他线程写入的行。
+# 用 RLock 允许 write_all 在锁内被调用（重入）。
+_lock = threading.RLock()
 
 
 def normalize_id(id_str: str) -> str:
@@ -33,21 +36,23 @@ def read_all() -> list[dict]:
 
 def write_all(rows: list[dict]) -> None:
     db = get_db()
-    with db:
-        db.execute("DELETE FROM works")
-        for entry in rows:
-            _append_raw(db, entry)
+    with _lock:
+        with db:
+            db.execute("DELETE FROM works")
+            for entry in rows:
+                _append_raw(db, entry)
 
 
 def append_one(entry: dict) -> None:
     db = get_db()
-    with db:
-        _append_raw(db, entry)
+    with _lock:
+        with db:
+            _append_raw(db, entry)
 
 
 def _append_raw(db, entry: dict) -> None:
     author_name = entry.get("作者", "")
-    author_id = resolve_author_id(author_name)
+    author_id = resolve_author_id(author_name, entry.get("_user_id", ""))
     series_name = entry.get("系列", "")
     series_id = resolve_series_id(author_id, series_name) if series_name else ""
     db.execute(
@@ -145,7 +150,7 @@ def update_entry(book_id: str, changes: dict) -> bool:
             values.append(str(v) if v is not None else "")
         set_parts.append(f"{col} = ?")
     values.append(book_id)
-    with db:
+    with _lock, db:
         cur = db.execute(
             f"UPDATE works SET {', '.join(set_parts)} WHERE id = ?", values
         )
@@ -185,7 +190,7 @@ def update_entry_full(book_id: str, field_updates: dict,
     if need_move and old_path.exists():
         try:
             file_type = determine_file_type(str(old_path))
-            new_id = _make_work_id(file_type, final_author_id, final_series_id)
+            candidate_id = _make_work_id(file_type, final_author_id, final_series_id)
             old_stem = old_path.stem
             if '_' in old_stem:
                 rest = old_stem.split('_', 1)[1]
@@ -193,11 +198,13 @@ def update_entry_full(book_id: str, field_updates: dict,
             else:
                 clean_path = Path(old_path.name)
             new_target = build_import_target(clean_path, final_author_name,
-                                             final_series_name, book_id=new_id)
+                                             final_series_name, book_id=candidate_id)
             new_target.parent.mkdir(parents=True, exist_ok=True)
             if not new_target.exists():
                 shutil.move(str(old_path), str(new_target))
                 row_dict["file_path"] = str(new_target.absolute())
+                # 只有文件实际移动成功后才换新 ID，否则记录与磁盘文件会不一致
+                new_id = candidate_id
         except Exception:
             pass
 
@@ -228,7 +235,7 @@ def update_entry_full(book_id: str, field_updates: dict,
     row_dict["rating"] = rating_val
     row_dict["likes"] = likes_val
 
-    with db:
+    with _lock, db:
         if new_id != book_id:
             db.execute("DELETE FROM works WHERE id = ?", (book_id,))
         db.execute(
@@ -273,16 +280,17 @@ def delete_entries(ids: set[str]) -> list[dict]:
                 source_urls.append(src)
     if deleted:
         db = get_db()
-        with db:
+        with _lock, db:
             placeholders = ",".join("?" for _ in ids)
             db.execute(f"DELETE FROM works WHERE id IN ({placeholders})", list(ids))
-            # 联动：重置 download_queue 中对应 URL 的 is_in_db=0
-            # 防止作品被删后队列仍标记"已下载"，导致 follow 无法重新入队
+            # 联动：删除队列中对应 URL 记录——作品已被用户删除，
+            # pull 不应自动重新下载（否则删除形同虚设）。
+            # 若用户想重新获取：follow 同步会因 works 无记录而把 URL
+            # 视为新作自动重新入队，或手动再次入队。
             if source_urls:
                 q_placeholders = ",".join("?" for _ in source_urls)
                 db.execute(
-                    f"UPDATE download_queue SET is_in_db=0, is_valid=1, fail_count=0 "
-                    f"WHERE url IN ({q_placeholders}) AND is_in_db=1",
+                    f"DELETE FROM download_queue WHERE url IN ({q_placeholders})",
                     source_urls,
                 )
     return deleted

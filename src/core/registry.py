@@ -19,14 +19,32 @@ def _get_type_char(file_type: str) -> str:
     return _db_get_type_char(file_type)
 
 
-def _get_author_id(author: str) -> str:
+def _get_author_id(author: str, uid: str = "") -> str:
     if not author or author == "佚名":
         return "000"
     db = get_db()
-    cur = db.execute("SELECT id FROM authors WHERE name = ?", (author,))
+    if uid and uid != "local":
+        cur = db.execute(
+            "SELECT a.id FROM authors a "
+            "JOIN pixiv_trackings p ON p.author_id = a.id "
+            "WHERE p.pixiv_uid = ?",
+            (uid,),
+        )
+        row = cur.fetchone()
+        if row:
+            return row[0]
+    cur = db.execute(
+        "SELECT a.id, p.pixiv_uid FROM authors a "
+        "LEFT JOIN pixiv_trackings p ON p.author_id = a.id "
+        "WHERE a.name = ?",
+        (author,),
+    )
     row = cur.fetchone()
     if row:
-        return row[0]
+        row_uid = row["pixiv_uid"] if "pixiv_uid" in row.keys() else (row[1] if len(row) > 1 else "")
+        # 名字兜底：命中行无 pixiv 身份（本地作者）才复用；有且 uid 不同 → 重名作者，新建
+        if not uid or not row_uid or row_uid == uid:
+            return row[0]
     new_id = next_author_id()
     while True:
         conflict = db.execute("SELECT 1 FROM authors WHERE id = ?", (new_id,)).fetchone()
@@ -34,9 +52,18 @@ def _get_author_id(author: str) -> str:
             break
         new_id = next_author_id()
     db.execute(
-        "INSERT INTO authors (id, name, source) VALUES (?, ?, 'local')",
-        (new_id, author),
+        "INSERT INTO authors (id, name, source) VALUES (?, ?, ?)",
+        (new_id, author, "pixiv" if uid else "local"),
     )
+    if uid and uid != "local":
+        import time as _time
+        db.execute(
+            "INSERT OR IGNORE INTO pixiv_trackings "
+            "(author_id, pixiv_uid, follow_status, created_at, updated_at) "
+            "VALUES (?, ?, 'active', ?, ?)",
+            (new_id, uid, _time.strftime("%Y-%m-%d %H:%M:%S"),
+             _time.strftime("%Y-%m-%d %H:%M:%S")),
+        )
     return new_id
 
 

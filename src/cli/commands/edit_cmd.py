@@ -27,12 +27,12 @@ class EditCommand(BaseCommand):
     description = "交互式编辑作品元数据（逐字段提示）"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("target", type=str, help="作品 ID 或名称")
+        parser.add_argument("target", type=str, help="作品 ID 或名称～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         work = resolve_work(args.target, self.output)
         if not work:
-            return self.output.result(False, error=f"未找到作品: {args.target}")
+            return self.output.result(False, error=f"(・_・;)? 找不到作品: {args.target} 哦～")
 
         wid = work["id"]
         title = work.get("title", "")
@@ -49,7 +49,7 @@ class EditCommand(BaseCommand):
         if self.output.json_mode:
             return self.output.result(True, data={"work": dict(work)})
 
-        self.output.info(f"\n[bold green]编辑作品:[/bold green] [cyan]{short_id(wid)}[/cyan] {title}\n")
+        self.output.info(f"\n[bold green](^_^) 编辑作品:[/bold green] [cyan]{short_id(wid)}[/cyan] {title}\n")
 
         field_updates: dict[str, str] = {}
         new_author = ""
@@ -88,9 +88,9 @@ class EditCommand(BaseCommand):
                 if 0 <= r <= 10:
                     field_updates["评分"] = str(r) if r > 0 else ""
                 else:
-                    self.output.info("[yellow]评分需在 0-10 之间，跳过[/yellow]")
+                    self.output.info("[yellow](>_<) 评分需在 0-10 之间，跳过啦[/yellow]")
             except ValueError:
-                self.output.info("[yellow]评分格式无效，跳过[/yellow]")
+                self.output.info("[yellow](・_・;) 评分格式无效，跳过啦[/yellow]")
 
         # 收藏
         fav_display = "是" if favorite else "否"
@@ -115,25 +115,25 @@ class EditCommand(BaseCommand):
             try:
                 field_updates["点赞"] = str(int(like_input))
             except ValueError:
-                self.output.info("[yellow]点赞数格式无效，跳过[/yellow]")
+                self.output.info("[yellow](・_・;) 点赞数格式无效，跳过啦[/yellow]")
 
         if not field_updates and not new_author and not new_series:
-            self.output.info("[dim]无修改，退出[/dim]")
+            self.output.info("[dim](・ω・) 无修改，退出～[/dim]")
             return 0
 
         # 确认
         try:
-            confirm = input("\n确认保存？(y/n) → ").strip().lower()
+            confirm = input("\n(・_・;) 确认保存？(y/n) → ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             confirm = ""
         if confirm not in ("y", "yes"):
-            self.output.info("[dim]已取消[/dim]")
+            self.output.info("[dim](・ω・) 已取消，安心～[/dim]")
             return 0
 
         updated = edit_book(wid, field_updates,
                             new_author=new_author, new_series=new_series)
         if not updated:
-            return self.output.result(False, error=f"更新失败: {wid}")
+            return self.output.result(False, error=f"(T_T) 更新失败: {wid}")
 
-        self.output.info(f"[green]✓ 已更新:[/green] {updated.get('标题', title)}")
+        self.output.info(f"[green]ヽ(≧▽≦)ノ 已更新:[/green] {updated.get('标题', title)}")
         return 0
