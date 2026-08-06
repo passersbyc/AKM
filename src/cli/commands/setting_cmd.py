@@ -219,6 +219,7 @@ class SettingCommand(BaseCommand):
             return 0
 
         ok = result["ok"]
+        corrupt = result.get("corrupt", 0)
         queued = result["queued"]
         deleted = result["deleted"]
         cleaned = result["cleaned"]
@@ -227,16 +228,18 @@ class SettingCommand(BaseCommand):
         self.output.info("")
         self.output.info(f"[bold](◕‿◕) 检查完成: {total} 作品[/bold]")
         self.output.info(f"  [green](◕‿◕) OK:       {ok}[/green]")
+        if corrupt:
+            self.output.info(f"  [red](｡•́︿•̀｡) 损坏:    {corrupt} (文件缺失/损坏)[/red]")
         if queued:
             self.output.info(f"  [yellow](◕‿◕) 已入队:    {queued} (将重新下载)[/yellow]")
         if deleted:
             self.output.info(f"  [red](｡•́︿•̀｡) 已删除:    {deleted} (无源可恢复)[/red]")
         if cleaned:
             self.output.info(f"  [dim](・ω・) 已清理:    {cleaned} (孤立文件)[/dim]")
-        if not queued and not deleted and not cleaned:
+        if not corrupt and not queued and not deleted and not cleaned:
             self.output.info(f"  [green](◕‿◕) 全部正常[/green]")
         else:
-            total_pending = queued + deleted
+            total_pending = corrupt + queued + deleted
             self.output.info(f"\n[dim](｡•́︿•̀｡) 共 {total_pending} 项异常，{cleaned} 个孤立文件已清理[/dim]")
             if queued:
                 self.output.info("[yellow](◕‿◕) 运行 pull 重新下载已入队的作品吧[/yellow]")

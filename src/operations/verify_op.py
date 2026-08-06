@@ -1,6 +1,69 @@
 """verify 操作 — 文件完整性校验入口。"""
 
+from pathlib import Path
+
 from src.core.work_manager import WorkManager
+
+# 常见扩展名的文件头 magic（魔数）
+_MAGIC = {
+    ".epub": (b"PK\x03\x04", "EPUB/ZIP"),
+    ".zip": (b"PK\x03\x04", "ZIP"),
+    ".docx": (b"PK\x03\x04", "DOCX/ZIP"),
+    ".pdf": (b"%PDF", "PDF"),
+    ".gif": (b"GIF8", "GIF"),
+    ".jpg": (b"\xff\xd8\xff", "JPEG"),
+    ".jpeg": (b"\xff\xd8\xff", "JPEG"),
+    ".png": (b"\x89PNG", "PNG"),
+    ".doc": (b"\xd0\xcf\x11\xe0", "DOC/OLE"),
+    ".flac": (b"fLaC", "FLAC"),
+    ".wav": (b"RIFF", "WAV"),
+    ".avi": (b"RIFF", "AVI"),
+    ".mkv": (b"\x1a\x45\xdf\xa3", "MKV"),
+}
+
+
+def _check_structure(file_path: Path) -> tuple[bool, str]:
+    """文件结构/可读性检查：非零大小 + 文件头 magic + 压缩包/PDF 深度解析。
+
+    返回 (是否完好, 失败原因)。
+    """
+    try:
+        size = file_path.stat().st_size
+        if size == 0:
+            return False, "空文件"
+
+        suffix = file_path.suffix.lower()
+        magic, label = _MAGIC.get(suffix, (b"", ""))
+        if magic:
+            with open(file_path, "rb") as f:
+                head = f.read(len(magic))
+            if not head.startswith(magic):
+                return False, f"文件头不匹配（{label}）"
+
+        if suffix in (".epub", ".zip", ".docx"):
+            import zipfile
+            try:
+                with zipfile.ZipFile(file_path) as zf:
+                    if not zf.namelist():
+                        return False, "压缩包为空"
+            except zipfile.BadZipFile:
+                return False, "压缩包损坏（BadZipFile）"
+            except Exception as e:
+                return False, f"压缩包解析失败（{type(e).__name__}）"
+        elif suffix == ".pdf":
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(str(file_path))
+                if len(reader.pages) == 0:
+                    return False, "PDF 无页面"
+            except Exception:
+                return False, "PDF 解析失败"
+
+        return True, ""
+    except OSError:
+        return False, "文件不可读"
+    except Exception as e:
+        return False, f"结构检查异常（{type(e).__name__}）"
 
 
 def verify_integrity(book_id: str | None = None) -> dict:
@@ -8,12 +71,12 @@ def verify_integrity(book_id: str | None = None) -> dict:
 
 
 def check_integrity(progress_callback=None) -> dict:
-    """完整性检查：遍历作品检查文件/MD5，失败的入队或删除，清理孤立文件。
+    """完整性检查：存在性 → MD5 → 文件结构/可读性，失败的入队或删除，清理孤立文件。
 
     progress_callback(event, **kwargs):
       - "start": total=N（开始时）
       - "progress": work_id, status, msg（每个作品处理完）
-    返回 {ok, queued, deleted, cleaned, total}。
+    返回 {ok, corrupt, queued, deleted, cleaned, total}。
     """
     from pathlib import Path
     from src.core.hashing import generate_file_md5
@@ -25,11 +88,11 @@ def check_integrity(progress_callback=None) -> dict:
     if progress_callback:
         progress_callback("start", total=len(rows))
     if not rows:
-        return {"ok": 0, "queued": 0, "deleted": 0, "cleaned": 0, "total": 0}
+        return {"ok": 0, "corrupt": 0, "queued": 0, "deleted": 0, "cleaned": 0, "total": 0}
 
     lib_path = get_library_path()
     db = get_db()
-    ok_count = queued_count = deleted_count = 0
+    ok_count = corrupt_count = queued_count = deleted_count = 0
     existing_paths: set[str] = set()
 
     for row in rows:
@@ -46,21 +109,34 @@ def check_integrity(progress_callback=None) -> dict:
         msg = ""
 
         if file_path and file_path.exists():
+            # 第 1 层：MD5 字节校验（无 MD5 记录则跳过字节校验）
+            md5_ok = True
             if md5_db:
                 try:
                     current_md5 = generate_file_md5(file_path)
                 except Exception:
                     current_md5 = ""
-                if current_md5 and current_md5 == md5_db:
+                md5_ok = bool(current_md5) and current_md5 == md5_db
+
+            if md5_ok:
+                # 第 2 层：文件结构/可读性检查（文件头 magic + 压缩包/PDF 解析）
+                struct_ok, why = _check_structure(file_path)
+                if struct_ok:
                     ok_count += 1
                     if progress_callback:
                         progress_callback("progress", work_id=work_id, status="ok", msg="")
                     continue
+                corrupt_count += 1
+                status = "corrupt"
+                msg = f"(｡•́︿•̀｡) 损坏: {work_id} ({why})"
             else:
-                ok_count += 1
-                if progress_callback:
-                    progress_callback("progress", work_id=work_id, status="ok", msg="")
-                continue
+                corrupt_count += 1
+                status = "corrupt"
+                msg = f"(｡•́︿•̀｡) 损坏: {work_id} (MD5 不匹配)"
+        else:
+            corrupt_count += 1
+            status = "corrupt"
+            msg = f"(｡•́︿•̀｡) 损坏: {work_id} (文件缺失)"
 
         queue_entry = get_by_url(source_url) if source_url else None
         if source_url and "pixiv" in source_url.lower():
@@ -95,7 +171,6 @@ def check_integrity(progress_callback=None) -> dict:
             deleted_count += 1
             status = "deleted"
             msg = f"(｡•́︿•̀｡) 删除: {work_id} (文件缺失且无来源)"
-
         if progress_callback:
             progress_callback("progress", work_id=work_id, status=status, msg=msg)
 
@@ -125,5 +200,6 @@ def check_integrity(progress_callback=None) -> dict:
         )
         stale_reset = result.rowcount
 
-    return {"ok": ok_count, "queued": queued_count, "deleted": deleted_count,
-            "cleaned": cleaned_count, "stale_reset": stale_reset, "total": len(rows)}
+    return {"ok": ok_count, "corrupt": corrupt_count, "queued": queued_count,
+            "deleted": deleted_count, "cleaned": cleaned_count,
+            "stale_reset": stale_reset, "total": len(rows)}
