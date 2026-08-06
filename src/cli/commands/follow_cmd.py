@@ -52,7 +52,7 @@ class FollowCommand(BaseCommand):
     def _follow_url(self, url: str) -> int:
         result = source_op.queue_author_works(url)
         if not result:
-            self.output.info("(｡•́︿•̀｡) 无法获取作者信息，再检查一下 URL 或 Cookie 吧？")
+            self.output.info("[red](｡•́︿•̀｡)[/red] 无法获取作者信息，再检查一下 URL 或 Cookie 吧？")
             return 1
 
         name = result["name"]
@@ -63,7 +63,7 @@ class FollowCommand(BaseCommand):
         already_queued = result.get("already_queued", 0)
 
         if total == 0:
-            self.output.info(f"(・ω・) 已关注: {name}" + (f" ({uid})" if uid else "") + "，但没看到任何作品，作者可能已清空或账号异常")
+            self.output.info(f"[yellow](・ω・)[/yellow] 已关注: {name}" + (f" ({uid})" if uid else "") + "，但没看到任何作品，作者可能已清空或账号异常")
             return 1
 
         if queued == total:
@@ -89,7 +89,7 @@ class FollowCommand(BaseCommand):
     def _follow_pixiv(self) -> int:
         cookie = self._cookie()
         if not cookie:
-            self.output.info("(・ω・) 还没配置 Cookie 哦，请先配置 Pixiv Cookie～")
+            self.output.info("[yellow](・ω・)[/yellow] 还没配置 Cookie 哦，请先配置 Pixiv Cookie～")
             return 1
         self.output.info("[bold](◕‿◕) 正在获取 Pixiv 关注列表...[/bold]")
         result = source_op.follow_from_pixiv(cookie)
@@ -110,7 +110,7 @@ class FollowCommand(BaseCommand):
     def _sync(self, args: argparse.Namespace) -> int:
         candidates = source_op.resolve_sync_candidates(None, getattr(args, "favorite", False))
         if not candidates:
-            self.output.info("(・ω・) 没有来源可同步呢～")
+            self.output.info("[yellow](・ω・)[/yellow] 没有来源可同步呢～")
             return 0
 
         source_op.backfill_homepages(candidates)
@@ -131,12 +131,12 @@ class FollowCommand(BaseCommand):
             parts.append(f"{len(active)} 名活跃")
         if recheck_dead:
             parts.append(f"{len(recheck_dead)} 名重试")
-        self.output.info(f"共 {' + '.join(parts)} 作者需更新" if parts else "(・ω・) 无作者需更新～")
+        self.output.info(f"共 {' + '.join(parts)} 作者需更新" if parts else "[yellow](・ω・)[/yellow] 无作者需更新～")
         # 用第一个活跃作者的 homepage resolve 正确的下载器（避免取到 biquge）
         first_url = next((r.get("homepage", "") for r in (active + recheck_dead) if r.get("homepage")), None)
         downloader = source_op.get_sync_downloader(first_url)
         if not downloader:
-            self.output.info("(・ω・)? 找不到已注册的下载器哦～")
+            self.output.info("[yellow](・ω・)[/yellow]? 找不到已注册的下载器哦～")
             return 1
         max_workers = source_op.get_sync_max_workers(downloader)
         self.output.info(f"运行模式: 并行，{max_workers} 线程。[dim](Ctrl+C 可退出哦)[/dim]")

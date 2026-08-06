@@ -39,14 +39,14 @@ class DeleteCommand(BaseCommand):
 
         work = resolve_work(args.target, self.output)
         if not work:
-            return self.output.result(False, error=f"(・ω・)? 找不到作品: {args.target} 哦～")
+            return self.output.result(False, error=f"[yellow](・ω・)[/yellow]? 找不到作品: {args.target} 哦～")
 
         wid = work["id"]
         title = work.get("title", "")
 
         if not self.output.json_mode and not (args.yes or self.output.no_confirm):
-            self.output.info(f"(・ω・) 将删除: [cyan]{short_id(wid)}[/cyan] {title}")
-            if not self.output.confirm("(・ω・) 删掉就找不回来啦，确定要删除吗？"):
+            self.output.info(f"[yellow](・ω・)[/yellow] 将删除: [cyan]{short_id(wid)}[/cyan] {title}")
+            if not self.output.confirm("[yellow](・ω・)[/yellow] 删掉就找不回来啦，确定要删除吗？"):
                 self.output.info("[dim](・ω・) 已取消，安心～[/dim]")
                 return 0
 
@@ -59,14 +59,14 @@ class DeleteCommand(BaseCommand):
     def _delete_author(self, args: argparse.Namespace) -> int:
         author = resolve_author(args.target, self.output)
         if not author:
-            return self.output.result(False, error=f"(・ω・)? 找不到作者: {args.target} 哦～")
+            return self.output.result(False, error=f"[yellow](・ω・)[/yellow]? 找不到作者: {args.target} 哦～")
 
         aid = author["id"]
         name = author.get("name", "")
 
         if not self.output.json_mode and not (args.yes or self.output.no_confirm):
-            self.output.info(f"(・ω・) 将删除作者: [cyan]{name}[/cyan] 及其全部作品")
-            if not self.output.confirm("(・ω・) 删掉就找不回来啦，确定要删除吗？"):
+            self.output.info(f"[yellow](・ω・)[/yellow] 将删除作者: [cyan]{name}[/cyan] 及其全部作品")
+            if not self.output.confirm("[yellow](・ω・)[/yellow] 删掉就找不回来啦，确定要删除吗？"):
                 self.output.info("[dim](・ω・) 已取消，安心～[/dim]")
                 return 0
 
@@ -79,7 +79,7 @@ class DeleteCommand(BaseCommand):
     def _delete_all(self, args: argparse.Namespace) -> int:
         if not self.output.json_mode and not (args.yes or self.output.no_confirm):
             self.output.info("[yellow](・ω・) 将清空整个作品库[/yellow]")
-            if not self.output.confirm("(・ω・) 清空就找不回来啦，确定要清空吗？"):
+            if not self.output.confirm("[yellow](・ω・)[/yellow] 清空就找不回来啦，确定要清空吗？"):
                 self.output.info("[dim](・ω・) 已取消，安心～[/dim]")
                 return 0
 

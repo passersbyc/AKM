@@ -72,13 +72,13 @@ class ExportCommand(BaseCommand):
         try:
             dest_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            self.output.error(f"(｡•́︿•̀｡) 无法创建目标目录: {e}")
+            self.output.error(f"[red](｡•́︿•̀｡)[/red] 无法创建目标目录: {e}")
             return None
         return dest_dir
 
     def _print_result(self, result: dict, fmt_label: str) -> int:
         if not result["success"]:
-            self.output.info(f"(｡•́︿•̀｡) 导出失败: {result.get('error', '未知错误')}")
+            self.output.info(f"[red](｡•́︿•̀｡)[/red] 导出失败: {result.get('error', '未知错误')}")
             return 1
         dest = result.get("destination", "")
         try:

@@ -195,9 +195,9 @@ class SettingCommand(BaseCommand):
             if event == "start":
                 total = kw.get("total", 0)
                 if not total:
-                    self.output.info("(・ω・) 书架空空如也，无需检查哦～")
+                    self.output.info("[yellow](・ω・)[/yellow] 书架空空如也，无需检查哦～")
                     return
-                self.output.info(f"(◕‿◕) 检查中... [bold]{total}[/bold] 个作品\n")
+                self.output.info(f"[green](◕‿◕)[/green] 检查中... [bold]{total}[/bold] 个作品\n")
                 from src.core.progress import make_progress
                 state["progress"], *tasks = make_progress(
                     {"success": 0, "failed": 0, "skipped": 0}, "检查进度", total=total)

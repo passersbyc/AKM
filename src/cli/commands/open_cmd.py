@@ -29,16 +29,16 @@ class OpenCommand(BaseCommand):
     def _open_file(self, args: argparse.Namespace) -> int:
         work = resolve_work(args.target, self.output)
         if not work:
-            return self.output.result(False, error=f"(・ω・)? 找不到作品: {args.target} 哦～")
+            return self.output.result(False, error=f"[yellow](・ω・)[/yellow]? 找不到作品: {args.target} 哦～")
 
         fp = Path(work.get("file_path", "").strip() or "")
         if not fp.exists():
-            return self.output.result(False, error=f"(｡•́︿•̀｡) 文件不存在: {fp}")
+            return self.output.result(False, error=f"[red](｡•́︿•̀｡)[/red] 文件不存在: {fp}")
 
         try:
             subprocess.run(["open", str(fp)])
         except Exception as e:
-            return self.output.result(False, error=f"(｡•́︿•̀｡) 打开失败: {e}")
+            return self.output.result(False, error=f"[red](｡•́︿•̀｡)[/red] 打开失败: {e}")
 
         logger.info(f"(◕‿◕) 已打开: {fp.name}")
         self._record_open(work["id"], work.get("title", ""))
@@ -153,7 +153,7 @@ class OpenCommand(BaseCommand):
                     return self.output.result(True, data={"id": work["id"], "url": source})
                 return 0
             if source == "local" or not source:
-                return self.output.result(False, error=f"(・ω・) 作品 {work.get('title', '')} 没有来源网址呢～")
+                return self.output.result(False, error=f"[yellow](・ω・)[/yellow] 作品 {work.get('title', '')} 没有来源网址呢～")
 
         # 再尝试匹配作者
         author = resolve_author(target, self.output)
@@ -165,9 +165,9 @@ class OpenCommand(BaseCommand):
                 if self.output.json_mode:
                     return self.output.result(True, data={"author_id": author["id"], "url": homepage})
                 return 0
-            return self.output.result(False, error=f"(・ω・) 作者 {author.get('name', '')} 没有网址呢～")
+            return self.output.result(False, error=f"[yellow](・ω・)[/yellow] 作者 {author.get('name', '')} 没有网址呢～")
 
-        return self.output.result(False, error=f"(・ω・)? 找不到作品或作者: {target} 哦～")
+        return self.output.result(False, error=f"[yellow](・ω・)[/yellow]? 找不到作品或作者: {target} 哦～")
 
     def _record_open(self, work_id: str, title: str) -> None:
         from src.operations import record_open

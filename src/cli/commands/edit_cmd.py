@@ -32,7 +32,7 @@ class EditCommand(BaseCommand):
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         work = resolve_work(args.target, self.output)
         if not work:
-            return self.output.result(False, error=f"(・ω・)? 找不到作品: {args.target} 哦～")
+            return self.output.result(False, error=f"[yellow](・ω・)[/yellow]? 找不到作品: {args.target} 哦～")
 
         wid = work["id"]
         title = work.get("title", "")
@@ -133,7 +133,7 @@ class EditCommand(BaseCommand):
         updated = edit_book(wid, field_updates,
                             new_author=new_author, new_series=new_series)
         if not updated:
-            return self.output.result(False, error=f"(｡•́︿•̀｡) 更新失败: {wid}")
+            return self.output.result(False, error=f"[red](｡•́︿•̀｡)[/red] 更新失败: {wid}")
 
         self.output.info(f"[green](◕‿◕) 已更新:[/green] {updated.get('标题', title)}")
         return 0

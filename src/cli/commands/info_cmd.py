@@ -22,11 +22,11 @@ class InfoCommand(BaseCommand):
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         if noun != "work":
-            return self.output.result(False, error="(・ω・) info 仅支持 work 哦～")
+            return self.output.result(False, error="[yellow](・ω・)[/yellow] info 仅支持 work 哦～")
         target = args.target
         book = get_info(target, "book")
         if not book:
-            return self.output.result(False, error=f"(・ω・)? 找不到 ID: {target} 哦～")
+            return self.output.result(False, error=f"[yellow](・ω・)[/yellow]? 找不到 ID: {target} 哦～")
 
         if getattr(args, "url", False):
             source = book.get("来源", "").strip()

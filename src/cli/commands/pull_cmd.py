@@ -35,7 +35,7 @@ class PullCommand(BaseCommand):
         all_urls = [e["url"] for e in entries]
 
         if not all_urls:
-            self.output.info("(・ω・) 下载队列空空如也，先用 follow 同步收集新作再 pull 哦～")
+            self.output.info("[yellow](・ω・)[/yellow] 下载队列空空如也，先用 follow 同步收集新作再 pull 哦～")
             return 0
 
         logger.info(f"从下载队列拉取 {len(all_urls)} 个作品")

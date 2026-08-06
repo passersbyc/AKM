@@ -29,7 +29,7 @@ class ImportCommand(BaseCommand):
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         rating = args.rating
         if not (0.0 <= rating <= 10.0):
-            return self.output.result(False, error="(｡•́︿•̀｡) 评分必须在 0-10 之间哦！")
+            return self.output.result(False, error="[red](｡•́︿•̀｡)[/red] 评分必须在 0-10 之间哦！")
 
         paths = [Path(f) for f in args.files]
         cdbook_dirs = [p for p in paths if p.is_dir() and p.name.lower() == "cdbook"]
@@ -38,7 +38,7 @@ class ImportCommand(BaseCommand):
 
         if non_cdbook_dirs:
             if cdbook_dirs or files or len(non_cdbook_dirs) > 1:
-                return self.output.result(False, error="(・ω・) 文件夹导入不能与其他路径混合啦，一次只能一个哦～")
+                return self.output.result(False, error="[yellow](・ω・)[/yellow] 文件夹导入不能与其他路径混合啦，一次只能一个哦～")
             folder = str(non_cdbook_dirs[0])
             logger.info(f"检测到文件夹，作者: {non_cdbook_dirs[0].name}，进入批量导入模式...")
             return self._report_batch(
@@ -50,7 +50,7 @@ class ImportCommand(BaseCommand):
 
         if cdbook_dirs:
             if len(cdbook_dirs) > 1 or files:
-                return self.output.result(False, error="(・ω・) cdbook 目录导入不能与其他路径混合啦，一次只能一个哦～")
+                return self.output.result(False, error="[yellow](・ω・)[/yellow] cdbook 目录导入不能与其他路径混合啦，一次只能一个哦～")
             logger.info("检测到 cdbook 目录，进入批量导入模式...")
             return self._report_batch(
                 batch_import_cdbook(directory=str(cdbook_dirs[0]),
@@ -59,7 +59,7 @@ class ImportCommand(BaseCommand):
             )
 
         if not files:
-            return self.output.result(False, error="(・ω・)? 找不到有效的文件或 cdbook 目录哦～")
+            return self.output.result(False, error="[yellow](・ω・)[/yellow]? 找不到有效的文件或 cdbook 目录哦～")
 
         results = import_files_batch(
             files=[str(f) for f in files], author=args.author or "佚名", series=args.series,

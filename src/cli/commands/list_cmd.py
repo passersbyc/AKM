@@ -154,7 +154,7 @@ class ListCommand(BaseCommand):
         rows = list_download_queue(show_all=getattr(args, "all", False))
 
         if not rows:
-            self.output.info("(・ω・) 下载队列空空如也～")
+            self.output.info("[yellow](・ω・)[/yellow] 下载队列空空如也～")
             return 0
 
         if self.output.json_mode:
