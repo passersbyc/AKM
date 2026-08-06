@@ -109,7 +109,7 @@ def _do_standard(plan: ExportPlan, request: ExportRequest) -> ExportResult:
         content_dir = temp_dir / safe_name
         content_dir.mkdir()
 
-        if request.mode == "id" and len(request.author_ids) > 1:
+        if request.mode in ("id", "mylikeauthor") and len(request.author_ids) > 1:
             author_groups = _split_plan_by_author(plan)
             total = _count_total(plan, author_groups)
             progress = _show_progress(total)
@@ -123,7 +123,7 @@ def _do_standard(plan: ExportPlan, request: ExportRequest) -> ExportResult:
                     author_dir.mkdir(exist_ok=True)
                     result_count = _copy_standalone(standalone, author_dir)
                     result_count += merge_series_group(series_groups, author_dir,
-                                                       plan.is_tag_mode, request.query)
+                                                       plan.is_tag_mode, author_name)
                     if progress:
                         _update_progress_desc(progress, author_name, idx + 1, total)
                         progress.advance(progress.task_ids[0])
@@ -200,7 +200,7 @@ def _do_epub_export(plan: ExportPlan, request: ExportRequest) -> ExportResult:
         content_dir = work_dir / safe_name
         content_dir.mkdir()
 
-        if request.mode == "id" and len(request.author_ids) > 1:
+        if request.mode in ("id", "mylikeauthor") and len(request.author_ids) > 1:
             author_groups = _split_plan_by_author(plan)
             total = _count_total(plan, author_groups)
             progress = _show_progress(total)

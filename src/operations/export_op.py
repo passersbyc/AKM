@@ -127,7 +127,7 @@ def export_mylikeauthor(dest_dir: Path,
     if not all_rows:
         return {"success": False, "exported": 0, "error": "收藏作者没有作品"}
 
-    export_name = "收藏作者作品"
+    export_name = "mylikeauthor"
     request = ExportRequest(
         query="", dest_dir=dest_dir, export_name=export_name,
         mode="mylikeauthor", filter_type=filter_type, limit=limit,
