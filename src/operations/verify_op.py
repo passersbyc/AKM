@@ -77,16 +77,16 @@ def check_integrity(progress_callback=None) -> dict:
                     mark_not_in_db(source_url)
                     queued_count += 1
                     status = "queued"
-                    msg = f"(=^▽^=) 入队: {work_id} → {source_url}"
+                    msg = f"(◕‿◕) 入队: {work_id} → {source_url}"
                 else:
                     deleted_count += 1
                     status = "deleted"
-                    msg = f"QAQ 删除: {work_id} (来源已无效)"
+                    msg = f"(｡•́︿•̀｡) 删除: {work_id} (来源已无效)"
             else:
                 append_or_update([{"url": source_url, "is_in_db": 0}])
                 queued_count += 1
                 status = "queued"
-                msg = f"(=^▽^=) 入队: {work_id} → {source_url}"
+                msg = f"(◕‿◕) 入队: {work_id} → {source_url}"
             with db:
                 db.execute("DELETE FROM works WHERE id = ?", (work_id,))
         else:
@@ -94,7 +94,7 @@ def check_integrity(progress_callback=None) -> dict:
                 db.execute("DELETE FROM works WHERE id = ?", (work_id,))
             deleted_count += 1
             status = "deleted"
-            msg = f"QAQ 删除: {work_id} (文件缺失且无来源)"
+            msg = f"(｡•́︿•̀｡) 删除: {work_id} (文件缺失且无来源)"
 
         if progress_callback:
             progress_callback("progress", work_id=work_id, status=status, msg=msg)

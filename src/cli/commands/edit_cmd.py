@@ -32,7 +32,7 @@ class EditCommand(BaseCommand):
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         work = resolve_work(args.target, self.output)
         if not work:
-            return self.output.result(False, error=f"(・_・;)? 找不到作品: {args.target} 哦～")
+            return self.output.result(False, error=f"(・ω・)? 找不到作品: {args.target} 哦～")
 
         wid = work["id"]
         title = work.get("title", "")
@@ -49,7 +49,7 @@ class EditCommand(BaseCommand):
         if self.output.json_mode:
             return self.output.result(True, data={"work": dict(work)})
 
-        self.output.info(f"\n[bold green](^_^) 编辑作品:[/bold green] [cyan]{short_id(wid)}[/cyan] {title}\n")
+        self.output.info(f"\n[bold green](◕‿◕) 编辑作品:[/bold green] [cyan]{short_id(wid)}[/cyan] {title}\n")
 
         field_updates: dict[str, str] = {}
         new_author = ""
@@ -88,9 +88,9 @@ class EditCommand(BaseCommand):
                 if 0 <= r <= 10:
                     field_updates["评分"] = str(r) if r > 0 else ""
                 else:
-                    self.output.info("[yellow](>_<) 评分需在 0-10 之间，跳过啦[/yellow]")
+                    self.output.info("[yellow](｡•́︿•̀｡) 评分需在 0-10 之间，跳过啦[/yellow]")
             except ValueError:
-                self.output.info("[yellow](・_・;) 评分格式无效，跳过啦[/yellow]")
+                self.output.info("[yellow](・ω・) 评分格式无效，跳过啦[/yellow]")
 
         # 收藏
         fav_display = "是" if favorite else "否"
@@ -115,7 +115,7 @@ class EditCommand(BaseCommand):
             try:
                 field_updates["点赞"] = str(int(like_input))
             except ValueError:
-                self.output.info("[yellow](・_・;) 点赞数格式无效，跳过啦[/yellow]")
+                self.output.info("[yellow](・ω・) 点赞数格式无效，跳过啦[/yellow]")
 
         if not field_updates and not new_author and not new_series:
             self.output.info("[dim](・ω・) 无修改，退出～[/dim]")
@@ -123,7 +123,7 @@ class EditCommand(BaseCommand):
 
         # 确认
         try:
-            confirm = input("\n(・_・;) 确认保存？(y/n) → ").strip().lower()
+            confirm = input("\n(・ω・) 确认保存？(y/n) → ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             confirm = ""
         if confirm not in ("y", "yes"):
@@ -133,7 +133,7 @@ class EditCommand(BaseCommand):
         updated = edit_book(wid, field_updates,
                             new_author=new_author, new_series=new_series)
         if not updated:
-            return self.output.result(False, error=f"(T_T) 更新失败: {wid}")
+            return self.output.result(False, error=f"(｡•́︿•̀｡) 更新失败: {wid}")
 
-        self.output.info(f"[green]ヽ(≧▽≦)ノ 已更新:[/green] {updated.get('标题', title)}")
+        self.output.info(f"[green](◕‿◕) 已更新:[/green] {updated.get('标题', title)}")
         return 0

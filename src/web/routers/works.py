@@ -107,7 +107,7 @@ def work_detail(request: Request, work_id: str):
             "request": request,
             "active_page": "works",
             "work": None,
-            "error": f"(・_・;)? 找不到这个作品呀～再检查一下 ID（{work_id}）？",
+            "error": f"(・ω・)? 找不到这个作品呀～再检查一下 ID（{work_id}）？",
         })
 
     work = _normalize_work(info)
@@ -153,15 +153,15 @@ def work_open(work_id: str):
     """用系统默认应用打开作品文件。"""
     info = get_info(work_id, "book")
     if not info:
-        return JSONResponse({"success": False, "error": "(・_・;)? 作品不存在呀～"}, status_code=404)
+        return JSONResponse({"success": False, "error": "(・ω・)? 作品不存在呀～"}, status_code=404)
 
     file_path = info.get("文件路径", "")
     if not file_path:
-        return JSONResponse({"success": False, "error": "(T_T) 没有文件路径呀～"}, status_code=400)
+        return JSONResponse({"success": False, "error": "(｡•́︿•̀｡) 没有文件路径呀～"}, status_code=400)
 
     import os
     if not os.path.exists(file_path):
-        return JSONResponse({"success": False, "error": "(T_T) 文件不存在呀～"}, status_code=404)
+        return JSONResponse({"success": False, "error": "(｡•́︿•̀｡) 文件不存在呀～"}, status_code=404)
 
     try:
         if sys.platform == "darwin":
@@ -172,4 +172,4 @@ def work_open(work_id: str):
             subprocess.Popen(["xdg-open", file_path])
         return {"success": True}
     except Exception as e:
-        return JSONResponse({"success": False, "error": f"(T_T) 打开失败呀～ {e}"}, status_code=500)
+        return JSONResponse({"success": False, "error": f"(｡•́︿•̀｡) 打开失败呀～ {e}"}, status_code=500)

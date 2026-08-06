@@ -86,7 +86,7 @@ class ListCommand(BaseCommand):
                 author,
                 row.get("系列", "-") or "-",
                 row.get("分类", "") or "未知",
-                ">w<" if row.get("收藏", "否") == "是" else "",
+                "(◕‿◕)" if row.get("收藏", "否") == "是" else "",
                 likes if int(likes) > 0 else "",
                 rating if float(rating) > 0 else "",
                 end_section=is_last_of_author,

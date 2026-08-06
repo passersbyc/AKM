@@ -104,7 +104,7 @@ class BaseDownloader(ABC):
         raise NotImplementedError
 
     def stop(self):
-        logger.info("(・_・;) 收到停止信号，正在通知所有线程...")
+        logger.info("(・ω・) 收到停止信号，正在通知所有线程...")
         self.stop_event.set()
 
     def set_download_control(self, ctrl: DownloadControl):
@@ -151,7 +151,7 @@ class BaseDownloader(ABC):
             except Exception as e:
                 if attempt < max_retries - 1:
                     delay = random.uniform(1.5, 4.5) * (attempt + 1)
-                    logger.debug("(・_・;) 重试 %d/%d: 异常 %s 等待 %.1fs",
+                    logger.debug("(・ω・) 重试 %d/%d: 异常 %s 等待 %.1fs",
                                  attempt + 1, max_retries, work_url, delay)
                     self.stop_event.wait(delay)
                     continue
@@ -161,7 +161,7 @@ class BaseDownloader(ABC):
                 return result
             if attempt < max_retries - 1:
                 delay = 3.0 * (2 ** attempt) * random.uniform(0.5, 1.5)
-                logger.debug("(・_・;) 重试 %d/%d: %s 等待 %.1fs",
+                logger.debug("(・ω・) 重试 %d/%d: %s 等待 %.1fs",
                              attempt + 1, max_retries, work_url, delay)
                 self.stop_event.wait(delay)
                 continue
@@ -212,7 +212,7 @@ class BaseDownloader(ABC):
                     self._check_stop()
 
                     if self._ctrl.cancelled:
-                        progress.update(main_task, description="(T_T) 已取消")
+                        progress.update(main_task, description="(｡•́︿•̀｡) 已取消")
                         self._batch_shutdown(executor)
                         break
 
@@ -220,10 +220,10 @@ class BaseDownloader(ABC):
                         if self._ctrl.paused:
                             if paused_stage < 2:
                                 progress.update(
-                                    main_task, description="(・_・;) 暂停中～ (o 继续 / c 退出)")
+                                    main_task, description="(・ω・) 暂停中～ (o 继续 / c 退出)")
                                 paused_stage = 2
                             if self._ctrl.sigint_count > 0:
-                                progress.update(main_task, description="(T_T) 已取消")
+                                progress.update(main_task, description="(｡•́︿•̀｡) 已取消")
                                 self._batch_shutdown(executor)
                                 break
                             self.stop_event.wait(0.3)
@@ -231,7 +231,7 @@ class BaseDownloader(ABC):
 
                         # Not paused, try to refill
                         paused_stage = 0
-                        progress.update(main_task, description=f"(=^▽^=) {desc}")
+                        progress.update(main_task, description=f"(◕‿◕) {desc}")
                         if paused_cancelled:
                             for u in paused_cancelled:
                                 all_futures[executor.submit(worker_fn, u)] = u
@@ -258,10 +258,10 @@ class BaseDownloader(ABC):
                             except KeyboardInterrupt:
                                 raise
                             except Exception as e:
-                                logger.error("(>_<) 任务异常: %s: %s", type(e).__name__, e)
+                                logger.error("(｡•́︿•̀｡) 任务异常: %s: %s", type(e).__name__, e)
                             if self._ctrl.paused:
                                 if paused_stage < 1:
-                                    progress.update(main_task, description="(・_・;) 正在暂停...")
+                                    progress.update(main_task, description="(・ω・) 正在暂停...")
                                     paused_stage = 1
                                     for f, u in list(all_futures.items()):
                                         if f.cancel():
@@ -280,7 +280,7 @@ class BaseDownloader(ABC):
                             break
                     except concurrent.futures.TimeoutError:
                         if self._ctrl.paused and paused_stage < 1:
-                            progress.update(main_task, description="(・_・;) 正在暂停...")
+                            progress.update(main_task, description="(・ω・) 正在暂停...")
                             paused_stage = 1
                             for f, u in list(all_futures.items()):
                                 if f.cancel():
@@ -298,9 +298,9 @@ class BaseDownloader(ABC):
             path = cfg.get("download_file_path", "downloads")
             if path:
                 self.download_file_path = path
-                logger.debug("(^_^) [Base] 下载路径已配置为: %s", self.download_file_path)
+                logger.debug("(◕‿◕) [Base] 下载路径已配置为: %s", self.download_file_path)
         except Exception as e:
-            logger.error("(T_T) 加载基类配置失败: %s", e)
+            logger.error("(｡•́︿•̀｡) 加载基类配置失败: %s", e)
 
     def check_network(self, url: str, timeout: int = 5) -> bool:
         import requests
@@ -322,16 +322,16 @@ class BaseDownloader(ABC):
             elapsed = (time.time() - elapsed) * 1000
 
             if response.status_code >= 500:
-                logger.error("(>_<) 服务器返回异常状态码: %d", response.status_code)
+                logger.error("(｡•́︿•̀｡) 服务器返回异常状态码: %d", response.status_code)
                 return False
 
             if elapsed > 1200:
-                logger.warning("(・_・;) 网络有点慢哦～ (%.0fms > 1200ms)，下载已取消", elapsed)
+                logger.warning("(・ω・) 网络有点慢哦～ (%.0fms > 1200ms)，下载已取消", elapsed)
                 return False
 
             return True
         except Exception as e:
-            logger.error("(T_T) 无法连接到目标服务器: %s", e)
+            logger.error("(｡•́︿•̀｡) 无法连接到目标服务器: %s", e)
             return False
 
     def _load_existing_sources(self):
@@ -340,22 +340,22 @@ class BaseDownloader(ABC):
             from src.core.work_manager import WorkManager
             self.existing_sources = WorkManager.source_set()
         except Exception as e:
-            logger.error("(T_T) 加载现有记录失败: %s", e)
+            logger.error("(｡•́︿•̀｡) 加载现有记录失败: %s", e)
 
     def _get_friendly_error_message(self, e: Exception, url: str) -> str:
         status = getattr(getattr(e, "response", None), "status_code", None)
         error_msg = str(e)
         if status == 429:
-            return f"(>_<) HTTP 429 (限流): {url}"
+            return f"(｡•́︿•̀｡) HTTP 429 (限流): {url}"
         if status in (401, 403):
-            return f"(>_<) HTTP {status} (认证失败): {url}"
+            return f"(｡•́︿•̀｡) HTTP {status} (认证失败): {url}"
         if status:
-            return f"(>_<) HTTP {status}: {url}"
+            return f"(｡•́︿•̀｡) HTTP {status}: {url}"
         if isinstance(e, OSError):
-            return f"(T_T) IO错误: {e} - {url}"
+            return f"(｡•́︿•̀｡) IO错误: {e} - {url}"
         if isinstance(e, KeyboardInterrupt):
-            return "(T_T) 已中断"
-        return f"(T_T) 请求失败: {e} - {url}"
+            return "(｡•́︿•̀｡) 已中断"
+        return f"(｡•́︿•̀｡) 请求失败: {e} - {url}"
 
     def _handle_request_exception(self, e: Exception, url: str) -> None:
         logger.error(str(e))

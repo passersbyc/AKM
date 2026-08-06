@@ -21,7 +21,7 @@ class FollowCommand(BaseCommand):
 
     def _handle_sigint(self, signum, frame):
         if not self._stop_event.is_set():
-            self.output.info("\n[yellow](T_T) 收到停止信号[/yellow]")
+            self.output.info("\n[yellow](｡•́︿•̀｡) 收到停止信号[/yellow]")
         self._stop_event.set()
 
     def _cookie(self) -> str:
@@ -52,7 +52,7 @@ class FollowCommand(BaseCommand):
     def _follow_url(self, url: str) -> int:
         result = source_op.queue_author_works(url)
         if not result:
-            self.output.info("(T_T) 无法获取作者信息，再检查一下 URL 或 Cookie 吧？")
+            self.output.info("(｡•́︿•̀｡) 无法获取作者信息，再检查一下 URL 或 Cookie 吧？")
             return 1
 
         name = result["name"]
@@ -78,7 +78,7 @@ class FollowCommand(BaseCommand):
                 parts.append(f"跳过 [dim]{skipped}[/dim] 个已入库")
             queue_desc = "，".join(parts) if parts else "(・ω・)? 没有新作品"
 
-        self.output.info(f"[green](^_^)[/green] 已关注: [bold]{name}[/bold]" + (f" (UID: {uid})" if uid else ""))
+        self.output.info(f"[green](◕‿◕)[/green] 已关注: [bold]{name}[/bold]" + (f" (UID: {uid})" if uid else ""))
         self.output.info(f"    {queue_desc}")
         return self.output.result(True, data={
             "author": name, "uid": uid, "total": total,
@@ -89,9 +89,9 @@ class FollowCommand(BaseCommand):
     def _follow_pixiv(self) -> int:
         cookie = self._cookie()
         if not cookie:
-            self.output.info("(・_・;) 还没配置 Cookie 哦，请先配置 Pixiv Cookie～")
+            self.output.info("(・ω・) 还没配置 Cookie 哦，请先配置 Pixiv Cookie～")
             return 1
-        self.output.info("[bold](=^▽^=) 正在获取 Pixiv 关注列表...[/bold]")
+        self.output.info("[bold](◕‿◕) 正在获取 Pixiv 关注列表...[/bold]")
         result = source_op.follow_from_pixiv(cookie)
         if result["error"]:
             self.output.info(result["error"])
@@ -100,7 +100,7 @@ class FollowCommand(BaseCommand):
             self.output.info(f"  + {u['name']} ({u['uid']})")
         self.output.info("")
         if result["new"]:
-            self.output.info(f"[green]ヽ(≧▽≦)ノ 新增 {result['new']} 位作者[/green]")
+            self.output.info(f"[green](◕‿◕) 新增 {result['new']} 位作者[/green]")
         if result["skipped"]:
             self.output.info(f"[dim]跳过 {result['skipped']} 位（早就关注过啦）[/dim]")
         return 0
@@ -125,7 +125,7 @@ class FollowCommand(BaseCommand):
             if source_op.should_recheck_dead(r.get("last_checked", ""), now_ts)
         ]
 
-        self.output.info("[bold](=^▽^=) 请稍等，正在检查更新...[/bold]")
+        self.output.info("[bold](◕‿◕) 请稍等，正在检查更新...[/bold]")
         parts = []
         if active:
             parts.append(f"{len(active)} 名活跃")
@@ -136,7 +136,7 @@ class FollowCommand(BaseCommand):
         first_url = next((r.get("homepage", "") for r in (active + recheck_dead) if r.get("homepage")), None)
         downloader = source_op.get_sync_downloader(first_url)
         if not downloader:
-            self.output.info("(・_・;)? 找不到已注册的下载器哦～")
+            self.output.info("(・ω・)? 找不到已注册的下载器哦～")
             return 1
         max_workers = source_op.get_sync_max_workers(downloader)
         self.output.info(f"运行模式: 并行，{max_workers} 线程。[dim](Ctrl+C 可退出哦)[/dim]")
@@ -206,7 +206,7 @@ class FollowCommand(BaseCommand):
             signal.signal(signal.SIGINT, old_handler)
 
         if self._stop_event.is_set():
-            self.output.info("[dim](T_T) 同步已中断[/dim]")
+            self.output.info("[dim](｡•́︿•̀｡) 同步已中断[/dim]")
 
         changed_count = 0
         unchanged: list[str] = []
@@ -226,7 +226,7 @@ class FollowCommand(BaseCommand):
                 if r.get("deleted"):
                     parts.append(f"[red]-{r['deleted']}[/red]")
                 n = _rpad(name, name_width)
-                fav_icon = " [red]>w<[/red]" if is_fav else ""
+                fav_icon = " [red](◕‿◕)[/red]" if is_fav else ""
                 line = f"  {n}{fav_icon} ({uid})  {', '.join(parts)}"
                 added = r.get("downloaded", 0)
                 if added:
@@ -263,7 +263,7 @@ class FollowCommand(BaseCommand):
             for d in dead:
                 name = d.get("name", "")
                 uid = (d.get("pixiv_uid") or "").strip()
-                self.output.info(f"[dim](T_T) 已停更: {name}" + (f" ({uid})" if uid else "") + "[/dim]")
+                self.output.info(f"[dim](｡•́︿•̀｡) 已停更: {name}" + (f" ({uid})" if uid else "") + "[/dim]")
 
         if changed_count > 0 or source_op.has_new_favorites():
             source_op.save_updated_ids(sync_targets, results)

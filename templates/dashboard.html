@@ -58,7 +58,7 @@
                     <span class="item-title">{{ item.title[:15] }}</span>
                 </a>
                 {% else %}
-                <div class="empty-hint"><div class="empty-icon">📭</div>(・_・;) 还没有记录哦～</div>
+                <div class="empty-hint"><div class="empty-icon">📭</div>(・ω・) 还没有记录哦～</div>
                 {% endfor %}
             </div>
             <div class="activity-col">
@@ -69,7 +69,7 @@
                     <span class="item-title">{{ item.title[:15] }}</span>
                 </a>
                 {% else %}
-                <div class="empty-hint"><div class="empty-icon">📭</div>(・_・;) 还没有记录哦～</div>
+                <div class="empty-hint"><div class="empty-icon">📭</div>(・ω・) 还没有记录哦～</div>
                 {% endfor %}
             </div>
             <div class="activity-col">
@@ -80,7 +80,7 @@
                     <span class="item-title">{{ item.title[:15] }}</span>
                 </a>
                 {% else %}
-                <div class="empty-hint"><div class="empty-icon">📭</div>(・_・;) 还没有记录哦～</div>
+                <div class="empty-hint"><div class="empty-icon">📭</div>(・ω・) 还没有记录哦～</div>
                 {% endfor %}
             </div>
         </div>
@@ -182,8 +182,8 @@
 function openWork(id) {
     fetch(`/works/${id}/open`, { method: 'POST' })
         .then(r => r.json())
-        .then(data => { if (!data.success) alert(data.error || '(T_T) 打开失败呀～'); })
-        .catch(() => alert('(T_T) 打开失败呀～'));
+        .then(data => { if (!data.success) alert(data.error || '(｡•́︿•̀｡) 打开失败呀～'); })
+        .catch(() => alert('(｡•́︿•̀｡) 打开失败呀～'));
 }
 </script>
 

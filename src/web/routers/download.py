@@ -118,14 +118,14 @@ def download_add(
 
     parts = []
     if result["queued"]:
-        parts.append(f"(^_^) 新增 {result['queued']} 条")
+        parts.append(f"(◕‿◕) 新增 {result['queued']} 条")
     if result.get("skipped_downloaded"):
         parts.append(f"已下载 {result['skipped_downloaded']} 条")
     if result.get("skipped_exists"):
         parts.append(f"已在队列 {result['skipped_exists']} 条")
     if result["invalid"]:
         parts.append(f"无效 {len(result['invalid'])} 条")
-    message = "，".join(parts) if parts else "(・_・;)? 没找到有效的 URL 呢～"
+    message = "，".join(parts) if parts else "(・ω・)? 没找到有效的 URL 呢～"
     message_type = "success" if result["queued"] else "warning"
 
     return RedirectResponse(
@@ -143,18 +143,18 @@ def download_follow(
     url = url.strip()
     if not url:
         return RedirectResponse(
-            f"/download?message={quote('(・_・;)? 请输入作者 URL 呀～')}&message_type=warning",
+            f"/download?message={quote('(・ω・)? 请输入作者 URL 呀～')}&message_type=warning",
             status_code=303,
         )
 
     result = queue_author_works(url)
     if not result:
         return RedirectResponse(
-            f"/download?message={quote(f'(T_T) 无法识别或访问呀～ URL: {url}')}&message_type=warning",
+            f"/download?message={quote(f'(｡•́︿•̀｡) 无法识别或访问呀～ URL: {url}')}&message_type=warning",
             status_code=303,
         )
 
-    parts = [f"(^_^) 已关注 {result['name']} 啦"]
+    parts = [f"(◕‿◕) 已关注 {result['name']} 啦"]
     if result.get("already_followed"):
         parts.append("（之前已关注哦～）")
     if result.get("queued"):

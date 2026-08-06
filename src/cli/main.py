@@ -40,7 +40,7 @@ def load_commands(app: CLIApp) -> None:
 
 def main() -> int:
     setup_logging()
-    app = CLIApp(prog_name="akm", description="作品管理系统 CLI (^_^)")
+    app = CLIApp(prog_name="akm", description="作品管理系统 CLI (◕‿◕)")
     load_commands(app)
     library_path = get_library_path()
     library_path.mkdir(parents=True, exist_ok=True)

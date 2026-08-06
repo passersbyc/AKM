@@ -37,14 +37,14 @@ class StartUICommand(BaseCommand):
 
         port = _find_free_port(args.host, args.port)
         if port == -1:
-            self.output.error(f"(T_T) 端口 {args.port}~{args.port + 9} 均被占用，请手动指定: --port <port>")
+            self.output.error(f"(｡•́︿•̀｡) 端口 {args.port}~{args.port + 9} 均被占用，请手动指定: --port <port>")
             return 1
         if port != args.port:
-            self.output.warn(f"(・_・;) 端口 {args.port} 被占用，自动切换到 {port} 啦～")
+            self.output.warn(f"(・ω・) 端口 {args.port} 被占用，自动切换到 {port} 啦～")
 
         app = create_app()
         url = f"http://{args.host}:{port}"
-        self.output.info(f"(=^▽^=) AKM WebUI 启动中... {url}")
+        self.output.info(f"(◕‿◕) AKM WebUI 启动中... {url}")
 
         # 延迟 1.5s 打开浏览器，等 uvicorn 起来
         if not args.no_browser:

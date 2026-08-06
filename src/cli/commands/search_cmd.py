@@ -65,7 +65,7 @@ class SearchCommand(BaseCommand):
             self.output.info("[yellow](・ω・)? 什么都没有找到哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan](^_^) 找到 {total} 个结果：[/cyan]")
+        self.output.info(f"[cyan](◕‿◕) 找到 {total} 个结果：[/cyan]")
         columns = [
             {"header": "ID", "width": 10},
             {"header": "标题", "style": "green"},
@@ -82,7 +82,7 @@ class SearchCommand(BaseCommand):
                 row.get("标题", ""),
                 row.get("作者", "未知"),
                 row.get("分类", "") or "未知",
-                ">w<" if row.get("收藏", "否") == "是" else "",
+                "(◕‿◕)" if row.get("收藏", "否") == "是" else "",
                 rating if float(rating) > 0 else "",
             ])
         self.output.table("搜索结果", columns, rows)
@@ -102,7 +102,7 @@ class SearchCommand(BaseCommand):
             self.output.info(f"[yellow](・ω・)? 没有找到标签 [{args.query}] 的作品哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan](^_^) 标签 [{args.query}] 找到 {total} 个作品：[/cyan]")
+        self.output.info(f"[cyan](◕‿◕) 标签 [{args.query}] 找到 {total} 个作品：[/cyan]")
         self.output.table("标签搜索结果", [
             {"header": "ID", "width": 10},
             {"header": "标题", "style": "green"},
@@ -117,7 +117,7 @@ class SearchCommand(BaseCommand):
                 r["author_name"] or "未知",
                 r["file_type"] or "未知",
                 r["tags"] or "",
-                ">w<" if r["favorite"] else "",
+                "(◕‿◕)" if r["favorite"] else "",
             ]
             for r in rows
         ])
@@ -135,14 +135,14 @@ class SearchCommand(BaseCommand):
             self.output.info("[yellow](・ω・)? 没有找到匹配的作者哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan](^_^) 找到 {total} 位作者：[/cyan]")
+        self.output.info(f"[cyan](◕‿◕) 找到 {total} 位作者：[/cyan]")
         self.output.table("作者搜索结果", [
             {"header": "ID", "style": "magenta", "width": 6},
             {"header": "名称", "style": "bold"},
             {"header": "收藏", "style": "red", "width": 4},
             {"header": "作品数", "justify": "right", "style": "green"},
         ], [
-            [r["id"], r["name"], ">w<" if r["favorite"] else "", str(r["work_count"])]
+            [r["id"], r["name"], "(◕‿◕)" if r["favorite"] else "", str(r["work_count"])]
             for r in rows
         ])
         return 0

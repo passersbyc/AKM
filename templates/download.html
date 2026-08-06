@@ -5,7 +5,7 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">下载队列</h1>
-        <p class="page-subtitle">管理作品下载任务 (^_^)</p>
+        <p class="page-subtitle">管理作品下载任务 (◕‿◕)</p>
     </div>
 </div>
 
@@ -231,17 +231,17 @@ function startPull() {
                 case 'pull_start':
                     totalWorks = data.total_urls;
                     status.textContent = `开始下载 ${totalWorks} 个作品呢～`;
-                    addLog(`(^_^) 共 ${totalWorks} 个待下载呢～`);
+                    addLog(`(◕‿◕) 共 ${totalWorks} 个待下载呢～`);
                     break;
                 case 'start':
                     const groups = data.groups || {};
                     const sites = Object.keys(groups);
                     if (sites.length) addLog(`(・ω・) 站点: ${sites.join(', ')}`);
-                    if (data.unsupported && data.unsupported.length) addLog(`(・_・;) ${data.unsupported.length} 个不支持的链接呢～`);
+                    if (data.unsupported && data.unsupported.length) addLog(`(・ω・) ${data.unsupported.length} 个不支持的链接呢～`);
                     break;
                 case 'site_start':
                     status.textContent = `正在下载 [${data.site}] ${data.url_count} 个作品呢～`;
-                    addLog(`(^_^) [${data.site}] 开始下载 ${data.url_count} 个作品啦～`);
+                    addLog(`(◕‿◕) [${data.site}] 开始下载 ${data.url_count} 个作品啦～`);
                     break;
                 case 'site_done':
                     const s = data.stats || {};
@@ -252,20 +252,20 @@ function startPull() {
                     const pct = totalWorks ? Math.round(completedWorks / totalWorks * 100) : 0;
                     bar.style.width = pct + '%';
                     status.textContent = `[${data.site}] 完成～成功 ${s.success} / 失败 ${s.failed} / 跳过 ${s.skipped}`;
-                    addLog(`(^_^) [${data.site}] 成功 ${s.success} / 失败 ${s.failed} / 跳过 ${s.skipped}`);
+                    addLog(`(◕‿◕) [${data.site}] 成功 ${s.success} / 失败 ${s.failed} / 跳过 ${s.skipped}`);
                     break;
                 case 'pull_done':
                     const r = data.results || {};
                     bar.style.width = '100%';
                     bar.classList.add('pull-bar-done');
-                    status.textContent = `(^_^) 全部搞定！成功 ${r.success} / 失败 ${r.failed} / 跳过 ${r.skipped}，耗时 ${r.elapsed}s`;
-                    addLog(`ヽ(≧▽≦)ノ 全部完成！成功 ${r.success} / 失败 ${r.failed} / 跳过 ${r.skipped}，耗时 ${r.elapsed}s`);
+                    status.textContent = `(◕‿◕) 全部搞定！成功 ${r.success} / 失败 ${r.failed} / 跳过 ${r.skipped}，耗时 ${r.elapsed}s`;
+                    addLog(`(◕‿◕) 全部完成！成功 ${r.success} / 失败 ${r.failed} / 跳过 ${r.skipped}，耗时 ${r.elapsed}s`);
                     btnText.textContent = '重新下载～';
                     btn.disabled = false;
                     break;
                 case 'error':
-                    status.textContent = `(T_T) 错误: ${data.message}`;
-                    addLog(`(T_T) ${data.message}`);
+                    status.textContent = `(｡•́︿•̀｡) 错误: ${data.message}`;
+                    addLog(`(｡•́︿•̀｡) ${data.message}`);
                     btnText.textContent = '重试～';
                     btn.disabled = false;
                     break;

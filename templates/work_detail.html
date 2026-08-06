@@ -5,7 +5,7 @@
 {% if error or not work %}
 <div class="empty-state animate-in">
     <div class="empty-icon-lg">😕</div>
-    <p>{{ error or '(・_・;)? 作品不存在呀～' }}</p>
+    <p>{{ error or '(・ω・)? 作品不存在呀～' }}</p>
     <a href="/works" class="back-link">← 返回作品列表</a>
 </div>
 {% else %}
@@ -165,9 +165,9 @@ function openWork(id) {
     fetch(`/works/${id}/open`, { method: 'POST' })
         .then(r => r.json())
         .then(data => {
-            if (!data.success) alert(data.error || '(T_T) 打开失败呀～');
+            if (!data.success) alert(data.error || '(｡•́︿•̀｡) 打开失败呀～');
         })
-        .catch(() => alert('(T_T) 打开失败呀～'));
+        .catch(() => alert('(｡•́︿•̀｡) 打开失败呀～'));
 }
 </script>
 

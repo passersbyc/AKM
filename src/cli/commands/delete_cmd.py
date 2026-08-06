@@ -39,47 +39,47 @@ class DeleteCommand(BaseCommand):
 
         work = resolve_work(args.target, self.output)
         if not work:
-            return self.output.result(False, error=f"(・_・;)? 找不到作品: {args.target} 哦～")
+            return self.output.result(False, error=f"(・ω・)? 找不到作品: {args.target} 哦～")
 
         wid = work["id"]
         title = work.get("title", "")
 
         if not self.output.json_mode and not (args.yes or self.output.no_confirm):
             self.output.info(f"(・ω・) 将删除: [cyan]{short_id(wid)}[/cyan] {title}")
-            if not self.output.confirm("(・_・;) 删掉就找不回来啦，确定要删除吗？"):
+            if not self.output.confirm("(・ω・) 删掉就找不回来啦，确定要删除吗？"):
                 self.output.info("[dim](・ω・) 已取消，安心～[/dim]")
                 return 0
 
         result = delete_book({wid}, keep_file=False, clear_tables=False)
         if self.output.json_mode:
             return self.output.result(True, data=result)
-        self.output.info(f"[green]ヽ(≧▽≦)ノ[/green] 已删除: {title}")
+        self.output.info(f"[green](◕‿◕)[/green] 已删除: {title}")
         return 0
 
     def _delete_author(self, args: argparse.Namespace) -> int:
         author = resolve_author(args.target, self.output)
         if not author:
-            return self.output.result(False, error=f"(・_・;)? 找不到作者: {args.target} 哦～")
+            return self.output.result(False, error=f"(・ω・)? 找不到作者: {args.target} 哦～")
 
         aid = author["id"]
         name = author.get("name", "")
 
         if not self.output.json_mode and not (args.yes or self.output.no_confirm):
             self.output.info(f"(・ω・) 将删除作者: [cyan]{name}[/cyan] 及其全部作品")
-            if not self.output.confirm("(・_・;) 删掉就找不回来啦，确定要删除吗？"):
+            if not self.output.confirm("(・ω・) 删掉就找不回来啦，确定要删除吗？"):
                 self.output.info("[dim](・ω・) 已取消，安心～[/dim]")
                 return 0
 
         deleted, _ = delete_authors([aid])
         if self.output.json_mode:
             return self.output.result(True, data={"deleted": deleted, "id": aid})
-        self.output.info(f"[green]ヽ(≧▽≦)ノ[/green] 已删除作者: {name}（{deleted} 部作品）")
+        self.output.info(f"[green](◕‿◕)[/green] 已删除作者: {name}（{deleted} 部作品）")
         return 0
 
     def _delete_all(self, args: argparse.Namespace) -> int:
         if not self.output.json_mode and not (args.yes or self.output.no_confirm):
             self.output.info("[yellow](・ω・) 将清空整个作品库[/yellow]")
-            if not self.output.confirm("(・_・;) 清空就找不回来啦，确定要清空吗？"):
+            if not self.output.confirm("(・ω・) 清空就找不回来啦，确定要清空吗？"):
                 self.output.info("[dim](・ω・) 已取消，安心～[/dim]")
                 return 0
 
@@ -87,5 +87,5 @@ class DeleteCommand(BaseCommand):
         result = delete_all_works(keep_file=False, clear_tables=not args.keep_tables)
         if self.output.json_mode:
             return self.output.result(True, data=result)
-        self.output.info(f"[green]ヽ(≧▽≦)ノ[/green] 已清空库: 删除 {result['deleted']} 部作品")
+        self.output.info(f"[green](◕‿◕)[/green] 已清空库: 删除 {result['deleted']} 部作品")
         return 0

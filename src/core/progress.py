@@ -1,7 +1,7 @@
 """统一进度条显示 — rich 驱动。
 
 两行式布局（TTY 动画 / 非终端自动禁用渲染），紧凑宽度适配 60+ 列终端：
-    (=^▽^=) 下载进度  ━━━━━━━━━━━━  94/171  [0:00:16]  5.6个/s
+    (◕‿◕) 下载进度  ━━━━━━━━━━━━  94/171  [0:00:16]  5.6个/s
                         成功 94  失败 0  跳过 0
 
 - 第一行：描述 + 进度条 + 完成数/总数 + 耗时 + 速率（无百分比列，避免与 n/total 重复）
@@ -104,7 +104,7 @@ def make_progress(counts: dict, desc: str = "进度",
         console=_console,
         disable=not _console.is_terminal,
     )
-    main_id = progress.add_task(description=f"(=^▽^=) {desc}", total=total)
+    main_id = progress.add_task(description=f"(◕‿◕) {desc}", total=total)
     counts_id = progress.add_task(description="", total=total)
     task_ids["main"] = main_id
     task_ids["counts"] = counts_id

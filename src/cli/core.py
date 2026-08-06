@@ -25,7 +25,7 @@ class NoExitArgumentParser(argparse.ArgumentParser):
 
 
 class CLIApp:
-    def __init__(self, prog_name: str = "akm", description: str = "作品管理系统 CLI (^_^)"):
+    def __init__(self, prog_name: str = "akm", description: str = "作品管理系统 CLI (◕‿◕)"):
         self.prog_name = prog_name
         self.description = description
         self.parser = NoExitArgumentParser(prog=prog_name, description=description)
@@ -116,7 +116,7 @@ class CLIApp:
 
             command = self._commands.get(verb)
             if command is None:
-                logger.error(f"(・_・;) 未知命令: {verb}")
+                logger.error(f"(・ω・) 未知命令: {verb}")
                 return 1
 
             # 如果 verb 有 nouns 且第一个非 flag 参数匹配某 noun，用 noun subparser
@@ -137,7 +137,7 @@ class CLIApp:
                 noun = first_pos
                 noun_parser = self._noun_parsers.get((verb, noun))
                 if noun_parser is None:
-                    logger.error(f"(・_・;) noun {noun} 未注册")
+                    logger.error(f"(・ω・) noun {noun} 未注册")
                     return 1
                 noun_args = remaining[:first_pos_idx] + remaining[first_pos_idx + 1:]
                 args = noun_parser.parse_args(noun_args)
@@ -149,7 +149,7 @@ class CLIApp:
                 # 用 verb exec parser（无 subparsers，不会拦截 positional）
                 verb_parser = self._exec_parsers.get(verb)
                 if verb_parser is None:
-                    logger.error(f"(・_・;) verb {verb} 未注册")
+                    logger.error(f"(・ω・) verb {verb} 未注册")
                     return 1
                 args = verb_parser.parse_args(remaining)
                 args.verb = verb
@@ -159,10 +159,10 @@ class CLIApp:
         except ArgumentParserError as e:
             if "Exited with status 0" in str(e):
                 return 0
-            logger.error(f"(>_<) 用法错误: {translate_error(str(e))}")
+            logger.error(f"(｡•́︿•̀｡) 用法错误: {translate_error(str(e))}")
             return 1
         except Exception as e:
-            logger.error(f"(T_T) 错误: {e}")
+            logger.error(f"(｡•́︿•̀｡) 错误: {e}")
             return 1
 
     def _print_interactive_help(self) -> None:
@@ -186,8 +186,8 @@ class CLIApp:
             ]),
             ("订阅 (・ω・)", [
                 ("follow", "同步下载队列～"),
-                ("follow <url>", "关注作者 (^_^)"),
-                ("pull", "下载队列作品 (^_^)"),
+                ("follow <url>", "关注作者 (◕‿◕)"),
+                ("pull", "下载队列作品 (◕‿◕)"),
             ]),
         ]
         try:
@@ -248,7 +248,7 @@ class CLIApp:
                 try:
                     argv = shlex.split(user_input, posix=not is_windows)
                 except ValueError as e:
-                    print(f"(>_<) 解析错误: {translate_error(str(e))}")
+                    print(f"(｡•́︿•̀｡) 解析错误: {translate_error(str(e))}")
                     continue
                 if is_windows:
                     argv = [arg.strip("\"'") for arg in argv]
@@ -256,7 +256,7 @@ class CLIApp:
                 try:
                     self.run(argv)
                 except ArgumentParserError as e:
-                    print(f"(T_T) 错误: {e}")
+                    print(f"(｡•́︿•̀｡) 错误: {e}")
                 except SystemExit:
                     pass
             except KeyboardInterrupt:
@@ -265,6 +265,6 @@ class CLIApp:
                 print("\n(・ω・) 正在退出...")
                 break
             except Exception as e:
-                print(f"(>_<) 意外错误: {e}")
+                print(f"(｡•́︿•̀｡) 意外错误: {e}")
 
         return 0
