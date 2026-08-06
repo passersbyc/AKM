@@ -52,8 +52,17 @@ def _check_structure(file_path: Path) -> tuple[bool, str]:
                 return False, f"压缩包解析失败（{type(e).__name__}）"
         elif suffix == ".pdf":
             try:
+                import logging
                 from pypdf import PdfReader
-                reader = PdfReader(str(file_path))
+                # 部分 pixiv PDF 尾部不标准，pypdf 会刷"EOF marker not found"
+                # warning 日志，不影响损坏判定，临时抬高其日志级别静默
+                pdf_logger = logging.getLogger("pypdf")
+                old_level = pdf_logger.level
+                pdf_logger.setLevel(logging.ERROR)
+                try:
+                    reader = PdfReader(str(file_path))
+                finally:
+                    pdf_logger.setLevel(old_level)
                 if len(reader.pages) == 0:
                     return False, "PDF 无页面"
             except Exception:
