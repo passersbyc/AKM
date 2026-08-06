@@ -25,7 +25,8 @@ def get_library_path() -> Path:
     return default_path
 
 
-def build_import_target(file: Path, author: str = "", series: str = "", book_id: str = "") -> Path:
+def build_import_target(file: Path, author: str = "", series: str = "", book_id: str = "",
+                        uid: str = "") -> Path:
     file_type = determine_file_type(str(file))
     if file_type == "unknown":
         raise ValueError(f"无法识别文件类型: {file}")
@@ -33,9 +34,9 @@ def build_import_target(file: Path, author: str = "", series: str = "", book_id:
     a = author.strip() if author else ""
     s = series.strip() if series else ""
     if a and s:
-        base = base / author_folder_name(a) / series_folder_name(a, normalize_series_name(s))
+        base = base / author_folder_name(a, uid) / series_folder_name(a, normalize_series_name(s), uid)
     elif a and not s:
-        base = base / author_folder_name(a)
+        base = base / author_folder_name(a, uid)
     elif not a and s:
         base = base / "unsort"
     base.mkdir(parents=True, exist_ok=True)
@@ -48,14 +49,15 @@ def build_import_target(file: Path, author: str = "", series: str = "", book_id:
     return base / clean_name
 
 
-def determine_storage_path(base_path: Path, author: str = "", series: str = "") -> Path:
+def determine_storage_path(base_path: Path, author: str = "", series: str = "",
+                           uid: str = "") -> Path:
     a = author.strip() if author else ""
     s = series.strip() if series else ""
     target = base_path
     if a and s:
-        target = target / author_folder_name(a) / series_folder_name(a, normalize_series_name(s))
+        target = target / author_folder_name(a, uid) / series_folder_name(a, normalize_series_name(s), uid)
     elif a and not s:
-        target = target / author_folder_name(a)
+        target = target / author_folder_name(a, uid)
     elif not a and s:
         target = target / "unsort"
     target.mkdir(parents=True, exist_ok=True)

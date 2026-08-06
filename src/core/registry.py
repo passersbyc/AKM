@@ -97,8 +97,10 @@ def _get_series_id(author: str, series: str) -> str:
     return new_id
 
 
-def generate_id(file_type: str = "", author: str = "", series: str = "") -> str:
-    author_id = _get_author_id(author) if author else "000"
+def generate_id(file_type: str = "", author: str = "", series: str = "",
+                uid: str = "") -> str:
+    # 带 uid 解析作者：避免同名变体（如改名）时新建分裂作者行/目录
+    author_id = _get_author_id(author, uid) if author else "000"
     series_id = _get_series_id(author, series) if series else "00"
     return _make_work_id(file_type, author_id, series_id)
 
@@ -111,14 +113,14 @@ def to_full_id(short: str) -> str:
     return db_to_full_id(short)
 
 
-def author_folder_name(author: str) -> str:
+def author_folder_name(author: str, uid: str = "") -> str:
     if not author:
         return author
-    lid = _get_author_id(author)
+    lid = _get_author_id(author, uid)
     return f"{lid}_{author}" if lid else author
 
 
-def series_folder_name(author: str, series: str) -> str:
+def series_folder_name(author: str, series: str, uid: str = "") -> str:
     if not series:
         return series
     sid = _get_series_id(author, series)

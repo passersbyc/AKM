@@ -218,15 +218,16 @@ class PixivDownloader(BaseDownloader):
         tags = info.get("tags", [])
         title = info.get("title", "")
         file_type, suffix = self._resolve_work_format(info.get("type", "illust"))
+        user_id = info.get("user_id", "")
 
-        book_id = generate_id(file_type, author, series)
+        book_id = generate_id(file_type, author, series, uid=user_id)
         safe_title = normalize_series_name(title)
         placeholder_name = f"{book_id}_{safe_title}{suffix}"
-        target = build_import_target(Path(placeholder_name), author, series, book_id=book_id)
+        target = build_import_target(Path(placeholder_name), author, series, book_id=book_id, uid=user_id)
 
         entry = {
             "ID": book_id, "标题": title, "作者": author or "佚名",
-            "_user_id": info.get("user_id", ""),
+            "_user_id": user_id,
             "系列": series or "", "标签": ",".join(str(t) for t in tags if t) if isinstance(tags, list) else str(tags or ""),
             "来源": ctx.work_url, "源状态": "metadata_only", "后缀": suffix,
             "分类": file_type, "导入时间": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -279,14 +280,14 @@ class PixivDownloader(BaseDownloader):
         if file_type == "unknown":
             raise ValueError(f"无法识别的文件类型: {fp.suffix}")
 
-        book_id = generate_id(file_type, author, series)
+        book_id = generate_id(file_type, author, series, uid=user_id)
 
         if create_date and "T" in create_date:
             normalized = create_date.split("+")[0].split("Z")[0].replace("T", " ")
             if len(normalized) >= 10:
                 create_date = normalized
 
-        target = build_import_target(fp, author, series, book_id=book_id)
+        target = build_import_target(fp, author, series, book_id=book_id, uid=user_id)
 
         ctx.entry = {
             "ID": book_id,
