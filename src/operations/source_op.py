@@ -303,8 +303,12 @@ def should_recheck_dead(last_checked: str, now_ts: float) -> bool:
 
 
 def build_work_index(sync_targets: list[dict]) -> tuple[dict[str, set[str]], dict[str, str]]:
-    """读取全部作品，构建 {local_id: {work_ids}} 和 {source_url: row_id} 索引。"""
-    all_rows = WorkManager.read()
+    """读取全部作品，构建 {local_id: {work_ids}} 和 {source_url: row_id} 索引。
+
+    排除源状态为 deleted 的作品——它们已确认远程删除，不应再参与后续
+    同步对比，否则每次 follow 都会重复"发现删除"并反复显示 -N。
+    """
+    all_rows = [r for r in WorkManager.read() if r.get("源状态", "ok") != "deleted"]
     work_index: dict[str, set[str]] = {}
     source_to_id: dict[str, str] = {}
     for r in all_rows:
@@ -421,6 +425,8 @@ def sync_one_author(row: dict, downloader=None, dry_run: bool = False,
     else:
         local_ids = set()
         for r in WorkManager.read():
+            if r.get("源状态", "ok") == "deleted":
+                continue
             src = r.get("来源", "")
             wid = extract_pixiv_id(src)
             if not wid:

@@ -89,14 +89,14 @@ class PixivBaseExtractor(ABC):
 
 
 def _text_has_content(text: str, description: str) -> bool:
+    # 正文非空即为有效内容。
+    # 注意：不把"正文==简介"判为无正文——占位通知/图片正文类小说
+    # （如正文内嵌图片 + 一行说明）常出现正文与简介一致；
+    # 正文真正缺失时（未登录/被删/API 异常）text 为空，会被上面拦截。
     if not text or not text.strip():
         return False
     clean_text = re.sub(r'<[^>]+>', '', text).strip()
-    clean_desc = re.sub(r'<[^>]+>', '', description).strip()
-    if clean_text and clean_desc and len(clean_text) == len(clean_desc):
-        if clean_text == clean_desc:
-            return False
-    return True
+    return bool(clean_text)
 
 
 def _extract_thumbnail_url(body: dict, pid: str) -> str:
