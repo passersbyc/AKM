@@ -21,16 +21,45 @@ def get_stats() -> dict:
             pass
 
     id_type_count: dict[str, int] = defaultdict(int)
+    type_dist: Counter = Counter()
+    source_dist: Counter = Counter()
+    deleted_count = 0
     for row in rows:
         book_id = row.get("ID", "")
         if len(book_id) >= 8:
             type_map = {"n": "小说", "c": "漫画", "m": "音乐", "f": "电影", "i": "美图集"}
             id_type_count[type_map.get(book_id[0], book_id[0])] += 1
+        ftype = row.get("分类", "")
+        if ftype:
+            type_dist[ftype] += 1
+        src = row.get("来源", "") or ""
+        source_dist["pixiv" if src.startswith("http") else (src or "local")] += 1
+        if row.get("源状态", "ok") == "deleted":
+            deleted_count += 1
 
     stats["favorited_count"] = favorited_count
     stats["liked_count"] = liked_count
     stats["rated_count"] = len(ratings)
+    stats["avg_rating"] = round(sum(ratings) / len(ratings), 2) if ratings else 0.0
     stats["id_type_distribution"] = dict(id_type_count)
+    stats["type_distribution"] = dict(type_dist.most_common())
+    stats["source_distribution"] = dict(source_dist.most_common())
+    stats["deleted_count"] = deleted_count
+
+    # 库状态：关注分布 + 队列待下载
+    from src.core.database import get_db
+    db = get_db()
+    follow_stats: dict[str, int] = defaultdict(int)
+    for row in db.execute(
+        "SELECT follow_status, COUNT(*) as c FROM pixiv_trackings GROUP BY follow_status"
+    ).fetchall():
+        follow_stats[row["follow_status"]] = row["c"]
+    queue_pending = db.execute(
+        "SELECT COUNT(*) FROM download_queue "
+        "WHERE is_valid = 1 AND is_in_db = 0 AND is_blacklisted = 0"
+    ).fetchone()[0]
+    stats["follow_stats"] = dict(follow_stats)
+    stats["queue_pending"] = queue_pending
     return stats
 
 

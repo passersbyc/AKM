@@ -29,9 +29,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src"
 
 from src.core.importer import import_one
 
-OLD_DB = "/Users/passersbyh/Documents/cli-book-manager/data/library.db"
+OLD_DB = "/Users/Shared/test/cli-book-manager/data/library.db"
 OLD_PREFIX = "/Users/passersbyc/代码/cli-book-manager"
-NEW_PREFIX = "/Users/passersbyh/Documents/cli-book-manager"
+NEW_PREFIX = "/Users/Shared/test/cli-book-manager"
 NEW_DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "library.db")
 MISSING_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "data", "missing_files.txt"

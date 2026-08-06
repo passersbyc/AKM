@@ -7,7 +7,8 @@ def get_stats() -> dict:
     db = get_db()
     total = db.execute("SELECT COUNT(*) FROM works").fetchone()[0]
     author_count = db.execute("SELECT COUNT(DISTINCT author_id) FROM works").fetchone()[0]
-    series_count = db.execute("SELECT COUNT(DISTINCT series_id) FROM works WHERE series_id != ''").fetchone()[0]
+    # 系列数按 series 表计（series_id 为 2 位复合 ID，跨作者会复用，不能 DISTINCT）
+    series_count = db.execute("SELECT COUNT(*) FROM series").fetchone()[0]
     type_count = db.execute("SELECT COUNT(DISTINCT file_type) FROM works WHERE file_type != ''").fetchone()[0]
     total_size = db.execute("SELECT COALESCE(SUM(file_size_kb), 0) FROM works").fetchone()[0]
 
