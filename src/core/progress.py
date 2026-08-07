@@ -1,11 +1,13 @@
 """统一进度条显示 — rich 驱动。
 
-单行紧凑布局（TTY 动画 / 非终端自动禁用渲染），适配 60+ 列窄终端：
-    (◕‿◕) 同步检查  ━━━━━━━━━━  164/175  [0:00:11]  14.8个/s  成功164 失败0 跳过0
+两行式布局（TTY 动画 / 非终端自动禁用渲染）：
+    (◕‿◕) 同步检查  ━━━━━━━━━━  165/175  [0:00:11]  14.9个/s
+                      成功165  失败0  跳过0
 
-- 描述 + 进度条 + 完成数/总数 + 耗时 + 速率 + 成功/失败/跳过计数，一行排布
-- 单行布局避免多行进度在窄终端/动画刷新时的换行与错位问题
-- 暂停/取消等状态通过动态 description 表达
+- 第一行：描述 + 进度条 + 完成数/总数 + 耗时 + 速率
+- 第二行：成功/失败/跳过计数，独立表格渲染（列不与主行共享），
+  居中显示且位置稳定，不会因终端宽度/动画刷新而抖动错位
+- 两行各自 no_wrap：窄终端截断而非换行，布局永不被破坏
 """
 from __future__ import annotations
 
@@ -20,6 +22,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
+from rich.table import Table
 from rich.text import Text
 
 # 进度条统一输出到 stderr（与日志同侧，不污染 stdout 的 --json 输出）
@@ -27,7 +30,7 @@ _console = Console(stderr=True)
 
 
 class CountsColumn(ProgressColumn):
-    """成功/失败/跳过 三色计数列，读取外部 counts dict，紧凑格式。"""
+    """成功/失败/跳过 三色计数列，读取外部 counts dict。"""
 
     def __init__(self, counts: dict, console: Console):
         super().__init__()
@@ -37,7 +40,7 @@ class CountsColumn(ProgressColumn):
     def render(self, task) -> Text:
         c = self.counts
         t = Text()
-        t.append(f"  成功{c.get('success', 0)}", style="green")
+        t.append(f"成功{c.get('success', 0)}", style="green")
         t.append(f"  失败{c.get('failed', 0)}", style="red")
         t.append(f"  跳过{c.get('skipped', 0)}", style="yellow")
         return t
@@ -56,32 +59,81 @@ class RateColumn(ProgressColumn):
         return Text(f"  {rate:.1f}个/s", style="cyan")
 
 
-def make_progress(counts: dict, desc: str = "进度",
-                  total: int = 1) -> tuple[Progress, int, None]:
-    """创建单行进度条，返回 (progress, 主行task_id, None)。
+class _TwoRowProgress(Progress):
+    """两行式进度：主进度行 + 计数行，各自独立表格渲染。
 
-    返回的第三个值保持 None 以兼容旧两行式调用方（advance 会忽略）。
+    通过覆盖 get_renderables 让两行使用不同的列集，计数行不再继承
+    主行的占位列宽，且可独立居中，窄终端下各自截断而非换行错位。
+    """
+
+    def __init__(self, main_columns, counts_columns, **kwargs):
+        self._main_columns = list(main_columns)
+        self._counts_columns = list(counts_columns)
+        self._main_ids: set[int] = set()
+        self._counts_ids: set[int] = set()
+        super().__init__(
+            *self._main_columns, *self._counts_columns, **kwargs
+        )
+
+    def _render_group(self, columns, tasks, *, expand=False, center=False) -> Table:
+        table_columns = []
+        for c in columns:
+            col = c.get_table_column().copy()
+            col.no_wrap = True
+            if center:
+                col.justify = "center"
+            table_columns.append(col)
+        table = Table.grid(*table_columns, padding=(0, 1), expand=expand)
+        for task in tasks:
+            if task.visible:
+                table.add_row(*(c(task) for c in columns))
+        return table
+
+    def get_renderables(self):
+        main_tasks = [t for t in self.tasks if t.id in self._main_ids]
+        counts_tasks = [t for t in self.tasks if t.id in self._counts_ids]
+        out = []
+        if main_tasks:
+            out.append(self._render_group(self._main_columns, main_tasks))
+        if counts_tasks:
+            out.append(self._render_group(self._counts_columns, counts_tasks,
+                                          expand=True, center=True))
+        return out
+
+
+def make_progress(counts: dict, desc: str = "进度",
+                  total: int = 1) -> tuple[Progress, int, int]:
+    """创建两行式进度条，返回 (progress, 主行task_id, 计数行task_id)。
+
+    调用方用 advance() 同步推进两行。
     非终端环境（管道/重定向/后台）自动禁用渲染，不产生噪声。
     """
-    progress = Progress(
-        TextColumn("[bold magenta]{task.description}[/bold magenta]",
-                   justify="left"),
-        BarColumn(bar_width=8, complete_style="magenta",
-                  finished_style="green"),
-        TextColumn("{task.completed}/{task.total}"),
-        TimeElapsedColumn(),
-        RateColumn(),
-        CountsColumn(counts, _console),
+    progress = _TwoRowProgress(
+        [
+            TextColumn("[bold magenta]{task.description}[/bold magenta]",
+                       justify="left"),
+            BarColumn(bar_width=8, complete_style="magenta",
+                      finished_style="green"),
+            TextColumn("{task.completed}/{task.total}"),
+            TimeElapsedColumn(),
+            RateColumn(),
+        ],
+        [CountsColumn(counts, _console)],
         console=_console,
         disable=not _console.is_terminal,
     )
     main_id = progress.add_task(description=f"(◕‿◕) {desc}", total=total)
-    return progress, main_id, None
+    counts_id = progress.add_task(description="", total=total)
+    progress._main_ids = {main_id}
+    progress._counts_ids = {counts_id}
+    return progress, main_id, counts_id
 
 
-def advance(progress: Progress, main_id: int, counts_id, n: int = 1) -> None:
-    """推进进度条（兼容旧 counts_id 参数，单行布局下忽略）。"""
+def advance(progress: Progress, main_id: int, counts_id: int, n: int = 1) -> None:
+    """同步推进主进度行与计数行（counts_id 为 None 时兼容单行场景）。"""
     progress.update(main_id, advance=n)
+    if counts_id is not None:
+        progress.update(counts_id, advance=n)
 
 
 @contextmanager
@@ -104,4 +156,3 @@ def suppress_console_logging():
     finally:
         for h, lvl in zip(_console_handlers, old_levels):
             h.setLevel(lvl)
-
