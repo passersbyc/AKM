@@ -179,8 +179,8 @@ def build_completer(app):
                         yield Completion(name, start_position=-len(word_before))
                 return
 
-            # search author / delete author / export author: 补全作者名
-            if first in ("search", "delete", "export") and second == "author":
+            # search author / delete author / export author / list author: 补全作者名
+            if first in ("search", "delete", "export", "list") and second == "author":
                 if len(words) == 2 or (len(words) == 3 and not text.endswith(" ")):
                     for name in self._query_authors(word_before):
                         yield Completion(name, start_position=-len(word_before))
