@@ -2,10 +2,10 @@
 
 两行式布局（TTY 动画 / 非终端自动禁用渲染），紧凑宽度适配 60+ 列终端：
     (◕‿◕) 下载进度  ━━━━━━━━━━━━  94/171  [0:00:16]  5.6个/s
-                        成功 94  失败 0  跳过 0
+    成功 94  失败 0  跳过 0
 
 - 第一行：描述 + 进度条 + 完成数/总数 + 耗时 + 速率（无百分比列，避免与 n/total 重复）
-- 第二行：成功/失败/跳过计数，按终端宽度居中对齐
+- 第二行：成功/失败/跳过计数，固定靠左布局（避免居中 padding 在动画刷新时抖动错位）
 - 暂停/取消等状态通过第一行动态 description 表达
 """
 from __future__ import annotations
@@ -43,7 +43,11 @@ class _RowColumn(ProgressColumn):
 
 
 class CountsColumn(ProgressColumn):
-    """成功/失败/跳过 三色计数列，读取外部 counts dict，按终端宽度居中对齐。"""
+    """成功/失败/跳过 三色计数列，读取外部 counts dict。
+
+    固定靠左布局，不做居中 padding——终端宽度/中文字宽差异会导致
+    动画刷新时行内容左右抖动错位。
+    """
 
     def __init__(self, counts: dict, console: Console):
         super().__init__()
@@ -53,17 +57,9 @@ class CountsColumn(ProgressColumn):
     def render(self, task) -> Text:
         c = self.counts
         t = Text()
-        t.append("成功 ", style="green")
-        t.append(str(c.get("success", 0)), style="green")
-        t.append("  失败 ", style="red")
-        t.append(str(c.get("failed", 0)), style="red")
-        t.append("  跳过 ", style="yellow")
-        t.append(str(c.get("skipped", 0)), style="yellow")
-        # 居中到终端宽度（非精确双宽字符处理，视觉居中即可）
-        width = self._console.width
-        pad = max(0, (width - len(str(t))) // 2)
-        if pad:
-            return Text(" " * pad) + t
+        t.append(f"成功 {c.get('success', 0)}", style="green")
+        t.append(f"  失败 {c.get('failed', 0)}", style="red")
+        t.append(f"  跳过 {c.get('skipped', 0)}", style="yellow")
         return t
 
 
