@@ -9,6 +9,9 @@ _log = get_logger("akm.database")
 _db_connection: sqlite3.Connection | None = None
 _db_lock = threading.Lock()
 _db_path_cache: str = ""
+# 每线程独立连接：sqlite3 连接跨线程共享执行会卡死（WebUI 线程池并发访问），
+# threading.local 保证同一线程内复用连接、线程间零共享
+_thread_local = threading.local()
 
 TYPE_CHAR_MAP = {"小说": "n", "漫画": "c", "音乐": "m", "电影": "f", "图片": "i", "美图集": "i"}
 BASE36 = "0123456789abcdefghijklmnopqrstuvwxyz"
@@ -39,24 +42,24 @@ def _get_db_path() -> Path:
 
 
 def get_db() -> sqlite3.Connection:
-    global _db_connection, _db_path_cache
-    db_path_str = str(_get_db_path())
-    if _db_connection is not None and db_path_str == _db_path_cache:
-        return _db_connection
+    # 每线程独立连接（首次按线程创建并缓存）。
+    # 注意：sqlite3 连接跨线程共享 execute 会卡死/报 bad parameter，
+    # 各线程必须使用自己的连接；跨线程的写串行由调用方锁（work_repository._lock）保证。
+    conn = getattr(_thread_local, "conn", None)
+    if conn is not None:
+        return conn
     with _db_lock:
-        if _db_connection is not None:
-            try:
-                _db_connection.close()
-            except Exception:
-                _log.debug("关闭旧数据库连接失败", exc_info=True)
+        conn = getattr(_thread_local, "conn", None)
+        if conn is not None:
+            return conn
         db_path = _get_db_path()
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        _db_connection = sqlite3.connect(str(db_path), check_same_thread=False)
-        _db_connection.execute("PRAGMA journal_mode=WAL")
-        _db_connection.execute("PRAGMA foreign_keys=ON")
-        _db_connection.row_factory = sqlite3.Row
-        _db_path_cache = str(db_path)
-    return _db_connection
+        conn = sqlite3.connect(str(db_path), check_same_thread=False, timeout=30)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.row_factory = sqlite3.Row
+        _thread_local.conn = conn
+    return conn
 
 
 def dict_from_row(row: sqlite3.Row | None) -> dict | None:

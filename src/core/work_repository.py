@@ -28,9 +28,12 @@ def normalize_id(id_str: str) -> str:
 
 
 def read_all() -> list[dict]:
-    init_db()
-    db = get_db()
-    rows = db.execute(JOIN_SQL + " ORDER BY w.id").fetchall()
+    # 同一 sqlite 连接跨线程并发 execute 会报 bad parameter/死锁（WebUI 线程池并发），
+    # init_db（DDL 写）与查询必须与写操作共用同一把锁串行化
+    with _lock:
+        init_db()
+        db = get_db()
+        rows = db.execute(JOIN_SQL + " ORDER BY w.id").fetchall()
     return [row_to_manifest(dict(r)) for r in rows]
 
 
@@ -85,9 +88,10 @@ def _append_raw(db, entry: dict) -> None:
 def get_by_id(book_id: str) -> dict | None:
     book_id = normalize_id(book_id)
     db = get_db()
-    row = db.execute(
-        JOIN_SQL + " WHERE w.id = ?", (book_id,)
-    ).fetchone()
+    with _lock:
+        row = db.execute(
+            JOIN_SQL + " WHERE w.id = ?", (book_id,)
+        ).fetchone()
     if row:
         return row_to_manifest(dict(row))
     return None
@@ -95,27 +99,30 @@ def get_by_id(book_id: str) -> dict | None:
 
 def get_by_author_local_id(local_id: str) -> list[dict]:
     db = get_db()
-    rows = db.execute(
-        JOIN_SQL + " WHERE w.author_id = ? ORDER BY w.id",
-        (local_id,),
-    ).fetchall()
+    with _lock:
+        rows = db.execute(
+            JOIN_SQL + " WHERE w.author_id = ? ORDER BY w.id",
+            (local_id,),
+        ).fetchall()
     return [row_to_manifest(dict(r)) for r in rows]
 
 
 def get_by_series(series: str, exclude_id: str = "") -> list[dict]:
     db = get_db()
-    rows = db.execute(
-        JOIN_SQL + " WHERE s.name = ? AND w.id != ? ORDER BY w.id",
-        (series.strip(), exclude_id),
-    ).fetchall()
+    with _lock:
+        rows = db.execute(
+            JOIN_SQL + " WHERE s.name = ? AND w.id != ? ORDER BY w.id",
+            (series.strip(), exclude_id),
+        ).fetchall()
     return [row_to_manifest(dict(r)) for r in rows]
 
 
 def get_by_source(url: str) -> dict | None:
     db = get_db()
-    row = db.execute(
-        JOIN_SQL + " WHERE w.source = ?", (url.strip(),)
-    ).fetchone()
+    with _lock:
+        row = db.execute(
+            JOIN_SQL + " WHERE w.source = ?", (url.strip(),)
+        ).fetchone()
     if row:
         return row_to_manifest(dict(row))
     return None
@@ -162,7 +169,8 @@ def update_entry_full(book_id: str, field_updates: dict,
     book_id = normalize_id(book_id)
 
     db = get_db()
-    row = db.execute(JOIN_SQL + " WHERE w.id = ?", (book_id,)).fetchone()
+    with _lock:
+        row = db.execute(JOIN_SQL + " WHERE w.id = ?", (book_id,)).fetchone()
     if not row:
         return None
     row_dict = dict(row)
