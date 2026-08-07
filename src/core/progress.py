@@ -39,7 +39,7 @@ class CountsColumn(ProgressColumn):
 
     def render(self, task) -> Text:
         c = self.counts
-        t = Text()
+        t = Text("    ")  # 计数行缩进，与左端留出间距
         t.append(f"成功{c.get('success', 0)}", style="green")
         t.append(f"  失败{c.get('failed', 0)}", style="red")
         t.append(f"  跳过{c.get('skipped', 0)}", style="yellow")
