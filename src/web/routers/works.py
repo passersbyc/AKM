@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import Response, JSONResponse
@@ -10,7 +11,7 @@ from src.core.database import short_id
 
 from src.operations import search_works, get_info, get_related_works
 from src.web.app import templates
-from src.web.cover import extract_epub_cover
+from src.web.cover import extract_cover
 
 router = APIRouter()
 
@@ -128,16 +129,17 @@ def work_detail(request: Request, work_id: str):
 
 @router.get("/works/{work_id}/cover")
 def work_cover(work_id: str):
-    """EPUB 封面图片。无封面或非 EPUB 返回 404。"""
+    """作品封面图片（EPUB/PDF）。无封面或格式不支持返回 404。"""
     info = get_info(work_id, "book")
     if not info:
         return Response(status_code=404)
 
     file_path = info.get("文件路径", "")
-    if not file_path or not file_path.lower().endswith(".epub"):
+    suffix = Path(file_path).suffix.lower() if file_path else ""
+    if suffix not in (".epub", ".pdf"):
         return Response(status_code=404)
 
-    cover = extract_epub_cover(file_path)
+    cover = extract_cover(file_path)
     if not cover:
         return Response(status_code=404)
 
