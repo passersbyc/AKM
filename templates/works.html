@@ -48,14 +48,17 @@
 <!-- 按作者分组视图 -->
 {% if group == 'author' %}
 <div class="author-groups">
-    {% for author_name, aworks in author_groups.items() %}
+    {% for author_name, g in author_groups.items() %}
     <section class="author-group">
         <div class="author-group-header">
             <span class="author-group-name">{{ author_name }}</span>
-            <span class="author-group-count">{{ aworks|length }} 部</span>
+            <span class="author-group-count">{{ g.total }} 部</span>
+            {% if g.total > g.works|length %}
+            <a class="author-group-more" href="/works?author={{ author_name | urlencode }}">查看全部 →</a>
+            {% endif %}
         </div>
         <div class="works-grid">
-            {% for w in aworks %}
+            {% for w in g.works %}
             <a href="/works/{{ w.id }}" class="work-card">
                 {{ cover(w) }}
                 <div class="work-info">

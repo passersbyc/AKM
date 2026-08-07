@@ -16,6 +16,8 @@ from src.web.cover import extract_cover
 router = APIRouter()
 
 PAGE_SIZE = 24
+# 按作者分组视图：每组预览上限（大标签下避免渲染数千封面）
+GROUP_PREVIEW = 12
 
 # 中文 key → 英文 key 映射（operations 层返回中文，模板用英文）
 _KEY_MAP = {
@@ -77,13 +79,16 @@ def works_list(
         favorited=favorited,
     )
 
-    # 按作者分组视图：全量按作者聚合，不做分页
+    # 按作者分组视图：全量按作者聚合，组内截断预览（避免大标签如 R-18 渲染数千封面）
     if group == "author":
         from collections import OrderedDict
-        author_groups: "OrderedDict[str, list]" = OrderedDict()
+        raw_groups: "OrderedDict[str, list]" = OrderedDict()
         for w in results:
             name = w.get("作者") or "佚名"
-            author_groups.setdefault(name, []).append(_normalize_work(w))
+            raw_groups.setdefault(name, []).append(_normalize_work(w))
+        author_groups: "OrderedDict[str, dict]" = OrderedDict()
+        for name, ws in raw_groups.items():
+            author_groups[name] = {"works": ws[:GROUP_PREVIEW], "total": len(ws)}
         return templates.TemplateResponse(request, "works.html", {
             "request": request,
             "active_page": "works",
