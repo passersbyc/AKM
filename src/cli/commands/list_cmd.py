@@ -24,6 +24,8 @@ class ListCommand(BaseCommand):
 
     def configure_noun_parser(self, parser: argparse.ArgumentParser, noun: str) -> None:
         if noun == "author":
+            parser.add_argument("target", nargs="?", default=None,
+                                help="作者名或 ID（提供时列出该作者的全部作品）～")
             parser.add_argument("number", type=int, nargs="?", default=0,
                                 help="限制显示数量～")
             parser.add_argument("--favorite", action="store_true", help="仅收藏作者～")
@@ -96,6 +98,19 @@ class ListCommand(BaseCommand):
         return 0
 
     def _list_author(self, args: argparse.Namespace) -> int:
+        target = getattr(args, "target", None)
+        if target:
+            from src.operations.matcher import resolve_author
+            author = resolve_author(target)
+            if not author:
+                self.output.info(f"[red](｡•́︿•̀｡)[/red] 未找到作者: {target}")
+                return 1
+            args.author = author.get("name", target)
+            args.sort_by = getattr(args, "sort_by", "id")
+            args.type = getattr(args, "type", "")
+            args.no_limit = getattr(args, "no_limit", False)
+            return self._list_work(args)
+
         from src.operations import list_authors_with_status
         items = list_authors_with_status()
         if args.favorite:
