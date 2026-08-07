@@ -166,41 +166,44 @@ class FollowCommand(BaseCommand):
         work_index, source_to_id = source_op.build_work_index(sync_targets)
 
         results: dict[str, dict] = {}
-        from src.core.progress import make_progress, advance
+        from src.core.progress import make_progress, advance, suppress_console_logging
         total = len(sync_targets)
         counts = {"success": 0, "failed": 0, "skipped": 0}
         progress, main_task, counts_task = make_progress(counts, "同步检查", total=total)
-        progress.start()
 
         # SIGINT 只在同步期间局部生效，避免劫持整个 CLI 的 Ctrl+C
         old_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._handle_sigint)
         try:
-            with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                futures = {}
-                for row in sync_targets:
-                    uid_key = row.get("pixiv_uid", "")
-                    futures[pool.submit(
-                        source_op.sync_one_author, row, downloader, getattr(args, "dry_run", False),
-                        work_index, source_to_id, self._stop_event, self._download_lock,
-                    )] = uid_key
+            progress.start()
+            # 同步期内的日志（限流/API 告警等）静默控制台输出，
+            # 避免与进度条动画抢占 stderr 导致行错位（文件日志完整保留）
+            with suppress_console_logging():
+                with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                    futures = {}
+                    for row in sync_targets:
+                        uid_key = row.get("pixiv_uid", "")
+                        futures[pool.submit(
+                            source_op.sync_one_author, row, downloader, getattr(args, "dry_run", False),
+                            work_index, source_to_id, self._stop_event, self._download_lock,
+                        )] = uid_key
 
-                try:
-                    for future in as_completed(futures):
-                        if self._stop_event.is_set():
-                            pool.shutdown(wait=False, cancel_futures=True)
-                            break
-                        uid_key = futures[future]
-                        try:
-                            results[uid_key] = future.result()
-                            counts["success"] += 1
-                        except Exception as e:
-                            logger.error("同步 %s 异常: %s", uid_key, e)
-                            counts["failed"] += 1
-                        advance(progress, main_task, counts_task)
-                except KeyboardInterrupt:
-                    self._stop_event.set()
-                    pool.shutdown(wait=False, cancel_futures=True)
+                    try:
+                        for future in as_completed(futures):
+                            if self._stop_event.is_set():
+                                pool.shutdown(wait=False, cancel_futures=True)
+                                break
+                            uid_key = futures[future]
+                            try:
+                                results[uid_key] = future.result()
+                                counts["success"] += 1
+                            except Exception as e:
+                                logger.error("同步 %s 异常: %s", uid_key, e)
+                                counts["failed"] += 1
+                            advance(progress, main_task, counts_task)
+                    except KeyboardInterrupt:
+                        self._stop_event.set()
+                        pool.shutdown(wait=False, cancel_futures=True)
         finally:
             progress.stop()
             signal.signal(signal.SIGINT, old_handler)

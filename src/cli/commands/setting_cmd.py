@@ -211,7 +211,10 @@ class SettingCommand(BaseCommand):
                     from src.core.progress import advance
                     advance(state["progress"], *state["tasks"])
 
-        result = check_integrity(progress_callback=_cb)
+        result = None
+        from src.core.progress import suppress_console_logging
+        with suppress_console_logging():
+            result = check_integrity(progress_callback=_cb)
         if state["progress"]:
             state["progress"].stop()
 
