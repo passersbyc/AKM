@@ -96,8 +96,7 @@ class _TwoRowProgress(Progress):
         if main_tasks:
             out.append(self._render_group(self._main_columns, main_tasks))
         if counts_tasks:
-            out.append(self._render_group(self._counts_columns, counts_tasks,
-                                          expand=True, center=True))
+            out.append(self._render_group(self._counts_columns, counts_tasks))
         return out
 
 
