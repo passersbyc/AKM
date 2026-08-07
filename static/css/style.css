@@ -331,6 +331,23 @@ a { color: var(--primary); }
 a.detail-tag { text-decoration: none; transition: all var(--transition); }
 a.detail-tag:hover { background: var(--primary); color: #fff; }
 
+/* ── Tag Cloud ── */
+.tag-cloud {
+  display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: center; gap: 6px 12px; padding: 10px 4px; min-height: 120px;
+}
+.cloud-tag {
+  text-decoration: none; font-weight: 600; line-height: 1.2;
+  padding: 2px 6px; border-radius: 6px; transition: all var(--transition);
+  opacity: 0.88;
+}
+.cloud-tag:hover { opacity: 1; transform: scale(1.12); background: rgba(255,255,255,0.08); }
+.cloud-size-1 { font-size: 12px; }
+.cloud-size-2 { font-size: 14px; }
+.cloud-size-3 { font-size: 16px; }
+.cloud-size-4 { font-size: 19px; }
+.cloud-size-5 { font-size: 23px; }
+
 /* ── Tag Bars ── */
 .tag-bars { display: flex; flex-direction: column; gap: 8px; }
 .tag-bar-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }

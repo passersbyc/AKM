@@ -24,8 +24,19 @@ def dashboard(request: Request):
     activity = get_recent_activity()
     top_authors = get_top_authors(limit=5)
     top_likes = get_top_likes(limit=5)
-    top_tags = get_top_tags(limit=10)
+    top_tags = get_top_tags(limit=30)
     recommendations = get_recommendations(limit=8)
+
+    # 标签云：按数量分级字号与配色
+    max_count = top_tags[0][1] if top_tags else 1
+    cloud_colors = ["#5b4fc7", "#e8b458", "#e8a0bf", "#4fc79b", "#5b9bd5",
+                    "#d55b8c", "#8b5bd5", "#d59b5b"]
+    tag_cloud = [
+        {"tag": t, "count": c,
+         "size": max(1, min(5, round(c / max_count * 5))),
+         "color": cloud_colors[i % len(cloud_colors)]}
+        for i, (t, c) in enumerate(top_tags)
+    ]
 
     # 给最近活动加 short_id
     for row in activity["recent_open"]:
@@ -41,5 +52,6 @@ def dashboard(request: Request):
         "top_authors": top_authors,
         "top_likes": top_likes,
         "top_tags": top_tags,
+        "tag_cloud": tag_cloud,
         "recommendations": recommendations,
     })

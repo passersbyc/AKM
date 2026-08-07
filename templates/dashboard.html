@@ -126,17 +126,12 @@
     <section class="card animate-in animate-in-delay-2">
         <h2 class="card-title">
             <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">🏷️</span>
-            标签 Top 10
+            标签云
         </h2>
-        <div class="tag-bars">
-            {% for tag, count in top_tags %}
-            <div class="tag-bar-row">
-                <span class="tag-name">{{ tag }}</span>
-                <div class="tag-bar-track">
-                    <div class="tag-bar-fill fill-{{ loop.index0 % 10 }}" style="width: {{ (count / top_tags[0][1] * 100) | round }}%"></div>
-                </div>
-                <span class="tag-count">{{ count }}</span>
-            </div>
+        <div class="tag-cloud">
+            {% for t in tag_cloud %}
+            <a class="cloud-tag cloud-size-{{ t.size }}" style="color: {{ t.color }};"
+               href="/works?tags={{ t.tag | urlencode }}" title="{{ t.tag }}（{{ t.count }}）">{{ t.tag }}</a>
             {% endfor %}
         </div>
     </section>
