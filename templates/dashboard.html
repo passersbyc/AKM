@@ -2,52 +2,48 @@
 {% block title %}AKM · 仪表盘{% endblock %}
 {% block content %}
 
-<!-- Hero 横幅 -->
+<!-- Hero 横幅（内嵌分类分布） -->
 <section class="dash-hero animate-in">
-    <div class="dash-hero-text">
-        <div class="dash-hero-kicker">AKM · 作品管理系统</div>
-        <h1 class="dash-hero-title">你的作品库</h1>
-        <p class="dash-hero-sub">共 {{ stats.total_books }} 部作品 · 随时翻阅 (◕‿◕)</p>
+    <div class="dash-hero-top">
+        <div class="dash-hero-text">
+            <div class="dash-hero-kicker">AKM · 作品管理系统</div>
+            <h1 class="dash-hero-title">你的作品库</h1>
+            <p class="dash-hero-sub">共 {{ stats.total_books }} 部作品 · 随时翻阅 (◕‿◕)</p>
+        </div>
+        <div class="dash-hero-stats">
+            <div class="hero-stat">
+                <div class="hero-stat-value">{{ stats.total_books }}</div>
+                <div class="hero-stat-label">作品</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">{{ stats.total_authors }}</div>
+                <div class="hero-stat-label">作者</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-value">{{ stats.total_series }}</div>
+                <div class="hero-stat-label">系列</div>
+            </div>
+        </div>
     </div>
-    <div class="dash-hero-stats">
-        <div class="hero-stat">
-            <div class="hero-stat-value">{{ stats.total_books }}</div>
-            <div class="hero-stat-label">作品</div>
+    {% if type_share %}
+    <div class="dash-hero-dist">
+        <div class="type-stack-bar">
+            {% for t in type_share %}
+            <div class="type-stack-seg seg-{{ loop.index0 % 5 }}" style="width: {{ t.pct }}%"
+                 title="{{ t.name }}：{{ t.count }}（{{ t.pct }}%）"></div>
+            {% endfor %}
         </div>
-        <div class="hero-stat">
-            <div class="hero-stat-value">{{ stats.total_authors }}</div>
-            <div class="hero-stat-label">作者</div>
-        </div>
-        <div class="hero-stat">
-            <div class="hero-stat-value">{{ stats.total_series }}</div>
-            <div class="hero-stat-label">系列</div>
+        <div class="type-legend">
+            {% for t in type_share %}
+            <span class="type-legend-item">
+                <span class="legend-dot dot-{{ loop.index0 % 5 }}"></span>
+                {{ t.name }} <b>{{ t.count }}</b>（{{ t.pct }}%）
+            </span>
+            {% endfor %}
         </div>
     </div>
+    {% endif %}
 </section>
-
-<!-- 分类分布（分段堆叠条） -->
-{% if type_share %}
-<section class="card type-dist-card animate-in animate-in-delay-1">
-    <h2 class="card-title">
-        <span class="card-title-icon" style="background: rgba(91,159,213,0.1); color: #5b9fd5;">📊</span>
-        分类分布
-    </h2>
-    <div class="type-stack-bar">
-        {% for t in type_share %}
-        <div class="type-stack-seg seg-{{ loop.index0 % 5 }}" style="width: {{ t.pct }}%"
-             title="{{ t.name }}：{{ t.count }}（{{ t.pct }}%）"></div>
-        {% endfor %}
-    </div>
-    <div class="type-legend">
-        {% for t in type_share %}
-        <span class="type-legend-item">
-            <span class="legend-dot dot-{{ loop.index0 % 5 }}"></span>
-            {{ t.name }} <b>{{ t.count }}</b>（{{ t.pct }}%）
-        </span>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
 
 <!-- 统计卡片 -->
 <section class="stats-grid">
@@ -65,7 +61,7 @@
             <div class="stat-label">点赞合计</div>
         </div>
     </div>
-    <div class="stat-card stat-violet animate-in animate-in-delay-2">
+    <div class="stat-card stat-violet animate-in animate-in-delay-1">
         <div class="stat-icon">💾</div>
         <div class="stat-info">
             <div class="stat-value stat-value-sm">{{ stats.total_size_human }}</div>
@@ -79,14 +75,14 @@
             <div class="stat-label">评分作品</div>
         </div>
     </div>
-    <div class="stat-card stat-teal animate-in animate-in-delay-3">
+    <div class="stat-card stat-teal animate-in animate-in-delay-2">
         <div class="stat-icon">⬇️</div>
         <div class="stat-info">
             <div class="stat-value" data-count="{{ stats.queue_pending }}">0</div>
             <div class="stat-label">待下载</div>
         </div>
     </div>
-    <div class="stat-card stat-purple animate-in animate-in-delay-3">
+    <div class="stat-card stat-purple animate-in animate-in-delay-2">
         <div class="stat-icon">🔗</div>
         <div class="stat-info">
             <div class="stat-value">{{ stats.follow_stats.get('active', 0) + stats.follow_stats.get('paused', 0) + stats.follow_stats.get('dead', 0) }}</div>
