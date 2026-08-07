@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_cover.html" import cover %}
 {% block title %}AKM · {{ work.title if work else '作品详情' }}{% endblock %}
 {% block content %}
 
@@ -19,20 +20,8 @@
 <div class="detail-layout">
     <!-- 左侧：封面 + 操作 -->
     <div class="detail-left animate-in">
-        <div class="detail-cover">
-            {% if work.file_ext == '.epub' %}
-            <img src="/works/{{ work.id }}/cover" alt="{{ work.title }}" class="cover-img-detail"
-                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-            <span class="detail-cover-icon" style="display:none;">📖</span>
-            {% else %}
-            <span class="detail-cover-icon">
-                {% if '小说' in work.file_type %}📖
-                {% elif '漫' in work.file_type %}📕
-                {% elif '动' in work.file_type %}🎬
-                {% elif '插' in work.file_type or '图' in work.file_type %}🎨
-                {% else %}📄{% endif %}
-            </span>
-            {% endif %}
+        <div class="detail-cover-wrap animate-in">
+            {{ cover(work, 'detail-cover') }}
         </div>
         <div class="detail-actions">
             {% if work.favorite %}
@@ -137,15 +126,7 @@
     <div class="works-grid works-grid-sm">
         {% for w in related %}
         <a href="/works/{{ w.id }}" class="work-card">
-            <div class="work-cover">
-                {% if w.file_ext == '.epub' %}
-                <img src="/works/{{ w.id }}/cover" alt="{{ w.title }}" class="cover-img"
-                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-                <span class="work-cover-icon" style="display:none;">📖</span>
-                {% else %}
-                <span class="work-cover-icon">📖</span>
-                {% endif %}
-            </div>
+            {{ cover(w) }}
             <div class="work-info">
                 <div class="work-title">{{ w.title[:20] }}</div>
                 <div class="work-meta">

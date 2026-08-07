@@ -1,0 +1,30 @@
+{# 封面组件：统一封面结构（图片 + 占位图标 + 收藏角标 + 类型角标）
+
+用法：
+    {% from "_cover.html" import cover %}
+    {{ cover(work) }}              # 作品卡片封面
+    {{ cover(work, 'detail-cover') }}  # 详情页大封面（附加样式类）
+#}
+{% macro cover_icon(file_type) -%}
+{%- if '小说' in (file_type or '') -%}📖
+{%- elif '漫' in (file_type or '') -%}📕
+{%- elif '动' in (file_type or '') -%}🎬
+{%- elif '插' in (file_type or '') or '图' in (file_type or '') -%}🎨
+{%- else -%}📄
+{%- endif -%}
+{%- endmacro %}
+
+{% macro cover(work, cls='') -%}
+<div class="work-cover {{ cls }}">
+  {% if work.file_ext in ('.epub', '.pdf') %}
+  <img src="/works/{{ work.id }}/cover" alt="{{ work.title }}" class="cover-img"
+       loading="lazy"
+       onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+  <span class="work-cover-icon" style="display:none;">{{ cover_icon(work.file_type) }}</span>
+  {% else %}
+  <span class="work-cover-icon">{{ cover_icon(work.file_type) }}</span>
+  {% endif %}
+  {% if work.favorite %}<span class="work-fav" title="收藏">★</span>{% endif %}
+  <span class="work-type-badge">{{ work.file_type or '' }}</span>
+</div>
+{%- endmacro %}
