@@ -36,8 +36,43 @@
     </form>
 </div>
 
-<!-- 作品网格 -->
-{% if works %}
+<!-- 视图切换 -->
+<div class="view-switch">
+    <a href="/works?q={{ q }}&author={{ author }}&tags={{ tags }}&file_type={{ file_type }}&favorited={{ favorited }}"
+       class="view-btn {% if group != 'author' %}active{% endif %}">平铺</a>
+    <a href="/works?q={{ q }}&author={{ author }}&tags={{ tags }}&file_type={{ file_type }}&favorited={{ favorited }}&group=author"
+       class="view-btn {% if group == 'author' %}active{% endif %}">按作者</a>
+    <span class="view-total">共 {{ total }} 部</span>
+</div>
+
+<!-- 按作者分组视图 -->
+{% if group == 'author' %}
+<div class="author-groups">
+    {% for author_name, aworks in author_groups.items() %}
+    <section class="author-group">
+        <div class="author-group-header">
+            <span class="author-group-name">{{ author_name }}</span>
+            <span class="author-group-count">{{ aworks|length }} 部</span>
+        </div>
+        <div class="works-grid">
+            {% for w in aworks %}
+            <a href="/works/{{ w.id }}" class="work-card">
+                {{ cover(w) }}
+                <div class="work-info">
+                    <div class="work-title">{{ w.title[:20] }}</div>
+                    <div class="work-meta">
+                        <span class="work-id">{{ w.short_id }}</span>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+</div>
+
+<!-- 平铺视图 -->
+{% elif works %}
 <div class="works-grid">
     {% for w in works %}
     <a href="/works/{{ w.id }}" class="work-card animate-in" style="animation-delay: {{ loop.index0 * 0.03 }}s">

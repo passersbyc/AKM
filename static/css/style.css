@@ -462,6 +462,32 @@ a.detail-tag:hover { background: var(--primary); color: #fff; }
 .search-btn:hover { background: var(--primary-light); transform: translateY(-1px); }
 .search-btn:active { transform: translateY(0); }
 
+/* ── View Switch + Author Groups ── */
+.view-switch {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+  padding: 6px; background: var(--surface); border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm); width: fit-content;
+}
+.view-btn {
+  padding: 5px 16px; border-radius: var(--radius-xs); font-size: 13px;
+  font-weight: 600; color: var(--muted); text-decoration: none;
+  transition: all var(--transition);
+}
+.view-btn:hover { color: var(--primary); }
+.view-btn.active { background: var(--primary-glow); color: var(--primary); }
+.view-total { margin-left: 8px; font-size: 12px; color: var(--muted); }
+.author-groups { display: flex; flex-direction: column; gap: 28px; }
+.author-group { display: flex; flex-direction: column; gap: 12px; }
+.author-group-header {
+  display: flex; align-items: baseline; gap: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border-light);
+}
+.author-group-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.author-group-count {
+  font-size: 12px; color: var(--primary); font-weight: 600;
+  background: var(--primary-glow); padding: 1px 8px; border-radius: 10px;
+}
+
 /* ── Works Grid ── */
 .works-grid {
   display: grid;

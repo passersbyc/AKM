@@ -67,14 +67,33 @@ def works_list(
     file_type: str = Query("", description="文件类型"),
     source: str = Query("", description="来源"),
     favorited: str = Query("", description="收藏"),
+    group: str = Query("", description="分组方式(empty/author)"),
     page: int = Query(1, ge=1),
 ):
-    """作品列表 + 多条件搜索。"""
+    """作品列表 + 多条件搜索（支持按作者分组视图）。"""
     results = search_works(
         query=q, author=author, tags=tags,
         file_type=file_type, source=source,
         favorited=favorited,
     )
+
+    # 按作者分组视图：全量按作者聚合，不做分页
+    if group == "author":
+        from collections import OrderedDict
+        author_groups: "OrderedDict[str, list]" = OrderedDict()
+        for w in results:
+            name = w.get("作者") or "佚名"
+            author_groups.setdefault(name, []).append(_normalize_work(w))
+        return templates.TemplateResponse(request, "works.html", {
+            "request": request,
+            "active_page": "works",
+            "group": "author",
+            "author_groups": author_groups,
+            "works": [],
+            "total": len(results),
+            "q": q, "author": author, "tags": tags,
+            "file_type": file_type, "source": source, "favorited": favorited,
+        })
 
     # 分页
     total = len(results)
@@ -86,6 +105,7 @@ def works_list(
     return templates.TemplateResponse(request, "works.html", {
         "request": request,
         "active_page": "works",
+        "group": "",
         "works": items,
         "total": total,
         "page": page,
