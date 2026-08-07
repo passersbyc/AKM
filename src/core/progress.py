@@ -1,12 +1,11 @@
 """统一进度条显示 — rich 驱动。
 
-两行式布局（TTY 动画 / 非终端自动禁用渲染），紧凑宽度适配 60+ 列终端：
-    (◕‿◕) 下载进度  ━━━━━━━━━━━━  94/171  [0:00:16]  5.6个/s
-    成功 94  失败 0  跳过 0
+单行紧凑布局（TTY 动画 / 非终端自动禁用渲染），适配 60+ 列窄终端：
+    (◕‿◕) 同步检查  ━━━━━━━━━━  164/175  [0:00:11]  14.8个/s  成功164 失败0 跳过0
 
-- 第一行：描述 + 进度条 + 完成数/总数 + 耗时 + 速率（无百分比列，避免与 n/total 重复）
-- 第二行：成功/失败/跳过计数，固定靠左布局（避免居中 padding 在动画刷新时抖动错位）
-- 暂停/取消等状态通过第一行动态 description 表达
+- 描述 + 进度条 + 完成数/总数 + 耗时 + 速率 + 成功/失败/跳过计数，一行排布
+- 单行布局避免多行进度在窄终端/动画刷新时的换行与错位问题
+- 暂停/取消等状态通过动态 description 表达
 """
 from __future__ import annotations
 
@@ -27,27 +26,8 @@ from rich.text import Text
 _console = Console(stderr=True)
 
 
-class _RowColumn(ProgressColumn):
-    """按行（主进度行 / 计数行）条件渲染：只对指定 task 行渲染内层列，其余行为空。"""
-
-    def __init__(self, column: ProgressColumn, target: str, task_ids: dict):
-        super().__init__()
-        self._column = column
-        self._target = target
-        self._task_ids = task_ids
-
-    def render(self, task) -> Text:
-        if task.id != self._task_ids.get(self._target):
-            return Text("")
-        return self._column.render(task)
-
-
 class CountsColumn(ProgressColumn):
-    """成功/失败/跳过 三色计数列，读取外部 counts dict。
-
-    固定靠左布局，不做居中 padding——终端宽度/中文字宽差异会导致
-    动画刷新时行内容左右抖动错位。
-    """
+    """成功/失败/跳过 三色计数列，读取外部 counts dict，紧凑格式。"""
 
     def __init__(self, counts: dict, console: Console):
         super().__init__()
@@ -57,14 +37,14 @@ class CountsColumn(ProgressColumn):
     def render(self, task) -> Text:
         c = self.counts
         t = Text()
-        t.append(f"成功 {c.get('success', 0)}", style="green")
-        t.append(f"  失败 {c.get('failed', 0)}", style="red")
-        t.append(f"  跳过 {c.get('skipped', 0)}", style="yellow")
+        t.append(f"  成功{c.get('success', 0)}", style="green")
+        t.append(f"  失败{c.get('failed', 0)}", style="red")
+        t.append(f"  跳过{c.get('skipped', 0)}", style="yellow")
         return t
 
 
 class RateColumn(ProgressColumn):
-    """完成速率列（基于任务行自身的 completed/elapsed），挂主进度行。
+    """完成速率列（基于任务行自身的 completed/elapsed）。
 
     速率上限 999：刚开始时 elapsed≈0 会算出天文数字，限宽防止把行撑爆。
     """
@@ -77,40 +57,31 @@ class RateColumn(ProgressColumn):
 
 
 def make_progress(counts: dict, desc: str = "进度",
-                  total: int = 1) -> tuple[Progress, int, int]:
-    """创建两行式进度条，返回 (progress, 主行task_id, 计数行task_id)。
+                  total: int = 1) -> tuple[Progress, int, None]:
+    """创建单行进度条，返回 (progress, 主行task_id, None)。
 
-    调用方需同步推进两行（用 advance() 辅助函数）。
+    返回的第三个值保持 None 以兼容旧两行式调用方（advance 会忽略）。
     非终端环境（管道/重定向/后台）自动禁用渲染，不产生噪声。
     """
-    task_ids: dict = {}
-
-    def row(column: ProgressColumn, target: str) -> ProgressColumn:
-        return _RowColumn(column, target, task_ids)
-
     progress = Progress(
-        row(TextColumn("[bold magenta]{task.description}[/bold magenta]",
-                       justify="left"), "main"),
-        row(BarColumn(bar_width=10, complete_style="magenta",
-                      finished_style="green"), "main"),
-        row(TextColumn("{task.completed}/{task.total}"), "main"),
-        row(TimeElapsedColumn(), "main"),
-        row(RateColumn(), "main"),
-        row(CountsColumn(counts, _console), "counts"),
+        TextColumn("[bold magenta]{task.description}[/bold magenta]",
+                   justify="left"),
+        BarColumn(bar_width=8, complete_style="magenta",
+                  finished_style="green"),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        RateColumn(),
+        CountsColumn(counts, _console),
         console=_console,
         disable=not _console.is_terminal,
     )
     main_id = progress.add_task(description=f"(◕‿◕) {desc}", total=total)
-    counts_id = progress.add_task(description="", total=total)
-    task_ids["main"] = main_id
-    task_ids["counts"] = counts_id
-    return progress, main_id, counts_id
+    return progress, main_id, None
 
 
-def advance(progress: Progress, main_id: int, counts_id: int, n: int = 1) -> None:
-    """同步推进主进度行与计数行。"""
+def advance(progress: Progress, main_id: int, counts_id, n: int = 1) -> None:
+    """推进进度条（兼容旧 counts_id 参数，单行布局下忽略）。"""
     progress.update(main_id, advance=n)
-    progress.update(counts_id, advance=n)
 
 
 @contextmanager
