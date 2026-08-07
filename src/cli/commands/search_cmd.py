@@ -124,12 +124,23 @@ class SearchCommand(BaseCommand):
         return 0
 
     def _search_author(self, args: argparse.Namespace) -> int:
-        from src.operations import search_authors
+        from src.operations import search_authors, list_items
         rows = search_authors(args.query, limit=args.number)
         total = len(rows)
 
+        # 每个匹配作者的作品
+        all_items = list_items("book", number=0)["items"]
+        works_by_author: dict[str, list[dict]] = {}
+        for a in rows:
+            name = a["name"]
+            works_by_author[name] = [r for r in all_items if r.get("作者") == name]
+
         if self.output.json_mode:
-            return self.output.result(True, {"total": total, "authors": [dict(r) for r in rows]})
+            return self.output.result(True, {
+                "total": total,
+                "authors": [dict(r) for r in rows],
+                "works": works_by_author,
+            })
 
         if not rows:
             self.output.info("[yellow](・ω・)? 没有找到匹配的作者哦～[/yellow]")
@@ -145,4 +156,28 @@ class SearchCommand(BaseCommand):
             [r["id"], r["name"], "(◕‿◕)" if r["favorite"] else "", str(r["work_count"])]
             for r in rows
         ])
+
+        # 列出每个作者名下的作品
+        from src.core.database import short_id
+        for a in rows:
+            works = works_by_author.get(a["name"], [])
+            if not works:
+                continue
+            self.output.info("")
+            self.output.table(f"{a['name']} 的作品（{len(works)} 部）", [
+                {"header": "ID", "style": "cyan", "width": 12, "no_wrap": True},
+                {"header": "标题", "style": "magenta"},
+                {"header": "系列", "style": "yellow"},
+                {"header": "分类", "style": "blue", "width": 6},
+                {"header": "点赞", "justify": "right", "style": "yellow", "width": 8},
+            ], [
+                [
+                    short_id(r.get("ID", "")),
+                    (r.get("标题", "") or "")[:24],
+                    r.get("系列", "-") or "-",
+                    r.get("分类", "") or "",
+                    str(r.get("点赞", "0") or "0"),
+                ]
+                for r in works
+            ])
         return 0
