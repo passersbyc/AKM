@@ -47,32 +47,59 @@
 
 <!-- 按作者分组视图 -->
 {% if group == 'author' %}
-<div class="author-groups">
+<div class="author-group-toolbar">
+    <span class="author-group-total">共 {{ author_groups|length }} 位作者 · {{ total }} 部作品</span>
+    <div class="author-group-actions">
+        <button type="button" class="collapse-btn" id="collapseAll">全部收起</button>
+        <button type="button" class="collapse-btn" id="expandAll">全部展开</button>
+    </div>
+</div>
+<div class="author-groups" id="authorGroups">
     {% for author_name, g in author_groups.items() %}
-    <section class="author-group">
-        <div class="author-group-header">
+    <section class="author-group" data-group="{{ loop.index }}">
+        <div class="author-group-header" onclick="toggleGroup(this)">
+            <span class="author-avatar">{{ author_name[:1] }}</span>
             <span class="author-group-name">{{ author_name }}</span>
             <span class="author-group-count">{{ g.total }} 部</span>
             {% if g.total > g.works|length %}
-            <a class="author-group-more" href="/works?author={{ author_name | urlencode }}">查看全部 →</a>
+            <a class="author-group-more" href="/works?author={{ author_name | urlencode }}" onclick="event.stopPropagation()">查看全部 →</a>
             {% endif %}
+            <span class="author-group-caret">▾</span>
         </div>
-        <div class="works-grid">
-            {% for w in g.works %}
-            <a href="/works/{{ w.id }}" class="work-card">
-                {{ cover(w) }}
-                <div class="work-info">
-                    <div class="work-title">{{ w.title[:20] }}</div>
-                    <div class="work-meta">
-                        <span class="work-id">{{ w.short_id }}</span>
+        <div class="author-group-body">
+            <div class="works-grid">
+                {% for w in g.works %}
+                <a href="/works/{{ w.id }}" class="work-card">
+                    {{ cover(w) }}
+                    <div class="work-info">
+                        <div class="work-title">{{ w.title[:20] }}</div>
+                        <div class="work-meta">
+                            <span class="work-id">{{ w.short_id }}</span>
+                        </div>
                     </div>
-                </div>
-            </a>
-            {% endfor %}
+                </a>
+                {% endfor %}
+            </div>
         </div>
     </section>
     {% endfor %}
 </div>
+<script>
+function toggleGroup(header) {
+    const section = header.closest('.author-group');
+    section.classList.toggle('collapsed');
+    const caret = header.querySelector('.author-group-caret');
+    if (caret) caret.textContent = section.classList.contains('collapsed') ? '▸' : '▾';
+}
+document.getElementById('collapseAll')?.addEventListener('click', () => {
+    document.querySelectorAll('#authorGroups .author-group').forEach(s => s.classList.add('collapsed'));
+    document.querySelectorAll('#authorGroups .author-group-caret').forEach(c => c.textContent = '▸');
+});
+document.getElementById('expandAll')?.addEventListener('click', () => {
+    document.querySelectorAll('#authorGroups .author-group').forEach(s => s.classList.remove('collapsed'));
+    document.querySelectorAll('#authorGroups .author-group-caret').forEach(c => c.textContent = '▾');
+});
+</script>
 
 <!-- 平铺视图 -->
 {% elif works %}
