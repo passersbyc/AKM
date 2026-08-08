@@ -1,5 +1,6 @@
 import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 
 from .models import ExportRequest, ExportPlan, ExportResult
@@ -11,6 +12,9 @@ from src.core.logging import logger
 
 
 def export_works(rows: list[dict], request: ExportRequest) -> ExportResult:
+    if request.mode == "all":
+        return export_all_works(rows, request)
+
     plan = collect_rows(rows, request)
 
     if not plan.standalone and not plan.series_groups:
@@ -347,3 +351,140 @@ def _split_plan_by_author(plan: ExportPlan) -> dict[str, tuple[list[dict], dict[
             s_list.append(row)
 
     return result
+
+
+def export_all_works(rows: list[dict], request: ExportRequest) -> ExportResult:
+    """全库导出：按 {author}/{type} 结构组织——作者是文件夹，类型是压缩包（或目录）。
+
+    覆盖式同步：同名 zip/目录先清理再生成，始终为最新快照；清理失败时追加时间戳兜底。
+    """
+    plan = collect_rows(rows, request)
+    if not plan.standalone and not plan.series_groups:
+        return ExportResult(False, 0, error="没有可导出的作品")
+
+    author_groups = _split_plan_by_author(plan)
+    if not author_groups:
+        return ExportResult(False, 0, error="没有可导出的作者")
+
+    library_root = request.dest_dir
+    library_root.mkdir(parents=True, exist_ok=True)
+    temp_root = request.dest_dir / "_library_all_tmp"
+    if temp_root.exists():
+        shutil.rmtree(temp_root)
+    temp_root.mkdir(parents=True)
+
+    total = len(author_groups)
+    progress = _show_progress(total)
+    count = 0
+    succeeded = 0
+    errors: list[str] = []
+    try:
+        sorted_authors = sorted(author_groups.items())
+
+        def _process_author(author_name: str, standalone: list[dict],
+                            series_groups: dict[str, list[dict]]) -> tuple[str, int, Path]:
+            author_safe = _safe_name(author_name) or "unknown"
+            rows_all = list(standalone)
+            for srows in series_groups.values():
+                rows_all.extend(srows)
+
+            # 按类型分组
+            type_groups: dict[str, list[dict]] = {}
+            for row in rows_all:
+                ft = row.get("分类", "") or "未知"
+                type_groups.setdefault(ft, []).append(row)
+
+            author_tmp = temp_root / author_safe
+            author_tmp.mkdir(parents=True)
+            n = 0
+            try:
+                for ft, ft_rows in sorted(type_groups.items()):
+                    ft_safe = _safe_name(ft) or "未知"
+                    type_dir = author_tmp / ft_safe
+                    type_dir.mkdir(exist_ok=True)
+                    # 类型内拆分：standalone 平铺复制，系列作品合并为合订本
+                    ft_standalone, ft_series = _classify_by_series(ft_rows)
+                    n += _copy_standalone(ft_standalone, type_dir)
+                    n += merge_series_group(ft_series, type_dir,
+                                            plan.is_tag_mode, author_name)
+
+                # 作者 = 文件夹；类型 = 压缩包（zip 模式）或类型子目录（folder 模式）
+                author_final = library_root / author_safe
+                author_final = _replace_dest(author_final, is_dir=True)
+
+                if request.output_format == "folder":
+                    shutil.move(str(author_tmp), str(author_final))
+                else:
+                    author_final.mkdir(parents=True)
+                    for ft in sorted(type_groups):
+                        ft_safe = _safe_name(ft) or "未知"
+                        zip_final = _replace_dest(author_final / f"{ft_safe}.zip", is_dir=False)
+                        shutil.make_archive(
+                            base_name=str(zip_final.with_suffix("")),
+                            format="zip",
+                            root_dir=str(author_tmp / ft_safe),
+                            base_dir=".",
+                        )
+            finally:
+                shutil.rmtree(author_tmp, ignore_errors=True)
+            return author_name, n, author_final
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(_process_author, name, st, sg): name
+                for name, (st, sg) in sorted_authors
+            }
+            for future in as_completed(futures):
+                try:
+                    author_name, n, final = future.result()
+                    count += n
+                    succeeded += 1
+                    if progress:
+                        _update_progress_desc(progress, author_name, succeeded, total)
+                        progress.advance(progress.task_ids[0])
+                except Exception as e:
+                    name = futures[future]
+                    errors.append(f"{name}: {e}")
+                    logger.error(f"导出作者 {name} 失败: {e}")
+    finally:
+        if progress:
+            progress.stop()
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+    if succeeded == 0:
+        return ExportResult(False, 0, error="全部作者导出失败: " + "; ".join(errors))
+
+    if errors:
+        logger.warning(f"部分作者导出失败: {errors}")
+    return ExportResult(True, count, library_root, results={
+        "succeeded": succeeded, "total": total, "errors": errors,
+    })
+
+
+def _classify_by_series(rows: list[dict]) -> tuple[list[dict], dict[str, list[dict]]]:
+    """按系列字段把行拆分为 standalone 与系列分组（系列内按 ID 排序）。"""
+    standalone = []
+    series_groups: dict[str, list[dict]] = {}
+    for row in rows:
+        series = (row.get("系列", "") or "").strip()
+        if series:
+            series_groups.setdefault(series, []).append(row)
+        else:
+            standalone.append(row)
+    for sg in series_groups.values():
+        sg.sort(key=lambda x: x.get("ID", ""))
+    return standalone, series_groups
+
+
+def _replace_dest(final: Path, is_dir: bool) -> Path:
+    """覆盖式替换目标；失败（文件保护等）时追加时间戳兜底。"""
+    try:
+        if final.exists():
+            if is_dir:
+                shutil.rmtree(final)
+            else:
+                final.unlink()
+        return final
+    except BaseException:
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        return final.with_name(f"{final.stem}-{stamp}{final.suffix}")

@@ -161,3 +161,26 @@ def export_mylikeworks(dest_dir: Path,
         "destination": str(result.destination),
         "error": result.error,
     }
+
+
+def export_all(dest_dir: Path,
+               filter_type: str | None = None, limit: int = 0,
+               output_format: str = "folder") -> dict:
+    """全库导出：library/{author}/{type} 结构，每作者一个压缩包（或目录）。"""
+    rows = WorkManager.read()
+    if not rows:
+        return {"success": False, "exported": 0, "error": "库中没有作品"}
+
+    request = ExportRequest(
+        query="", dest_dir=dest_dir, export_name="all",
+        mode="all", filter_type=filter_type, limit=limit,
+        output_format=output_format,
+    )
+    result = export_works(rows, request)
+    return {
+        "success": result.success,
+        "exported": result.exported_count,
+        "destination": str(result.destination),
+        "results": result.results,
+        "error": result.error,
+    }

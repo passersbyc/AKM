@@ -21,7 +21,7 @@ def _get_export_defaults():
 
 class ExportCommand(BaseCommand):
     verb = "export"
-    nouns = ["author", "mylikeauthor", "mylikeworks"]
+    nouns = ["author", "mylikeauthor", "mylikeworks", "all"]
     description = "导出作品到指定目录"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
@@ -46,14 +46,16 @@ class ExportCommand(BaseCommand):
             parser.add_argument("--type", type=str, help="按分类筛选～")
             parser.add_argument("--number", type=int, default=0,
                                 help="按点赞量限制数量～")
-        elif noun in ("mylikeauthor", "mylikeworks"):
-            parser.add_argument("dest", nargs="?", default=defaults["dest"],
-                                help="导出目标路径～")
-            parser.add_argument("--format", default=defaults["format"],
-                                choices=["folder", "zip", "epub"])
+        elif noun == "all":
+            parser.add_argument("dest", nargs="?",
+                                default="/Users/passersbyh/Desktop/备份library",
+                                help="导出目标路径（默认备份到 Desktop/备份library）～")
+            parser.add_argument("--format", default="zip",
+                                choices=["folder", "zip"],
+                                help="导出格式（默认 zip 压缩包）～")
             parser.add_argument("--type", type=str, help="按分类筛选～")
             parser.add_argument("--number", type=int, default=0,
-                                help="按点赞量限制数量～")
+                                help="按点赞量限制每位作者数量～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         if noun == "author":
@@ -62,6 +64,8 @@ class ExportCommand(BaseCommand):
             return self._export_mylikeauthor(args)
         elif noun == "mylikeworks":
             return self._export_mylikeworks(args)
+        elif noun == "all":
+            return self._export_all(args)
         else:
             return self._export_work(args)
 
@@ -160,3 +164,35 @@ class ExportCommand(BaseCommand):
         fmt_label = {"folder": "文件夹", "zip": "压缩包", "epub": "EPUB"}.get(
             getattr(args, 'format', 'folder'), 'folder')
         return self._print_result(result, fmt_label)
+
+    # ── export all ─────────────────────────────────────────
+
+    def _export_all(self, args: argparse.Namespace) -> int:
+        dest_dir = self._resolve_dest(args.dest)
+        if dest_dir is None:
+            return 1
+
+        from src.operations.export_op import export_all
+        result = export_all(
+            dest_dir,
+            filter_type=getattr(args, 'type', None),
+            limit=getattr(args, 'number', 0),
+            output_format=getattr(args, 'format', 'zip'),
+        )
+        if not result["success"]:
+            self.output.info(f"[red](｡•́︿•̀｡)[/red] 导出失败: {result.get('error', '未知错误')}")
+            return 1
+        dest = result.get("destination", "")
+        try:
+            dest = str(Path(dest).relative_to(Path.cwd()))
+        except ValueError:
+            pass
+        detail = ""
+        if result.get("results"):
+            r = result["results"]
+            detail = f" [yellow](作者 {r['succeeded']}/{r['total']}，{result['exported']} 个文件)[/yellow]"
+            if r.get("errors"):
+                detail += f"\n[yellow]失败: {'; '.join(r['errors'][:5])}[/yellow]"
+        self.output.info(f"[green](◕‿◕) 导出完成:[/green] 压缩包 "
+                         f"[bright_green]{dest}[/bright_green]{detail}")
+        return 0

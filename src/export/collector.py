@@ -13,12 +13,16 @@ def collect_rows(rows: list[dict], request: ExportRequest) -> ExportPlan:
             is_tag_mode=False,
         )
 
-    if request.mode in ("work", "mylikeworks"):
-        standalone, series_groups = _classify_works(rows)
+    if request.mode in ("work", "mylikeworks", "all"):
+        filtered_rows = _filter_by_type(rows, request.filter_type) if request.filter_type else rows
+        standalone, series_groups = _classify_works(filtered_rows)
+        if request.mode == "all" and request.limit > 0:
+            standalone, series_groups = _apply_like_cutoff(standalone, series_groups, request.limit)
+        type_groups = _build_type_groups(standalone, series_groups)
         return ExportPlan(
             standalone=standalone,
             series_groups=series_groups,
-            type_groups={},
+            type_groups=type_groups,
             is_tag_mode=False,
         )
 
@@ -58,21 +62,30 @@ def _filter_rows(rows: list[dict], request: ExportRequest) -> list[dict]:
             if row.get("作者", "").lower() != request.query.lower():
                 continue
 
-        if request.filter_type:
-            row_type = row.get("分类", "") or "未知"
-            ft = request.filter_type.lower()
-            if ft in ("novel", "小说"):
-                if row_type not in ("小说",):
-                    continue
-            elif ft in ("illust", "漫画", "插画", "manga"):
-                if row_type not in ("漫画",):
-                    continue
-            elif ft != row_type.lower():
-                continue
+        if not _type_matches(row, request.filter_type):
+            continue
 
         result.append(row)
 
     return result
+
+
+def _filter_by_type(rows: list[dict], filter_type: str | None) -> list[dict]:
+    if not filter_type:
+        return list(rows)
+    return [r for r in rows if _type_matches(r, filter_type)]
+
+
+def _type_matches(row: dict, filter_type: str | None) -> bool:
+    if not filter_type:
+        return True
+    row_type = row.get("分类", "") or "未知"
+    ft = filter_type.lower()
+    if ft in ("novel", "小说"):
+        return row_type in ("小说",)
+    if ft in ("illust", "漫画", "插画", "manga"):
+        return row_type in ("漫画",)
+    return ft == row_type.lower()
 
 
 def _classify_works(rows: list[dict]) -> tuple[list[dict], dict[str, list[dict]]]:
@@ -130,17 +143,8 @@ def _filter_by_author_ids(rows: list[dict], request: ExportRequest) -> list[dict
         bid = row.get("ID", "")
         if not any(_author_id_matches(bid, aid) for aid in aid_set):
             continue
-        if request.filter_type:
-            row_type = row.get("分类", "") or "未知"
-            ft = request.filter_type.lower()
-            if ft in ("novel", "小说"):
-                if row_type not in ("小说",):
-                    continue
-            elif ft in ("illust", "漫画", "插画", "manga"):
-                if row_type not in ("漫画",):
-                    continue
-            elif ft != row_type.lower():
-                continue
+        if not _type_matches(row, request.filter_type):
+            continue
         result.append(row)
     return result
 
