@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}AKM · 关注更新{% endblock %}
+{% block content %}
+
+{%- macro status_pill(s) -%}
+{%- if s == 'active' %}活跃
+{%- elif s == 'paused' %}暂停
+{%- elif s == 'dead' %}停更
+{%- else %}{{ s or '未知' }}{%- endif -%}
+{%- endmacro %}
+
+<div class="up-page animate-in">
+    <!-- 头部 -->
+    <header class="up-header">
+        <div>
+            <h1 class="up-title">关注更新</h1>
+            <p class="up-subtitle">检查关注作者的新作品，自动加入下载队列</p>
+        </div>
+        {% if sync_running %}
+        <span class="up-running"><span class="up-pulse"></span>同步中</span>
+        {% endif %}
+    </header>
+
+    <!-- Hero -->
+    <section class="up-hero">
+        <div class="up-hero-info">
+            <div class="up-hero-kicker">关注作者</div>
+            <div class="up-hero-nums">
+                <div class="up-num">
+                    <b>{{ pending }}</b>
+                    <span>需检查</span>
+                </div>
+                <div class="up-num">
+                    <b>{{ groups.active|length }}</b>
+                    <span>活跃</span>
+                </div>
+                <div class="up-num">
+                    <b>{{ groups.paused|length }}</b>
+                    <span>暂停</span>
+                </div>
+                <div class="up-num">
+                    <b>{{ groups.dead|length }}</b>
+                    <span>停更</span>
+                </div>
+            </div>
+            <div class="up-hero-meta">共 {{ total }} 位关注作者 · 需检查 = 活跃 + 超过 7 天未复查的停更</div>
+        </div>
+        <div class="up-hero-side">
+            <button id="sync-btn" class="up-sync-btn" onclick="startSync()" {% if sync_running %}disabled{% endif %}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                <span id="sync-btn-text">{{ '同步中...' if sync_running else '检查更新' }}</span>
+            </button>
+            <div class="up-pull-hint">扫描关注作者的新作品并加入下载队列呢～</div>
+            <div id="sync-progress" class="up-progress" style="display: {% if sync_running %}block{% else %}none{% endif %};">
+                <div class="up-status" id="sync-status">等待开始...</div>
+                <div class="up-bar">
+                    <div class="up-bar-fill" id="sync-bar" style="width: 0%"></div>
+                </div>
+                <div class="up-log" id="sync-log"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 作者列表 -->
+    {% if total %}
+    <div class="up-list">
+        {% set ns = namespace(idx=0) %}
+        {% for status, rows in [('active', groups.active), ('paused', groups.paused), ('dead', groups.dead)] %}
+        {% if rows %}
+        <section class="up-group" data-status="{{ status }}">
+            <h2 class="up-group-title">
+                <span class="up-status-dot st-{{ status }}"></span>
+                {{ status_pill(status) }}
+                <span class="up-group-count">{{ rows|length }}</span>
+            </h2>
+            <div class="up-authors">
+                {% for r in rows %}
+                {% set ns.idx = ns.idx + 1 %}
+                <div class="up-author animate-in" style="animation-delay: {{ ns.idx * 0.02 }}s">
+                    <span class="up-avatar">{{ r.name[:1] if r.name else '?' }}</span>
+                    <div class="up-author-main">
+                        <div class="up-author-name">
+                            {{ r.name or '未知' }}
+                            {% if r.favorite %}<span class="up-fav" title="收藏作者">★</span>{% endif %}
+                        </div>
+                        <div class="up-author-sub">
+                            {% if r.pixiv_uid %}UID {{ r.pixiv_uid }}{% endif %}
+                            {% if r.latest_work_id %} · 最新 {{ r.latest_work_id }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="up-author-side">
+                        <span class="up-checked">上次检查 {{ (r.last_checked or '')[:10] or '从未' }}</span>
+                        <span class="up-status st-{{ status }}">{{ status_pill(status) }}</span>
+                        {% if r.homepage %}
+                        <a href="{{ r.homepage }}" target="_blank" class="up-open" title="打开主页">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="up-empty">
+        <div class="up-empty-icon">👤</div>
+        <p class="up-empty-title">(・ω・) 还没有关注任何作者呢～</p>
+        <p class="up-empty-sub">去「下载」页粘贴作者主页 URL 关注，或使用 <code>akm follow --pixiv</code> 导入 Pixiv 关注列表吧～</p>
+        <a href="/download" class="up-empty-btn">去关注作者 →</a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+let syncSource = null;
+
+function startSync() {
+    const btn = document.getElementById('sync-btn');
+    const btnText = document.getElementById('sync-btn-text');
+    const progress = document.getElementById('sync-progress');
+    const status = document.getElementById('sync-status');
+    const bar = document.getElementById('sync-bar');
+    const log = document.getElementById('sync-log');
+
+    btn.disabled = true;
+    btnText.textContent = '同步中...';
+    progress.style.display = 'block';
+    status.textContent = '正在启动 (・ω・)...';
+    log.innerHTML = '';
+
+    fetch('/update/run', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'already_running') {
+                status.textContent = '已有同步任务在进行中呢～';
+            }
+            connectStream();
+        });
+
+    function connectStream() {
+        if (syncSource) syncSource.close();
+        syncSource = new EventSource('/update/run/stream');
+
+        let total = 0;
+        let done = 0;
+
+        syncSource.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+
+            switch(data.event) {
+                case 'sync_start':
+                    total = data.total;
+                    status.textContent = `开始检查 ${total} 位作者（活跃 ${data.active} · 重试 ${data.retry}）呢～`;
+                    addLog(`(◕‿◕) 共 ${total} 位作者需要检查呢～`);
+                    break;
+                case 'author_done':
+                    done += 1;
+                    const pct = total ? Math.round(done / total * 100) : 0;
+                    bar.style.width = pct + '%';
+                    const parts = [];
+                    if (data.new) parts.push(`+${data.new} 新作`);
+                    if (data.deleted) parts.push(`-${data.deleted} 删除`);
+                    if (data.downloaded) parts.push(`入队 ${data.downloaded}`);
+                    if (!parts.length) parts.push('无变化');
+                    status.textContent = `[${data.name}] ${parts.join(' / ')}`;
+                    addLog(`(・ω・) [${data.name}] ${parts.join(' / ')}`);
+                    break;
+                case 'sync_done':
+                    bar.style.width = '100%';
+                    bar.classList.add('up-bar-done');
+                    if (data.changed) {
+                        let summary = `(◕‿◕) 检查完成！${data.changed} 位作者有更新`;
+                        addLog(summary);
+                        (data.changed_authors || []).forEach(a => {
+                            const line = `  → ${a.name} +${a.new} 新作${a.deleted ? ' / -' + a.deleted + ' 删除' : ''}${a.downloaded ? '（已入队 ' + a.downloaded + '）' : ''}`;
+                            addLog(line);
+                        });
+                        status.textContent = `(◕‿◕) 检查完成！${data.changed} 位作者有新作入队`;
+                    } else {
+                        status.textContent = '(◕‿◕) 检查完成，所有作者都是最新的呢～';
+                        addLog('(◕‿◕) 全部最新，无新作品呢～');
+                    }
+                    if (data.paused) addLog(`(・ω・) ${data.paused} 位暂停追更（跳过）`);
+                    if (data.dead) addLog(`(｡•́︿•̀｡) ${data.dead} 位已停更（跳过）`);
+                    btnText.textContent = '再检查一次～';
+                    btn.disabled = false;
+                    break;
+                case 'error':
+                    status.textContent = `(｡•́︿•̀｡) ${data.message}`;
+                    addLog(`(｡•́︿•̀｡) ${data.message}`);
+                    btnText.textContent = '重试～';
+                    btn.disabled = false;
+                    break;
+                case 'stream_end':
+                    syncSource.close();
+                    syncSource = null;
+                    setTimeout(() => location.reload(), 3000);
+                    break;
+            }
+        };
+
+        syncSource.onerror = function() {
+            if (syncSource) { syncSource.close(); syncSource = null; }
+        };
+    }
+}
+
+function addLog(msg) {
+    const log = document.getElementById('sync-log');
+    const line = document.createElement('div');
+    line.className = 'up-log-line';
+    line.textContent = msg;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+}
+
+{% if sync_running %}
+document.addEventListener('DOMContentLoaded', function() { startSync(); });
+{% endif %}
+</script>
+
+{% endblock %}

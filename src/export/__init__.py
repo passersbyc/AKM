@@ -163,7 +163,11 @@ def _do_standard(plan: ExportPlan, request: ExportRequest) -> ExportResult:
         return ExportResult(True, count, dest)
     finally:
         if temp_dir.exists():
-            shutil.rmtree(temp_dir)
+            try:
+                shutil.rmtree(temp_dir)
+            except BaseException:
+                # 临时目录清理失败（如运行环境文件保护拦截）时静默忽略，残留无碍
+                pass
 
 
 def _copy_standalone(standalone: list[dict], content_dir: Path,

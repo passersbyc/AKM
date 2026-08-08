@@ -7,58 +7,120 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <script>try{var _t=localStorage.getItem('akm_theme');if(!_t){_t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',_t)}catch(e){}
+    try{if(localStorage.getItem('akm_privacy')==='1'){document.documentElement.classList.add('privacy-mode')}}catch(e){}
+    try{if(localStorage.getItem('akm_sidebar_collapsed')==='1'){document.documentElement.classList.add('sidebar-collapsed')}}catch(e){}</script>
 </head>
 <body>
+{% set page_titles = {'dashboard': '仪表盘', 'works': '作品', 'authors': '作者', 'download': '下载', 'update': '更新', 'import': '导入', 'settings': '设置'} %}
 <div class="layout">
     <!-- 侧边栏 -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-logo">
-            <span class="logo-text">AKM</span>
-            <span class="logo-sub">作品管理系统</span>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="/" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                <span>仪表盘</span>
-            </a>
-            <a href="/works" class="nav-item {% if active_page == 'works' %}active{% endif %}">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                <span>作品</span>
-            </a>
-            <a href="/authors" class="nav-item {% if active_page == 'authors' %}active{% endif %}">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>作者</span>
-            </a>
-            <a href="/download" class="nav-item {% if active_page == 'download' %}active{% endif %}">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                <span>下载</span>
-            </a>
-        </nav>
-        {% if stats %}
-        <div class="sidebar-footer">
-            <div class="sidebar-stats">
-                <div class="mini-stat">
-                    <span class="mini-label">作品</span>
-                    <span class="mini-value" data-count="{{ stats.total_books }}">0</span>
-                </div>
-                <div class="mini-stat">
-                    <span class="mini-label">作者</span>
-                    <span class="mini-value" data-count="{{ stats.total_authors }}">0</span>
-                </div>
-                <div class="mini-stat">
-                    <span class="mini-label">收藏</span>
-                    <span class="mini-value" data-count="{{ stats.favorited_count }}">0</span>
-                </div>
+            <div class="logo-mark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5.5-10 5.5L2 7.5 12 2z"/><path d="m2 12.5 10 5.5 10-5.5"/><path d="m2 17.5 10 5.5 10-5.5"/></svg>
+            </div>
+            <div class="logo-text-wrap">
+                <span class="logo-text">AKM</span>
+                <span class="logo-sub">作品管理系统</span>
             </div>
         </div>
-        {% endif %}
-    </aside>
 
-    <!-- 主内容区 -->
-    <main class="main-content">
-        {% block content %}{% endblock %}
-    </main>
+        <nav class="sidebar-nav">
+            <span class="nav-group-label">总览</span>
+            <a href="/" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" title="仪表盘" data-tip="仪表盘">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                </span>
+                <span class="nav-label">仪表盘</span>
+            </a>
+            <a href="/works" class="nav-item {% if active_page == 'works' %}active{% endif %}" title="作品" data-tip="作品">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                </span>
+                <span class="nav-label">作品</span>
+            </a>
+            <a href="/authors" class="nav-item {% if active_page == 'authors' %}active{% endif %}" title="作者" data-tip="作者">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </span>
+                <span class="nav-label">作者</span>
+            </a>
+
+            <span class="nav-group-label nav-group-divider">管理</span>
+            <a href="/download" class="nav-item {% if active_page == 'download' %}active{% endif %}" title="下载" data-tip="下载">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </span>
+                <span class="nav-label">下载</span>
+            </a>
+            <a href="/update" class="nav-item {% if active_page == 'update' %}active{% endif %}" title="更新" data-tip="更新">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                </span>
+                <span class="nav-label">更新</span>
+            </a>
+            <a href="/import" class="nav-item {% if active_page == 'import' %}active{% endif %}" title="导入" data-tip="导入">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </span>
+                <span class="nav-label">导入</span>
+            </a>
+            <a href="/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}" title="设置" data-tip="设置">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </span>
+                <span class="nav-label">设置</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button type="button" class="sidebar-toggle sidebar-collapse-btn" title="折叠侧栏" aria-label="折叠侧栏">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>
+            </button>
+        </div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <!-- 主区域 -->
+    <div class="main-area">
+        <!-- 顶栏 -->
+        <header class="topbar">
+            <button class="sidebar-toggle topbar-toggle" id="sidebarToggle" title="切换侧边栏" aria-label="切换侧边栏">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <button type="button" class="topbar-back" id="topbarBack" title="返回上一页" aria-label="返回上一页">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <span class="topbar-crumb">
+                <a href="/" class="topbar-crumb-home" title="返回仪表盘">AKM</a>
+                <i>/</i>
+                <b>{{ page_titles.get(active_page, '') }}</b>
+            </span>
+            <form class="topbar-search" action="/works" method="get">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" name="q" placeholder="搜索作品…" autocomplete="off">
+            </form>
+            <button type="button" class="kid-toggle{% if kid_mode() %} active{% endif %}" id="kidToggle"
+                    role="switch" aria-checked="{% if kid_mode() %}true{% else %}false{% endif %}"
+                    title="{% if kid_mode() %}儿童模式已开启 · 点击切换到成人模式{% else %}成人模式 · 点击开启儿童模式（隐藏 R-18 作品）{% endif %}">
+                <svg class="kid-toggle-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.2 6a7 7 0 0 1-7.6 0A7.1 7.1 0 0 1 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="1.6"/><path d="M10 13.5h4"/></svg>
+                <span class="kid-toggle-label">儿童模式</span>
+                <span class="kid-toggle-state" id="kidToggleState">{% if kid_mode() %}已开启{% else %}已关闭{% endif %}</span>
+            </button>
+            <button type="button" class="topbar-icon-btn theme-toggle" id="themeToggle" title="切换白天/夜晚" aria-label="切换白天/夜晚">
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            </button>
+        </header>
+
+        <!-- 页面内容 -->
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
 </div>
 <script src="/static/js/app.js"></script>
 </body>

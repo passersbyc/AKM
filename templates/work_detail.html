@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_cover.html" import cover %}
+{% from "_work_card.html" import work_card %}
 {% block title %}AKM · {{ work.title if work else '作品详情' }}{% endblock %}
 {% block content %}
 
@@ -16,105 +17,132 @@
     <a href="/works" class="back-link">← 返回列表</a>
 </div>
 
-<!-- 作品详情 -->
-<div class="detail-layout">
-    <!-- 左侧：封面 + 操作 -->
-    <div class="detail-left animate-in">
-        <div class="detail-cover-wrap animate-in">
+<!-- 作品详情：Hero 玻璃面板 -->
+{% set dt_cls = {'小说': 'var(--c-novel)', '漫画': 'var(--c-manga)', '音乐': 'var(--c-music)', '电影': 'var(--c-movie)', '图片': 'var(--c-image)'}.get(work.file_type, 'var(--c-other)') %}
+<div class="detail-hero animate-in" style="--dt-accent: {{ dt_cls }};">
+    <!-- 左：封面 + 徽章 -->
+    <div class="detail-left">
+        <div class="detail-cover-wrap">
             {{ cover(work, 'detail-cover') }}
         </div>
         <div class="detail-actions">
-            {% if work.favorite %}
-            <span class="detail-badge badge-fav">★ 已收藏</span>
-            {% endif %}
-            {% if work.rating %}
-            <span class="detail-badge badge-rating">{{ work.rating }} 分</span>
-            {% endif %}
-        </div>
-        <div class="detail-btns">
-            {% if work.source %}
-            <a href="{{ work.source }}" target="_blank" class="detail-btn btn-source">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                打开网址～
-            </a>
-            {% endif %}
-            <button onclick="openWork('{{ work.id }}')" class="detail-btn btn-open">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                本地打开～
+            <button type="button" class="detail-badge {% if work.favorite %}badge-fav{% endif %}" id="favBtn" data-fav-id="{{ work.id }}"
+                    onclick="event.preventDefault();toggleFav('{{ work.id }}')"
+                    title="{% if work.favorite %}取消收藏{% else %}收藏{% endif %}">
+                {% if work.favorite %}♥ 已收藏{% else %}♡ 收藏{% endif %}
             </button>
+            <!-- 评分：直接点击星星（半星支持，库内十分制，1 星 = 2 分） -->
+            <div class="detail-rate" id="detailRate" data-work-id="{{ work.id }}" data-rating="{{ work.rating or '' }}" title="点击评分，左半为半星">
+                <button type="button" class="detail-rate-star" data-val="1" aria-label="1 星">★</button>
+                <button type="button" class="detail-rate-star" data-val="2" aria-label="2 星">★</button>
+                <button type="button" class="detail-rate-star" data-val="3" aria-label="3 星">★</button>
+                <button type="button" class="detail-rate-star" data-val="4" aria-label="4 星">★</button>
+                <button type="button" class="detail-rate-star" data-val="5" aria-label="5 星">★</button>
+                <span class="detail-rate-tip" id="detailRateTip">点击评分</span>
+            </div>
         </div>
     </div>
 
-    <!-- 右侧：信息 -->
-    <div class="detail-right animate-in animate-in-delay-1">
+    <!-- 右：标题 / 作者 / 元数据 / 操作 -->
+    <div class="detail-right">
         <h1 class="detail-title">{{ work.title }}</h1>
 
-        <!-- 作者卡片 -->
         {% if work.author_name and work.author_name != '未知' %}
         <a href="/works?author={{ work.author_name }}" class="author-chip">
             <span class="author-chip-avatar">{{ work.author_name[:1] }}</span>
             <span class="author-chip-name">{{ work.author_name }}</span>
-            <span class="author-chip-arrow">查看该作者的全部作品吧 →</span>
+            <span class="author-chip-arrow">查看该作者的全部作品 →</span>
         </a>
         {% endif %}
 
         <div class="detail-meta-grid">
             <div class="meta-item">
-                <span class="meta-label">ID</span>
+                <span class="meta-label"><span class="meta-ico">#</span>ID</span>
                 <span class="meta-value mono">{{ work.short_id }}</span>
             </div>
             {% if work.series_name %}
             <div class="meta-item">
-                <span class="meta-label">系列</span>
+                <span class="meta-label"><span class="meta-ico">📚</span>系列</span>
                 <span class="meta-value">{{ work.series_name }}</span>
             </div>
             {% endif %}
             <div class="meta-item">
-                <span class="meta-label">类型</span>
+                <span class="meta-label"><span class="meta-ico">🗂</span>类型</span>
                 <span class="meta-value">{{ work.file_type or '未知' }}</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">格式</span>
+                <span class="meta-label"><span class="meta-ico">📄</span>格式</span>
                 <span class="meta-value">{{ work.file_ext or '—' }}</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">文件大小</span>
+                <span class="meta-label"><span class="meta-ico">💾</span>文件大小</span>
                 <span class="meta-value">{{ '%.1f' | format(work.file_size_kb / 1024) if work.file_size_kb else '—' }} MB</span>
             </div>
             {% if work.likes %}
             <div class="meta-item">
-                <span class="meta-label">点赞</span>
-                <span class="meta-value">♥ {{ work.likes }}</span>
+                <span class="meta-label"><span class="meta-ico">♥</span>点赞</span>
+                <span class="meta-value">{{ work.likes }}</span>
             </div>
             {% endif %}
             <div class="meta-item">
-                <span class="meta-label">导入时间</span>
+                <span class="meta-label"><span class="meta-ico">📅</span>导入时间</span>
                 <span class="meta-value">{{ (work.imported_at or '')[:10] }}</span>
             </div>
         </div>
 
-        {% if work.tags %}
-        <div class="detail-section">
-            <h3 class="detail-section-title">标签</h3>
-            <div class="detail-tags">
-                {% for tag in work.tags.split(',') %}
-                {% set tag_stripped = tag.strip() %}
-                {% if tag_stripped %}
-                <a href="/works?tags={{ tag_stripped }}" class="detail-tag">{{ tag_stripped }}</a>
-                {% endif %}
-                {% endfor %}
-            </div>
+        <div class="detail-btns">
+            <button type="button" onclick="exportWork('{{ work.id }}')" class="detail-btn btn-source">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                导出
+            </button>
+            {% if work.source %}
+            <a href="{{ work.source }}" target="_blank" class="detail-btn btn-source" id="detailSourceBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                打开网址
+            </a>
+            {% endif %}
+            <button type="button" onclick="openEditModal()" class="detail-btn btn-source">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                编辑
+            </button>
+            <button onclick="openWork('{{ work.id }}')" class="detail-btn btn-open">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                本地打开
+            </button>
         </div>
-        {% endif %}
-
-        {% if work.description %}
-        <div class="detail-section">
-            <h3 class="detail-section-title">简介</h3>
-            <p class="detail-desc">{{ work.description }}</p>
-        </div>
-        {% endif %}
     </div>
 </div>
+
+<!-- 标签 / 简介 -->
+{% if work.tags or work.description %}
+<div class="detail-panels animate-in animate-in-delay-1">
+    {% if work.tags %}
+    <section class="card detail-panel">
+        <h3 class="detail-section-title">
+            <span class="card-title-icon" style="background: var(--primary-glow); color: var(--primary);">🏷</span>
+            标签
+        </h3>
+        <div class="detail-tags">
+            {% for tag in work.tags.split(',') %}
+            {% set tag_stripped = tag.strip() %}
+            {% if tag_stripped %}
+            <a href="/works?tags={{ tag_stripped }}" class="detail-tag">{{ tag_stripped }}</a>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    {% if work.description %}
+    <section class="card detail-panel">
+        <h3 class="detail-section-title">
+            <span class="card-title-icon" style="background: var(--accent-glow); color: var(--accent);">📝</span>
+            简介
+        </h3>
+        <p class="detail-desc">{{ work.description }}</p>
+    </section>
+    {% endif %}
+</div>
+{% endif %}
 
 <!-- 同系列作品 -->
 {% if related %}
@@ -122,18 +150,13 @@
     <h2 class="card-title">
         <span class="card-title-icon" style="background: var(--primary-glow); color: var(--primary);">📚</span>
         同系列作品
+        {% if work.series_name %}
+        <a class="detail-series-link" href="/works/series?name={{ work.series_name | urlencode }}">查看全部 →</a>
+        {% endif %}
     </h2>
     <div class="works-grid works-grid-sm">
         {% for w in related %}
-        <a href="/works/{{ w.id }}" class="work-card">
-            {{ cover(w) }}
-            <div class="work-info">
-                <div class="work-title">{{ w.title[:20] }}</div>
-                <div class="work-meta">
-                    <span class="work-id">{{ w.short_id }}</span>
-                </div>
-            </div>
-        </a>
+        {{ work_card(w) }}
         {% endfor %}
     </div>
 </div>
@@ -141,15 +164,425 @@
 
 {% endif %}
 
+<!-- 编辑弹窗 -->
+<div class="edit-mask" id="editMask" onclick="if(event.target===this)closeEditModal()">
+    <div class="edit-modal" role="dialog" aria-modal="true" aria-label="编辑作品">
+        <div class="edit-modal-head">
+            <h3 class="edit-modal-title">
+                <span class="card-title-icon" style="background: var(--primary-glow); color: var(--primary);">✏️</span>
+                编辑作品
+            </h3>
+            <button type="button" class="edit-modal-close" onclick="closeEditModal()" aria-label="关闭">✕</button>
+        </div>
+        <form id="editForm" onsubmit="event.preventDefault();saveEdit()">
+            <div class="edit-fields">
+                <div class="st-field">
+                    <label for="ef-title">标题</label>
+                    <input type="text" id="ef-title" class="st-input" value="{{ work.title }}" placeholder="作品标题">
+                </div>
+                <div class="edit-row2">
+                    <div class="st-field">
+                        <label for="ef-author">作者</label>
+                        <input type="text" id="ef-author" class="st-input" value="{{ work.author_name if work.author_name and work.author_name != '未知' else '' }}" placeholder="作者名">
+                    </div>
+                    <div class="st-field">
+                        <label for="ef-series">系列</label>
+                        <input type="text" id="ef-series" class="st-input" value="{{ work.series_name or '' }}" placeholder="所属系列（可留空）">
+                    </div>
+                </div>
+                <div class="edit-row2">
+                    <div class="st-field">
+                        <label for="ef-rating">评分（点击星星）</label>
+                        <div class="star-rate" id="starRate" role="radiogroup" aria-label="评分">
+                            <button type="button" class="star-rate-btn" data-val="1" role="radio" aria-label="1 星">★</button>
+                            <button type="button" class="star-rate-btn" data-val="2" role="radio" aria-label="2 星">★</button>
+                            <button type="button" class="star-rate-btn" data-val="3" role="radio" aria-label="3 星">★</button>
+                            <button type="button" class="star-rate-btn" data-val="4" role="radio" aria-label="4 星">★</button>
+                            <button type="button" class="star-rate-btn" data-val="5" role="radio" aria-label="5 星">★</button>
+                            <span class="star-rate-tip" id="starRateTip"></span>
+                        </div>
+                        <input type="hidden" id="ef-rating" value="{{ work.rating if work.rating else '' }}">
+                    </div>
+                    <div class="st-field">
+                        <label for="ef-source">来源</label>
+                        <input type="text" id="ef-source" class="st-input" value="{{ work.source or '' }}" placeholder="原始链接">
+                    </div>
+                </div>
+                <div class="st-field">
+                    <label for="ef-tags">标签（英文逗号分隔）</label>
+                    <input type="text" id="ef-tags" class="st-input" value="{{ work.tags or '' }}" placeholder="标签1,标签2,标签3">
+                </div>
+                <div class="st-field">
+                    <label for="ef-desc">简介</label>
+                    <textarea id="ef-desc" class="st-input st-textarea" rows="4" placeholder="作品简介">{{ work.description or '' }}</textarea>
+                </div>
+            </div>
+            <p class="edit-modal-warn">修改作者或系列会触发文件移动，作品 ID 可能变化。</p>
+            <div class="edit-modal-foot">
+                <button type="button" class="detail-btn btn-source" onclick="closeEditModal()">取消</button>
+                <button type="submit" class="detail-btn btn-open" id="editSaveBtn">保存修改</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-function openWork(id) {
-    fetch(`/works/${id}/open`, { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            if (!data.success) alert(data.error || '(｡•́︿•̀｡) 打开失败呀～');
-        })
-        .catch(() => alert('(｡•́︿•̀｡) 打开失败呀～'));
+// 半星评分工具：库内十分制 ↔ 星值(0.5 步进)，1 星 = 2 分
+// 分 → 星：rating/2 取最近 0.5（8.5 分 → 4.25 → 4.5 星）；星 → 分：stars*2
+function _ratingToStars(rating) {
+    const v = parseFloat(rating);
+    if (isNaN(v) || v <= 0) return 0;
+    return Math.min(5, Math.max(0, Math.round(v / 2 * 2) / 2));
 }
+// 绘制星星状态：stars 支持半星（4.5 = 4 整星 + 第 5 颗半星）
+function _paintStars(btns, stars) {
+    btns.forEach(function (b) {
+        const n = parseInt(b.dataset.val, 10);
+        b.classList.toggle('on', n <= Math.floor(stars));
+        b.classList.toggle('half', stars - Math.floor(stars) >= 0.25 && n === Math.ceil(stars));
+    });
+}
+// 详情页直接点星评分（左半 = 半星，右半 = 整星）
+function initDetailRate() {
+    const wrap = document.getElementById('detailRate');
+    if (!wrap) return;
+    const btns = Array.from(wrap.querySelectorAll('.detail-rate-star'));
+    const tip = document.getElementById('detailRateTip');
+    const workId = wrap.dataset.workId;
+    let cur = _ratingToStars(wrap.dataset.rating || '');
+    let saving = false;
+    const setTip = function (stars) {
+        if (!tip) return;
+        if (!stars) { tip.textContent = '点击评分'; return; }
+        tip.textContent = (stars % 1 === 0 ? stars : stars.toFixed(1)) + ' 星';
+    };
+    _paintStars(btns, cur);
+    setTip(cur);
+    // 悬停预览（左右半区分）
+    btns.forEach(function (b) {
+        b.addEventListener('mousemove', function (e) {
+            if (saving) return;
+            const r = b.getBoundingClientRect();
+            const half = (e.clientX - r.left) < r.width / 2;
+            _paintStars(btns, parseInt(b.dataset.val, 10) - (half ? 0.5 : 0));
+        });
+        b.addEventListener('mouseleave', function () {
+            if (!saving) _paintStars(btns, cur);
+        });
+        b.addEventListener('click', function (e) {
+            if (saving) return;
+            const r = b.getBoundingClientRect();
+            const half = (e.clientX - r.left) < r.width / 2;
+            const stars = parseInt(b.dataset.val, 10) - (half ? 0.5 : 0);
+            saving = true;
+            wrap.classList.add('saving');
+            fetch('/works/' + workId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rating: String(stars * 2) }),
+            })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        cur = stars;
+                        _paintStars(btns, cur);
+                        setTip(cur);
+                        if (typeof showToast === 'function') showToast('✓ 已评分 ' + (stars % 1 === 0 ? stars : stars.toFixed(1)) + ' 星', 'success');
+                        // 同步编辑弹窗里的五星组件
+                        const hidden = document.getElementById('ef-rating');
+                        if (hidden) hidden.value = String(stars * 2);
+                    } else {
+                        alert(d.error || '(｡•́︿•̀｡) 评分失败呀～');
+                    }
+                })
+                .catch(function () { alert('(｡•́︿•̀｡) 评分请求失败呀～'); })
+                .finally(function () { saving = false; wrap.classList.remove('saving'); });
+        });
+    });
+    // 双击清空评分
+    wrap.addEventListener('dblclick', function (e) {
+        if (saving || !e.target.classList.contains('detail-rate-star')) return;
+        saving = true;
+        fetch('/works/' + workId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating: '' }),
+        })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    cur = 0;
+                    _paintStars(btns, 0);
+                    setTip(0);
+                    if (typeof showToast === 'function') showToast('已清除评分', 'info');
+                    const hidden = document.getElementById('ef-rating');
+                    if (hidden) hidden.value = '';
+                }
+            })
+            .finally(function () { saving = false; });
+    });
+}
+// 五星评分组件（编辑弹窗）：支持半星，库内 0-10 分制
+function initStarRate() {
+    const wrap = document.getElementById('starRate');
+    const hidden = document.getElementById('ef-rating');
+    const tip = document.getElementById('starRateTip');
+    if (!wrap || !hidden) return;
+    const btns = Array.from(wrap.querySelectorAll('.star-rate-btn'));
+    // 回显：当前评分(0-10) → 星值（0.5 步进，1 星 = 2 分）
+    let cur = _ratingToStars(hidden.value);
+    const updateTip = function (n) {
+        if (!tip) return;
+        if (!n) { tip.textContent = '未评分'; return; }
+        tip.textContent = (n % 1 === 0 ? n : n.toFixed(1)) + ' 星（' + (n * 2) + ' 分）';
+    };
+    _paintStars(btns, cur);
+    updateTip(cur);
+    // 悬停/点击：左半 = 半星，右半 = 整星
+    btns.forEach(function (b) {
+        b.addEventListener('mousemove', function (e) {
+            const r = b.getBoundingClientRect();
+            const half = (e.clientX - r.left) < r.width / 2;
+            _paintStars(btns, parseInt(b.dataset.val, 10) - (half ? 0.5 : 0));
+        });
+        b.addEventListener('mouseleave', function () {
+            _paintStars(btns, cur);
+        });
+        b.addEventListener('click', function (e) {
+            const r = b.getBoundingClientRect();
+            const half = (e.clientX - r.left) < r.width / 2;
+            cur = parseInt(b.dataset.val, 10) - (half ? 0.5 : 0);
+            hidden.value = String(cur * 2);
+            _paintStars(btns, cur);
+            updateTip(cur);
+        });
+    });
+    // 双击清空评分
+    wrap.addEventListener('dblclick', function (e) {
+        if (e.target.classList.contains('star-rate-btn')) {
+            cur = 0;
+            hidden.value = '';
+            _paintStars(btns, 0);
+            updateTip(0);
+        }
+    });
+}
+// 编辑弹窗
+function openEditModal() {
+    initStarRate();
+    document.getElementById('editMask').classList.add('show');
+    document.getElementById('editModalFocus') && document.getElementById('editModalFocus').focus();
+}
+function closeEditModal() {
+    document.getElementById('editMask').classList.remove('show');
+}
+// 安全转义（文本内容一律用 textContent，此处仅用于 href 等属性）
+function _escAttr(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+// 保存后原地刷新详情页关键区域（标题/作者/系列/打开网址/评分/标签/简介），不整页跳转
+function refreshDetailUI(d) {
+    // 标题
+    const titleEl = document.querySelector('.detail-title');
+    if (titleEl) titleEl.textContent = d.title || '';
+    document.title = 'AKM · ' + (d.title || '作品详情');
+
+    // 作者 chip：有作者显示，无则隐藏
+    let chip = document.querySelector('.author-chip');
+    const hasAuthor = !!(d.author && d.author !== '未知');
+    if (hasAuthor) {
+        if (chip) {
+            chip.href = '/works?author=' + encodeURIComponent(d.author);
+            chip.querySelector('.author-chip-avatar').textContent = d.author[0];
+            chip.querySelector('.author-chip-name').textContent = d.author;
+        } else {
+            const a = document.createElement('a');
+            a.className = 'author-chip';
+            a.href = '/works?author=' + encodeURIComponent(d.author);
+            const av = document.createElement('span');
+            av.className = 'author-chip-avatar';
+            av.textContent = d.author[0];
+            const nm = document.createElement('span');
+            nm.className = 'author-chip-name';
+            nm.textContent = d.author;
+            const ar = document.createElement('span');
+            ar.className = 'author-chip-arrow';
+            ar.textContent = '查看该作者的全部作品 →';
+            a.append(av, nm, ar);
+            titleEl.after(a);
+        }
+    } else if (chip) {
+        chip.remove();
+    }
+
+    // 打开网址按钮：有 source 显现，无则隐藏
+    const btns = document.querySelector('.detail-btns');
+    let urlBtn = document.getElementById('detailSourceBtn');
+    if (d.source) {
+        if (urlBtn) {
+            urlBtn.href = d.source;
+        } else {
+            urlBtn = document.createElement('a');
+            urlBtn.id = 'detailSourceBtn';
+            urlBtn.className = 'detail-btn btn-source';
+            urlBtn.target = '_blank';
+            urlBtn.rel = 'noopener';
+            urlBtn.href = d.source;
+            urlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>打开网址';
+            const exportBtn = btns.querySelector('button[onclick*="exportWork"]');
+            exportBtn ? exportBtn.after(urlBtn) : btns.insertBefore(urlBtn, btns.firstChild);
+        }
+    } else if (urlBtn) {
+        urlBtn.remove();
+    }
+
+    // 系列 meta-item：有系列显示，无则隐藏
+    let seriesItem = null;
+    document.querySelectorAll('.detail-meta-grid .meta-item').forEach(m => {
+        const ico = m.querySelector('.meta-ico');
+        if (ico && ico.textContent === '📚') seriesItem = m;
+    });
+    if (d.series) {
+        if (!seriesItem) {
+            const wrap = document.querySelector('.detail-meta-grid');
+            const item = document.createElement('div');
+            item.className = 'meta-item';
+            item.innerHTML = '<span class="meta-label"><span class="meta-ico">📚</span>系列</span><span class="meta-value">' + _escAttr(d.series) + '</span>';
+            const first = wrap.querySelector('.meta-item');
+            first ? first.after(item) : wrap.appendChild(item);
+        } else {
+            seriesItem.querySelector('.meta-value').textContent = d.series;
+        }
+    } else if (seriesItem) {
+        seriesItem.remove();
+    }
+
+    // 评分：同步详情页五星组件（支持半星）
+    const rateWrap = document.getElementById('detailRate');
+    if (rateWrap) {
+        const stars = _ratingToStars(d.rating || '');
+        _paintStars(rateWrap.querySelectorAll('.detail-rate-star'), stars);
+        const tip = document.getElementById('detailRateTip');
+        if (tip) tip.textContent = stars ? (stars % 1 === 0 ? stars : stars.toFixed(1)) + ' 星' : '点击评分';
+    }
+
+    // 标签面板：有标签显示并重渲染，无则移除
+    let tagPanel = null;
+    document.querySelectorAll('.detail-panel').forEach(p => {
+        if (p.querySelector('.detail-tags')) tagPanel = p;
+    });
+    if (d.tags) {
+        const tagsArr = d.tags.split(',').map(t => t.trim()).filter(Boolean);
+        if (tagPanel) {
+            const wrap = tagPanel.querySelector('.detail-tags');
+            wrap.innerHTML = '';
+            tagsArr.forEach(t => {
+                const a = document.createElement('a');
+                a.className = 'detail-tag';
+                a.href = '/works?tags=' + encodeURIComponent(t);
+                a.textContent = t;
+                wrap.appendChild(a);
+            });
+        } else {
+            const panels = document.querySelector('.detail-panels');
+            if (panels) {
+                const sec = document.createElement('section');
+                sec.className = 'card detail-panel';
+                const h3 = document.createElement('h3');
+                h3.className = 'detail-section-title';
+                h3.innerHTML = '<span class="card-title-icon" style="background: var(--primary-glow); color: var(--primary);">🏷</span>标签';
+                const wrap = document.createElement('div');
+                wrap.className = 'detail-tags';
+                tagsArr.forEach(t => {
+                    const a = document.createElement('a');
+                    a.className = 'detail-tag';
+                    a.href = '/works?tags=' + encodeURIComponent(t);
+                    a.textContent = t;
+                    wrap.appendChild(a);
+                });
+                sec.append(h3, wrap);
+                panels.insertBefore(sec, panels.firstChild);
+            }
+        }
+    } else if (tagPanel) {
+        tagPanel.remove();
+    }
+
+    // 简介面板：有简介显示，无则移除
+    let descPanel = null;
+    document.querySelectorAll('.detail-panel').forEach(p => {
+        if (p.querySelector('.detail-desc')) descPanel = p;
+    });
+    if (d.description) {
+        if (descPanel) {
+            descPanel.querySelector('.detail-desc').textContent = d.description;
+        } else {
+            const panels = document.querySelector('.detail-panels');
+            if (panels) {
+                const sec = document.createElement('section');
+                sec.className = 'card detail-panel';
+                const h3 = document.createElement('h3');
+                h3.className = 'detail-section-title';
+                h3.innerHTML = '<span class="card-title-icon" style="background: var(--accent-glow); color: var(--accent);">📝</span>简介';
+                const p = document.createElement('p');
+                p.className = 'detail-desc';
+                p.textContent = d.description;
+                sec.append(h3, p);
+                panels.appendChild(sec);
+            }
+        }
+    } else if (descPanel) {
+        descPanel.remove();
+    }
+}
+function saveEdit() {
+    const btn = document.getElementById('editSaveBtn');
+    if (btn.disabled) return;
+    const workId = {{ (work.id if work else '') | tojson }};
+    const payload = {
+        title: document.getElementById('ef-title').value.trim(),
+        author: document.getElementById('ef-author').value.trim(),
+        series: document.getElementById('ef-series').value.trim(),
+        rating: document.getElementById('ef-rating').value.trim(),
+        tags: document.getElementById('ef-tags').value.trim(),
+        description: document.getElementById('ef-desc').value.trim(),
+        source: document.getElementById('ef-source').value.trim(),
+    };
+    btn.disabled = true;
+    btn.textContent = '保存中…';
+    fetch(`/works/${workId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    })
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) {
+                alert(d.error || '(｡•́︿•̀｡) 保存失败呀～');
+                btn.disabled = false;
+                btn.textContent = '保存修改';
+                return;
+            }
+            if (d.moved) {
+                if (typeof showToast === 'function') showToast('✓ 已保存，文件已移动，正在跳转…', 'success');
+                setTimeout(() => { window.location.href = '/works/' + encodeURIComponent(d.id); }, 900);
+                return;
+            }
+            // 原地动态更新（打开网址按钮随 source 显现/隐藏）
+            refreshDetailUI(d);
+            if (typeof showToast === 'function') showToast('✓ 已保存', 'success');
+            closeEditModal();
+            btn.disabled = false;
+            btn.textContent = '保存修改';
+        })
+        .catch(() => {
+            alert('(｡•́︿•̀｡) 保存请求失败呀～');
+            btn.disabled = false;
+            btn.textContent = '保存修改';
+        });
+}
+// 页面加载即初始化详情页评分星
+initDetailRate();
 </script>
 
 {% endblock %}

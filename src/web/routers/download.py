@@ -9,7 +9,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Query, Form
 from fastapi.responses import StreamingResponse, RedirectResponse
 
-from src.operations import list_download_queue, queue_urls, queue_author_works, get_download_stats
+from src.operations import list_download_queue, queue_urls, queue_author_works, get_download_stats, get_stats
 from src.web.app import templates
 
 router = APIRouter()
@@ -75,7 +75,8 @@ def _render_download_page(request: Request, *, message="", message_type="",
     start = (page - 1) * PAGE_SIZE
     items = all_items[start:start + PAGE_SIZE]
     # stats 用单条 SQL 统计全量，不受 show_all/分页影响
-    stats = get_download_stats()
+    # 合并下载队列统计 + 库统计（侧边栏共用 stats）
+    stats = {**get_download_stats(), **get_stats()}
     return templates.TemplateResponse(request, "download.html", {
         "request": request,
         "active_page": "download",

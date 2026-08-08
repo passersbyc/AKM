@@ -16,6 +16,16 @@ _STATIC_DIR = _PROJECT_ROOT / "static"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 
+def _template_kid_mode() -> bool:
+    """全局模板变量：当前是否儿童模式（base.html 顶栏按钮/横幅用）。"""
+    from src.core.config import load_config
+    cfg = load_config().get("project_settings", {}) or {}
+    return bool(cfg.get("kid_mode", False))
+
+
+templates.env.globals["kid_mode"] = _template_kid_mode
+
+
 def create_app() -> FastAPI:
     """创建并配置 FastAPI 应用。"""
     from src.core.database import init_db
@@ -28,10 +38,13 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
     # 注册路由
-    from src.web.routers import dashboard, works, authors, download
+    from src.web.routers import dashboard, works, authors, download, settings, update, importer
     app.include_router(dashboard.router)
     app.include_router(works.router)
     app.include_router(authors.router)
     app.include_router(download.router)
+    app.include_router(settings.router)
+    app.include_router(update.router)
+    app.include_router(importer.router)
 
     return app

@@ -14,6 +14,8 @@ class ExportRequest:
     output_format: Literal["folder", "zip", "epub", "completeness"] = "folder"
     author_ids: list[str] = field(default_factory=list)
     favorited_only: bool = False
+    # 行已由调用方筛选完成（如 web 按当前筛选导出），跳过 collect 阶段的二次过滤
+    prefiltered: bool = False
 
 
 @dataclass

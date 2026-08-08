@@ -1,10 +1,40 @@
 """stats 操作 - 库统计入口。"""
+import threading
+import time
 from collections import Counter, defaultdict
 
 from src.core.work_manager import WorkManager
 
+# ── get_stats 30 秒 TTL 缓存（侧边栏/仪表盘每页都调用，避免全库扫描） ──
+_stats_cache: dict = {"t": 0.0, "data": None}
+_stats_lock = threading.Lock()
+_STATS_TTL = 30.0
+
 
 def get_stats() -> dict:
+    """全库统计（30s 缓存）。"""
+    global _stats_cache
+    now = time.time()
+    with _stats_lock:
+        if _stats_cache["data"] is not None and now - _stats_cache["t"] < _STATS_TTL:
+            return _stats_cache["data"]
+
+    stats = _compute_stats()
+
+    with _stats_lock:
+        _stats_cache = {"t": now, "data": stats}
+    return stats
+
+
+def invalidate_stats() -> None:
+    """使统计缓存失效（导入/删除后调用）。"""
+    global _stats_cache
+    with _stats_lock:
+        _stats_cache = {"t": 0.0, "data": None}
+
+
+def _compute_stats() -> dict:
+    """统计全库（无缓存，供内部/CLI 直接调用）。"""
     stats = WorkManager.get_stats()
     rows = WorkManager.read()
 
@@ -75,21 +105,26 @@ def aggregate(
 
 
 def get_recent_activity() -> dict:
-    """返回最近活动三栏 {recent_open, recent_import, recent_download}，各限 5 条。"""
+    """返回最近活动三栏 {recent_open, recent_import, recent_download}，各限 8 条。
+
+    recent_open 按 work_id 去重（同一作品被打开多次只保留最近一次），
+    避免"最近打开"出现重复作品。
+    """
     from src.core.database import get_db
     db = get_db()
     recent_open = [dict(r) for r in db.execute(
-        "SELECT work_id, title, opened_at FROM recent_opens ORDER BY opened_at DESC LIMIT 5"
+        "SELECT work_id, title, MAX(opened_at) AS opened_at "
+        "FROM recent_opens GROUP BY work_id ORDER BY opened_at DESC LIMIT 6"
     ).fetchall()]
     recent_import = [dict(r) for r in db.execute(
         "SELECT id, title, imported_at FROM works "
         "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%') "
-        "ORDER BY imported_at DESC LIMIT 5"
+        "ORDER BY imported_at DESC LIMIT 6"
     ).fetchall()]
     recent_download = [dict(r) for r in db.execute(
         "SELECT id, title, imported_at, source FROM works "
         "WHERE imported_at != '' AND source LIKE 'http%' "
-        "ORDER BY imported_at DESC LIMIT 5"
+        "ORDER BY imported_at DESC LIMIT 6"
     ).fetchall()]
     return {"recent_open": recent_open, "recent_import": recent_import, "recent_download": recent_download}
 
@@ -120,8 +155,10 @@ def get_top_likes(limit: int = 5) -> list[dict]:
     from src.core.database import get_db
     db = get_db()
     rows = db.execute(
-        "SELECT pl.work_id, pl.title, pl.author, pl.like_count "
-        "FROM pixiv_likes pl ORDER BY pl.like_count DESC LIMIT ?",
+        "SELECT w.id AS work_id, w.title, COALESCE(a.name, '') AS author, w.likes AS like_count "
+        "FROM works w LEFT JOIN authors a ON w.author_id = a.id "
+        "WHERE w.likes > 0 "
+        "ORDER BY w.likes DESC LIMIT ?",
         (limit,),
     ).fetchall()
     return [dict(r) for r in rows]

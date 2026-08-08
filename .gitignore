@@ -39,3 +39,4 @@ htmlcov/
 
 # git history backup (from filter-repo, temporary)
 .git.backup*
+data/missing_files.txt

@@ -1,0 +1,5 @@
+{# 作者分组懒加载片段：仅渲染作品网格，由 JS 插入 #}
+{% from "_work_card.html" import work_card %}
+{% for w in items %}
+{{ work_card(w) }}
+{% endfor %}

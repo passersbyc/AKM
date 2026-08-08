@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_cover.html" import cover %}
+{% from "_work_card.html" import work_card %}
+{% block title %}AKM · 系列{% endblock %}
+{% block content %}
+
+{%- macro type_cls(t) -%}
+{%- if t == '小说' %}t-novel{%- elif t == '漫画' %}t-manga{%- elif t == '音乐' %}t-music{%- elif t == '电影' %}t-movie{%- elif t == '图片' %}t-image{%- else %}t-other{%- endif -%}
+{%- endmacro %}
+
+{%- macro type_icon(t) -%}
+{%- if t == '小说' %}📖{%- elif t == '漫画' %}📕{%- elif t == '音乐' %}🎵{%- elif t == '电影' %}🎬{%- elif t == '图片' %}🎨{%- else %}📄{%- endif -%}
+{%- endmacro %}
+
+<div class="series-page animate-in">
+    <header class="series-header">
+        <div class="series-head-main">
+            <span class="series-crumb"><a href="/works">作品</a> / 系列</span>
+            <h1 class="series-title">
+                {{ series_name }}
+                <span class="series-count">{{ total }}</span>
+            </h1>
+        </div>
+        {% if authors %}
+        <div class="series-meta">
+            <div class="series-meta-block">
+                <span class="series-meta-label">作者</span>
+                <span class="series-meta-value">
+                    {% for a in authors %}
+                    <a href="/works?author={{ a | urlencode }}" class="series-author">{{ a }}</a>{% if not loop.last %}、{% endif %}
+                    {% endfor %}
+                </span>
+            </div>
+            {% if type_dist %}
+            <div class="series-meta-block">
+                <span class="series-meta-label">类型分布</span>
+                <span class="series-meta-value">
+                    {% for t, c in type_dist.items() %}
+                    <span class="series-type {{ type_cls(t) }}">{{ type_icon(t) }} {{ t }} <b>{{ c }}</b></span>
+                    {% endfor %}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </header>
+
+    {% if works %}
+    <div class="w-grid">
+        {% for w in works %}
+        {{ work_card(w) }}
+        {% endfor %}
+    </div>
+
+    {% if total_pages > 1 %}
+    {% set start = [1, page - 2]|max %}
+    {% set end = [total_pages, page + 2]|min %}
+    <nav class="w-pagination">
+        {% if page > 1 %}
+        <a class="w-page" href="/works/series?name={{ series_name | urlencode }}&page={{ page - 1 }}" title="上一页">‹</a>
+        {% endif %}
+        {% for p in range(start, end + 1) %}
+        {% if p == page %}
+        <span class="w-page current">{{ p }}</span>
+        {% else %}
+        <a class="w-page" href="/works/series?name={{ series_name | urlencode }}&page={{ p }}">{{ p }}</a>
+        {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+        <a class="w-page" href="/works/series?name={{ series_name | urlencode }}&page={{ page + 1 }}" title="下一页">›</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="series-empty">
+        <div class="series-empty-icon">📚</div>
+        <p class="series-empty-title">(・ω・) 这个系列不存在或还没有作品呢～</p>
+        <a href="/works" class="series-empty-btn">返回作品列表 →</a>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

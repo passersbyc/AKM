@@ -2,6 +2,19 @@
 
 from src.core.work_search import search as _search
 
+# 成人内容判定：标签匹配 R-18 / R18 / r18 / R-18G / R18G / 微R18G 等变体
+import re as _re
+
+_ADULT_TAG_RE = _re.compile(r"r-?18", _re.IGNORECASE)
+
+
+def is_adult_row(row: dict) -> bool:
+    """判断一行作品是否为成人内容（标签含 R-18 变体）。"""
+    tags = (row.get("标签") or row.get("tags") or "").strip()
+    if not tags:
+        return False
+    return any(_ADULT_TAG_RE.search(t.strip()) for t in tags.split(",") if t.strip())
+
 
 def search_works(
     query: str = "",
@@ -16,6 +29,7 @@ def search_works(
     favorited: str = "",
     id_prefix: str = "",
     liked: str = "",
+    safe_mode: bool = False,
 ) -> list[dict]:
     items = _search(
         query=query,
@@ -29,6 +43,9 @@ def search_works(
         limit=limit,
         favorited=favorited,
     )
+
+    if safe_mode:
+        items = [item for item in items if not is_adult_row(item)]
 
     if id_prefix:
         items = [item for item in items if item.get("ID", "").startswith(id_prefix)]

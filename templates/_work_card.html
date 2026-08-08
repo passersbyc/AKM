@@ -1,0 +1,50 @@
+{# 作品卡片组件 — 网格/系列/详情相关统一使用
+   普通作品 w.kind 为空；合并后的系列条目 w.kind == 'series'（title=系列名, series_count=N）
+
+用法：
+    {% from "_work_card.html" import work_card %}
+    {{ work_card(w) }}          # 完整卡片（封面 + 悬停打开 + 评分/大小角标 + 作者/标签/系列/ID/收藏）
+#}
+{% from "_cover.html" import cover %}
+
+{%- macro type_cls(t) -%}
+{%- if t == '小说' %}t-novel{%- elif t == '漫画' %}t-manga{%- elif t == '音乐' %}t-music{%- elif t == '电影' %}t-movie{%- elif t == '图片' %}t-image{%- else %}t-other{%- endif -%}
+{%- endmacro %}
+
+{%- macro work_card(w) -%}
+{%- set is_series = w.kind == 'series' -%}
+{%- set series_url = '/works/series?name=' ~ (w.series_name | urlencode) if is_series else '' -%}
+<a href="{% if is_series %}{{ series_url }}{% else %}/works/{{ w.id }}{% endif %}" class="w-card {{ type_cls(w.file_type) }}{% if is_series %} w-card-series{% endif %}" data-id="{{ w.id }}">
+    <div class="w-cover">
+        {{ cover(w) }}
+        <div class="w-cover-shade"></div>
+        <div class="w-cover-actions">
+            <button type="button" class="w-open-btn"
+                    {% if is_series %}
+                    onclick="event.preventDefault();event.stopPropagation();window.location='{{ series_url }}'"
+                    {% else %}
+                    onclick="event.preventDefault();event.stopPropagation();openWork('{{ w.id }}')" title="用默认应用打开本地文件"
+                    {% endif %}>
+                {% if is_series %}📚 打开系列{% else %}打开本地{% endif %}
+            </button>
+        </div>
+        {% if is_series %}<span class="w-series-badge" title="{{ w.series_name }}">📚 {{ w.series_count }} 部</span>{% endif %}
+        {% if w.rating and not is_series %}<span class="w-rating" title="评分 {{ w.rating }}">★ {{ w.rating }}</span>{% endif %}
+        {% if w.size_human and not is_series %}<span class="w-size">{{ w.size_human }}</span>{% endif %}
+    </div>
+    <div class="w-card-body">
+        <div class="w-title">{{ ('📚 ' ~ w.title[:21]) if is_series else w.title[:24] }}</div>
+        <div class="w-author-row">
+            <span class="w-avatar">{{ (w.author_name or '?')[:1] }}</span>
+            <span class="w-author">{{ w.author_name or '未知' }}</span>
+        </div>
+        {% if w.tags %}
+        <div class="w-tags">
+            {% for tag in (w.tags or '').split(',')[:3] %}
+            <span class="w-tag">{{ tag.strip() }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</a>
+{%- endmacro %}

@@ -2,6 +2,17 @@ from .models import ExportRequest, ExportPlan, TypeGroup
 
 
 def collect_rows(rows: list[dict], request: ExportRequest) -> ExportPlan:
+    # 行已由调用方筛选完成：跳过二次过滤，直接按作者+系列分组
+    if request.prefiltered:
+        standalone, series_groups = _classify_works(rows)
+        type_groups = _build_type_groups(standalone, series_groups)
+        return ExportPlan(
+            standalone=standalone,
+            series_groups=series_groups,
+            type_groups=type_groups,
+            is_tag_mode=False,
+        )
+
     if request.mode in ("work", "mylikeworks"):
         standalone, series_groups = _classify_works(rows)
         return ExportPlan(

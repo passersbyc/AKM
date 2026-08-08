@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}AKM · 设置{% endblock %}
+{% block content %}
+
+<div class="st-page animate-in">
+    <header class="st-header">
+        <div>
+            <h1 class="st-title">设置</h1>
+            <p class="st-subtitle">项目配置管理 · 保存在 config.json</p>
+        </div>
+    </header>
+
+    {% if message %}
+    <div class="form-message form-message-{{ message_type }}">{{ message }}</div>
+    {% endif %}
+
+    <form method="post" action="/settings" class="st-form">
+        <div class="st-grid">
+            <!-- 左列：表单 -->
+            <div class="st-main">
+                <!-- 基本设置 -->
+                <section class="st-card">
+                    <h2 class="st-card-title">
+                        <span class="st-card-icon i-purple">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        </span>
+                        基本设置
+                    </h2>
+                    <div class="st-field">
+                        <label for="library_path">库路径</label>
+                        <div class="st-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            <input type="text" id="library_path" name="library_path"
+                                   value="{{ settings.library_path or '' }}" class="st-input"
+                                   placeholder="例如 /Users/name/library">
+                        </div>
+                        <p class="st-hint">作品库文件存放目录，修改后需要重启生效</p>
+                    </div>
+                    <div class="st-field">
+                        <label for="db_path">数据库路径</label>
+                        <div class="st-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                            <input type="text" id="db_path" name="db_path"
+                                   value="{{ settings.db_path or '' }}" class="st-input"
+                                   placeholder="例如 data/library.db">
+                        </div>
+                        <p class="st-hint">library.db 所在路径（目录会自动补全文件名），修改后需要重启生效</p>
+                    </div>
+                    <div class="st-field st-field-row">
+                        <div class="st-field-label">
+                            <label for="convert_traditional">简繁转换</label>
+                            <p class="st-hint">导入时自动将简体转换为繁体</p>
+                        </div>
+                        <label class="st-switch">
+                            <input type="checkbox" name="convert_traditional" id="convert_traditional"
+                                   {% if settings.convert_traditional %}checked{% endif %}>
+                            <span class="st-switch-slider"></span>
+                        </label>
+                    </div>
+                    <div class="st-field st-field-row">
+                        <div class="st-field-label">
+                            <label for="kid_mode">👶 儿童模式</label>
+                            <p class="st-hint">开启后全站不显示 R-18 作品（列表 / 搜索 / 详情 / 仪表盘内容）</p>
+                            {% if settings.kid_mode %}
+                            <span class="kid-on-tag">● 已开启 · 可在顶栏快捷切换</span>
+                            {% endif %}
+                        </div>
+                        <label class="st-switch">
+                            <input type="checkbox" name="kid_mode" id="kid_mode"
+                                   {% if settings.kid_mode %}checked{% endif %}>
+                            <span class="st-switch-slider"></span>
+                        </label>
+                    </div>
+                    <div class="st-field">
+                        <label for="open_app_book">小说打开应用</label>
+                        <input type="text" id="open_app_book" name="open_app_book"
+                               value="{{ settings.open_app_book or '' }}" class="st-input"
+                               placeholder="默认 Books（苹果图书）">
+                        <p class="st-hint">小说类作品（epub/pdf 等）打开时使用的应用</p>
+                    </div>
+                    <div class="st-field">
+                        <label for="open_app_other">其他类型打开应用</label>
+                        <input type="text" id="open_app_other" name="open_app_other"
+                               value="{{ settings.open_app_other or '' }}" class="st-input"
+                               placeholder="默认 Chrome">
+                        <p class="st-hint">漫画/图片/音乐/电影等打开时使用的应用</p>
+                    </div>
+                </section>
+
+                <!-- 外观 -->
+                <section class="st-card">
+                    <h2 class="st-card-title">
+                        <span class="st-card-icon i-purple">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><path d="M17 10a2 2 0 1 0 2 2"/><path d="M3 21h18"/><path d="M12 3c0 0-4 5-4 9a4 4 0 0 0 8 0c0-4-4-9-4-9z"/></svg>
+                        </span>
+                        外观
+                    </h2>
+                    <div class="st-field">
+                        <label>主题</label>
+                        <div class="st-choice-row">
+                            <label class="st-choice">
+                                <input type="radio" name="theme_choice" value="auto">
+                                <span class="st-choice-box">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/></svg>
+                                    <b>跟随系统</b>
+                                    <small>随系统外观自动切换</small>
+                                </span>
+                            </label>
+                            <label class="st-choice">
+                                <input type="radio" name="theme_choice" value="light">
+                                <span class="st-choice-box">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                                    <b>白天</b>
+                                    <small>始终使用浅色外观</small>
+                                </span>
+                            </label>
+                            <label class="st-choice">
+                                <input type="radio" name="theme_choice" value="dark">
+                                <span class="st-choice-box">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                    <b>夜晚</b>
+                                    <small>始终使用深色外观</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 隐私 -->
+                <section class="st-card">
+                    <h2 class="st-card-title">
+                        <span class="st-card-icon i-purple">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </span>
+                        隐私
+                    </h2>
+                    <div class="st-field st-field-row">
+                        <div class="st-field-label">
+                            <div class="st-label-row">
+                                <label for="privacyModeSwitch">隐私模式</label>
+                                <span class="st-badge" id="privacyState">已关闭</span>
+                            </div>
+                            <p class="st-hint">开启后自动隐藏封面，作品标题/作者等元数据以乱码显示，保护隐私不被旁人看到</p>
+                        </div>
+                        <label class="st-switch">
+                            <input type="checkbox" id="privacyModeSwitch">
+                            <span class="st-switch-slider"></span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- 导出设置 -->
+                <section class="st-card">
+                    <h2 class="st-card-title">
+                        <span class="st-card-icon i-green">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        </span>
+                        导出设置
+                    </h2>
+                    <div class="st-field">
+                        <label for="export_path">导出路径</label>
+                        <div class="st-input-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <input type="text" id="export_path" name="export_path"
+                                   value="{{ settings.export_path or '' }}" class="st-input"
+                                   placeholder="留空则使用当前目录">
+                        </div>
+                        <p class="st-hint">默认导出目录</p>
+                    </div>
+                    <div class="st-field">
+                        <label for="export_format">导出格式</label>
+                        <div class="st-select-wrap">
+                            <select id="export_format" name="export_format" class="st-input st-select">
+                                {% for fmt in export_formats %}
+                                <option value="{{ fmt }}" {% if settings.export_format == fmt %}selected{% endif %}>{{ fmt }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <p class="st-hint">folder 目录 / zip 压缩包 / epub 电子书</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 右列：概览 -->
+            <aside class="st-side">
+                <section class="st-card st-card-side">
+                    <h2 class="st-card-title">
+                        <span class="st-card-icon i-pink">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </span>
+                        配置概览
+                    </h2>
+                    <div class="st-info-row">
+                        <svg class="st-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+                        <div class="st-info-body">
+                            <span class="st-info-label">配置文件</span>
+                            <div class="st-info-value-wrap">
+                                <span class="st-info-value mono">{{ config_path }}</span>
+                                <button type="button" class="st-copy-btn" data-copy="{{ config_path }}" title="复制路径" aria-label="复制路径">
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="st-info-row">
+                        <svg class="st-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        <div class="st-info-body">
+                            <span class="st-info-label">库路径</span>
+                            <span class="st-info-value">{{ settings.library_path or '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="st-info-row">
+                        <svg class="st-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                        <div class="st-info-body">
+                            <span class="st-info-label">数据库</span>
+                            <span class="st-info-value">{{ settings.db_path or '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="st-info-row">
+                        <svg class="st-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <div class="st-info-body">
+                            <span class="st-info-label">导出格式</span>
+                            <span class="st-info-value">{{ settings.export_format or 'folder' }}</span>
+                        </div>
+                    </div>
+                    <div class="st-note">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        修改路径类配置后，请重启程序生效哦～
+                    </div>
+                </section>
+            </aside>
+        </div>
+
+        <!-- 底部操作 -->
+        <div class="st-footer">
+            <button type="submit" class="dl-btn st-save-btn">保存设置</button>
+            <a href="/" class="st-cancel">取消</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// 主题三选一：跟随系统 / 白天 / 夜晚（auto 时删除记忆，恢复系统跟随）
+(function () {
+    const radios = document.querySelectorAll('input[name="theme_choice"]');
+    if (!radios.length) return;
+    const applyChoice = (v) => {
+        const root = document.documentElement;
+        if (v === 'auto') {
+            try { localStorage.removeItem('akm_theme'); } catch (e) {}
+            const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        } else {
+            root.setAttribute('data-theme', v);
+            try { localStorage.setItem('akm_theme', v); } catch (e) {}
+        }
+    };
+    let saved = null;
+    try { saved = localStorage.getItem('akm_theme'); } catch (e) {}
+    radios.forEach(r => { if (r.value === (saved || 'auto')) r.checked = true; });
+    radios.forEach(r => r.addEventListener('change', () => { if (r.checked) applyChoice(r.value); }));
+})();
+const privacySwitch = document.getElementById('privacyModeSwitch');
+const privacyState = document.getElementById('privacyState');
+function syncPrivacyUI(on) {
+    if (privacyState) {
+        privacyState.textContent = on ? '已开启' : '已关闭';
+        privacyState.classList.toggle('on', on);
+    }
+}
+if (privacySwitch) {
+    privacySwitch.checked = document.documentElement.classList.contains('privacy-mode');
+    syncPrivacyUI(privacySwitch.checked);
+    privacySwitch.addEventListener('change', () => {
+        if (typeof setPrivacyMode === 'function') {
+            setPrivacyMode(privacySwitch.checked);
+        }
+        syncPrivacyUI(privacySwitch.checked);
+    });
+}
+// 复制路径
+document.querySelectorAll('.st-copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const text = btn.dataset.copy || '';
+        const done = () => {
+            const old = btn.innerHTML;
+            btn.classList.add('copied');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = old; }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(() => {});
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); done(); } catch (e) {}
+            document.body.removeChild(ta);
+        }
+    });
+});
+</script>
+
+{% endblock %}

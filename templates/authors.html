@@ -2,74 +2,112 @@
 {% block title %}AKM · 作者{% endblock %}
 {% block content %}
 
-<div class="page-header">
-    <div>
-        <h1 class="page-title">作者</h1>
-        <p class="page-subtitle">共 {{ total }} 位作者呢～</p>
-    </div>
-</div>
+{%- macro status_cls(s) -%}
+{%- if '活跃' in s or '正常' in s %}active{%- elif '停更' in s %}paused{%- else %}dead{%- endif -%}
+{%- endmacro %}
 
-<!-- 搜索栏 -->
-<div class="search-bar animate-in">
-    <form method="get" action="/authors" class="search-form">
-        <div class="search-input-wrap">
-            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" name="q" value="{{ q }}" placeholder="搜索作者名..." class="search-input">
-        </div>
-        <button type="submit" class="search-btn">搜索～</button>
-    </form>
-</div>
+{%- set has_filters = q or status -%}
 
-{% if authors %}
-<div class="authors-grid">
-    {% for a in authors %}
-    <div class="author-card animate-in" style="animation-delay: {{ loop.index0 * 0.03 }}s">
-        <div class="author-avatar">
-            {{ a.name[:1] }}
+<div class="au-page animate-in">
+    <header class="au-header">
+        <div>
+            <h1 class="au-title">作者 <span class="au-count">{{ total }}</span></h1>
+            <p class="au-subtitle">{{ '搜索结果' if has_filters else '全部关注作者' }} · 点击卡片查看其全部作品</p>
         </div>
-        <div class="author-info">
-            <div class="author-name">
-                {{ a.name }}
-                {% if a.favorite %}<span class="author-fav">★</span>{% endif %}
-            </div>
-            <div class="author-meta">
-                <span class="author-status {% if '正常' in a.status %}status-ok{% elif '停更' in a.status %}status-pause{% else %}status-dead{% endif %}">{{ a.status }}</span>
-                <span class="author-source">{{ a.source }}</span>
-            </div>
+        {% if has_filters %}
+        <a href="/authors" class="works-clear">✕ 清除筛选</a>
+        {% endif %}
+    </header>
+
+    <!-- 工具条 -->
+    <div class="works-toolbar">
+        <div class="works-search-row">
+            <form method="get" action="/authors" class="works-search">
+                <svg class="ws-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" name="q" value="{{ q }}" placeholder="搜索作者名或别名…" autocomplete="off" spellcheck="false">
+                {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+                <button type="submit" class="works-search-btn">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    搜索
+                </button>
+            </form>
         </div>
-        <div class="author-stats">
-            <div class="author-stat">
-                <span class="author-stat-value">{{ a.work_count }}</span>
-                <span class="author-stat-label">作品</span>
-            </div>
-            <div class="author-stat">
-                <span class="author-stat-value">{{ a.series_count }}</span>
-                <span class="author-stat-label">系列</span>
+        <div class="works-filters">
+            <div class="wf-group">
+                <span class="wf-label">状态</span>
+                <a href="/authors?q={{ q }}" class="w-pill {% if not status %}active{% endif %}">全部</a>
+                <a href="/authors?q={{ q }}&status=active" class="w-pill st-pill-active {% if status == 'active' %}active{% endif %}">✿ 活跃</a>
+                <a href="/authors?q={{ q }}&status=paused" class="w-pill st-pill-paused {% if status == 'paused' %}active{% endif %}">· 停更</a>
+                <a href="/authors?q={{ q }}&status=dead" class="w-pill st-pill-dead {% if status == 'dead' %}active{% endif %}">✕ 注销</a>
             </div>
         </div>
     </div>
-    {% endfor %}
-</div>
 
-<!-- 分页 -->
-{% if total_pages > 1 %}
-<div class="pagination">
-    {% if page > 1 %}
-    <a href="/authors?q={{ q }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
-    {% endif %}
-    <span class="page-info">{{ page }} / {{ total_pages }}</span>
-    {% if page < total_pages %}
-    <a href="/authors?q={{ q }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
-    {% endif %}
-</div>
-{% endif %}
+    {% if authors %}
+    <div class="au-grid">
+        {% for a in authors %}
+        <a href="/works?author={{ a.name | urlencode }}" class="au-card animate-in" style="animation-delay: {{ loop.index0 * 0.02 }}s" title="查看 {{ a.name }} 的全部作品">
+            <div class="au-avatar">{{ a.name[:1] }}</div>
+            <div class="au-main">
+                <div class="au-name">
+                    {{ a.name }}
+                    {% if a.favorite %}<span class="au-fav" title="收藏作者">★</span>{% endif %}
+                </div>
+                <div class="au-sub">
+                    {% if a.pixiv_uid %}<span class="au-uid">UID {{ a.pixiv_uid }}</span>{% endif %}
+                    <span class="au-status st-{{ status_cls(a.status) }}">{{ a.status }}</span>
+                </div>
+                {% if a.tags %}
+                <div class="au-tags">
+                    {% for t in a.tags[:4] %}
+                    <span class="au-tag">{{ t }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="au-side">
+                <div class="au-stats">
+                    <div class="au-stat"><b>{{ a.work_count }}</b><span>作品</span></div>
+                    <div class="au-stat"><b>{{ a.series_count }}</b><span>系列</span></div>
+                </div>
+                {% if a.homepage %}
+                <span class="au-open" onclick="event.preventDefault();event.stopPropagation();window.open('{{ a.homepage }}','_blank')" title="打开主页">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </span>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
 
-{% else %}
-<div class="empty-state animate-in">
-    <div class="empty-icon-lg">✍️</div>
-    <p>(・ω・) 还没有关注的作者呢～</p>
-    <p class="empty-sub">通过 <code>akm follow</code> 关注作者吧～</p>
+    {% if total_pages > 1 %}
+    {% set start = [1, page - 2]|max %}
+    {% set end = [total_pages, page + 2]|min %}
+    <nav class="w-pagination">
+        {% if page > 1 %}
+        <a class="w-page" href="/authors?q={{ q }}&status={{ status }}&page={{ page - 1 }}" title="上一页">‹</a>
+        {% endif %}
+        {% for p in range(start, end + 1) %}
+        {% if p == page %}
+        <span class="w-page current">{{ p }}</span>
+        {% else %}
+        <a class="w-page" href="/authors?q={{ q }}&status={{ status }}&page={{ p }}">{{ p }}</a>
+        {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+        <a class="w-page" href="/authors?q={{ q }}&status={{ status }}&page={{ page + 1 }}" title="下一页">›</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="au-empty">
+        <div class="au-empty-icon">✍️</div>
+        <p class="au-empty-title">{{ '(・ω・) 没有找到符合条件的作者呢～' if has_filters else '还没有关注的作者呢～' }}</p>
+        <p class="au-empty-sub">{{ '试试调整关键词或状态筛选吧～' if has_filters else '在「下载」页关注作者，或用 <code>akm follow</code> 导入关注列表吧～' }}</p>
+        {% if has_filters %}<a href="/authors" class="au-empty-btn">清除筛选</a>{% endif %}
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 
 {% endblock %}

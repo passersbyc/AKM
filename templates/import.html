@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}AKM · 导入{% endblock %}
+{% block content %}
+
+<div class="imp-page animate-in">
+    <header class="imp-header">
+        <div class="imp-head-main">
+            <h1 class="imp-title">
+                导入
+                <span class="imp-title-icon">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </span>
+            </h1>
+            <p class="imp-subtitle">把本地作品文件导入作品库 · 支持拖拽多文件</p>
+        </div>
+    </header>
+
+    {% if error %}
+    <div class="form-message form-message-warning">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/import" enctype="multipart/form-data" id="impForm">
+        <div class="imp-grid">
+            <div class="imp-main">
+                <!-- 第 1 步：选择文件 -->
+                <section class="imp-card">
+                    <h2 class="imp-card-title">
+                        <span class="imp-step">1</span>
+                        选择文件
+                    </h2>
+                    <div class="imp-drop" id="impDrop">
+                        <div class="imp-drop-icon">📁</div>
+                        <p class="imp-drop-title">点击选择文件，或拖拽到此处</p>
+                        <div class="imp-formats">
+                            <span>epub</span><span>pdf</span><span>mobi</span><span>azw3</span>
+                            <span>txt</span><span>doc</span><span>docx</span><span>cbz</span><span>cbr</span>
+                        </div>
+                    </div>
+                    <input type="file" name="files" id="impFiles" multiple hidden>
+                    <div class="imp-file-list" id="impFileList"></div>
+                </section>
+
+                <!-- 第 2 步：元数据 -->
+                <section class="imp-card">
+                    <h2 class="imp-card-title">
+                        <span class="imp-step">2</span>
+                        元数据
+                    </h2>
+                    <div class="imp-fields">
+                        <div class="imp-field">
+                            <label for="impAuthor">作者</label>
+                            <input type="text" id="impAuthor" name="author" value="{{ submitted.get('author', '') }}" class="imp-input" placeholder="默认 佚名">
+                        </div>
+                        <div class="imp-field">
+                            <label for="impSeries">系列</label>
+                            <input type="text" id="impSeries" name="series" value="{{ submitted.get('series', '') }}" class="imp-input" placeholder="可选">
+                        </div>
+                        <div class="imp-field">
+                            <label for="impTags">标签</label>
+                            <input type="text" id="impTags" name="tags" value="{{ submitted.get('tags', '') }}" class="imp-input" placeholder="逗号分隔，可选">
+                        </div>
+                        <div class="imp-field">
+                            <label for="impSource">来源</label>
+                            <input type="text" id="impSource" name="source" value="{{ submitted.get('source', '') }}" class="imp-input" placeholder="来源 URL，可选">
+                        </div>
+                        <div class="imp-field">
+                            <label for="impRating">评分</label>
+                            <input type="number" id="impRating" name="rating" min="0" max="10" step="0.1"
+                                   value="{{ submitted.get('rating', 0) }}" class="imp-input">
+                        </div>
+                        <div class="imp-field">
+                            <label for="impFormat">转换格式</label>
+                            <div class="imp-select-wrap">
+                                <select id="impFormat" name="target_format" class="imp-input imp-select">
+                                    <option value="epub" {% if submitted.get('target_format', 'epub') == 'epub' %}selected{% endif %}>epub</option>
+                                    <option value="txt" {% if submitted.get('target_format') == 'txt' %}selected{% endif %}>txt</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="imp-field imp-field-full">
+                            <label for="impDesc">简介</label>
+                            <textarea id="impDesc" name="description" rows="2" class="imp-input imp-textarea" placeholder="可选">{{ submitted.get('description', '') }}</textarea>
+                        </div>
+                        <div class="imp-field imp-field-switch">
+                            <div>
+                                <label for="impFav">导入后标记为收藏</label>
+                            </div>
+                            <label class="st-switch">
+                                <input type="checkbox" id="impFav" name="favorite" {% if submitted.get('favorite') %}checked{% endif %}>
+                                <span class="st-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 第 3 步：导入 -->
+                    <div class="imp-submit">
+                        <div class="imp-progress" id="impProgress"><div class="imp-progress-bar"></div></div>
+                        <button type="submit" class="imp-submit-btn" id="impSubmit">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span id="impSubmitText">开始导入</span>
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 侧栏 -->
+            <aside class="imp-side">
+                <section class="imp-card">
+                    <h2 class="imp-card-title">
+                        <span class="imp-card-icon i-pink">💡</span>
+                        导入说明
+                    </h2>
+                    <ul class="imp-tips">
+                        <li>doc / docx 会自动转换为 epub（或 txt）后入库</li>
+                        <li>简繁转换设置会自动应用（可在设置页关闭）</li>
+                        <li>重复文件（MD5 相同）会自动跳过，不会重复入库</li>
+                        <li>没有元数据的作品会归类到「佚名」作者下</li>
+                    </ul>
+                </section>
+
+                <section class="imp-card">
+                    <h2 class="imp-card-title">
+                        <span class="imp-card-icon i-green">🕒</span>
+                        最近入库
+                    </h2>
+                    <div class="imp-recent">
+                        {% for r in recent %}
+                        <a href="/works/{{ r.id }}" class="imp-recent-item">
+                            <span class="imp-recent-type">{{ '📖' if '小说' in (r.file_type or '') else ('📕' if '漫画' in (r.file_type or '') else '📄') }}</span>
+                            <span class="imp-recent-title">{{ r.title[:20] }}</span>
+                            <span class="imp-recent-time">{{ (r.imported_at or '')[5:16] }}</span>
+                        </a>
+                        {% else %}
+                        <div class="imp-recent-empty">还没有导入记录哦～</div>
+                        {% endfor %}
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </form>
+
+    {% if results %}
+    <!-- 导入结果 -->
+    <section class="imp-card imp-results animate-in">
+        <h2 class="imp-card-title">
+            <span class="imp-card-icon i-purple">✅</span>
+            导入结果
+        </h2>
+        {% set ok = results | selectattr('success') | list | length %}
+        {% set dup = results | selectattr('duplicate_of') | list | length %}
+        {% set fail = results | length - ok - dup %}
+        <div class="imp-summary">
+            <span class="imp-summary-item s-ok">✓ 成功 {{ ok }}</span>
+            <span class="imp-summary-item s-dup">⏭ 重复 {{ dup }}</span>
+            <span class="imp-summary-item s-fail">✗ 失败 {{ fail }}</span>
+        </div>
+        <div class="imp-result-list">
+            {% for r in results %}
+            <div class="imp-result {% if r.success %}r-ok{% elif r.duplicate_of %}r-dup{% else %}r-fail{% endif %}">
+                <span class="imp-result-icon">{{ '✓' if r.success else ('⏭' if r.duplicate_of else '✗') }}</span>
+                <div class="imp-result-info">
+                    <div class="imp-result-name">{{ r.file_name }}</div>
+                    {% if r.success %}
+                    <div class="imp-result-sub">ID: <b>{{ r.book_id }}</b> · {{ r.file_type }}</div>
+                    {% elif r.duplicate_of %}
+                    <div class="imp-result-sub">MD5 重复，已存在（{{ r.duplicate_of }}）</div>
+                    {% else %}
+                    <div class="imp-result-sub">{{ r.error }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    const input = document.getElementById('impFiles');
+    const drop = document.getElementById('impDrop');
+    const list = document.getElementById('impFileList');
+    const submit = document.getElementById('impSubmit');
+    const submitText = document.getElementById('impSubmitText');
+    const progress = document.getElementById('impProgress');
+    if (!input || !drop) return;
+
+    function fmtSize(b) {
+        return b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : (b / 1024).toFixed(0) + ' KB';
+    }
+
+    function render() {
+        list.innerHTML = '';
+        const files = [...input.files];
+        const count = document.createElement('div');
+        count.className = 'imp-file-count';
+        count.textContent = `已选择 ${files.length} 个文件`;
+        list.appendChild(count);
+        files.forEach(f => {
+            const div = document.createElement('div');
+            div.className = 'imp-file';
+            div.innerHTML = `<span class="imp-file-icon">📄</span>
+                <span class="imp-file-name">${f.name}</span>
+                <span class="imp-file-size">${fmtSize(f.size)}</span>`;
+            list.appendChild(div);
+        });
+    }
+
+    drop.addEventListener('click', () => input.click());
+    ['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => {
+        e.preventDefault();
+        drop.classList.add('dragging');
+    }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => {
+        e.preventDefault();
+        drop.classList.remove('dragging');
+    }));
+    drop.addEventListener('drop', e => {
+        input.files = e.dataTransfer.files;
+        render();
+    });
+    input.addEventListener('change', render);
+
+    document.getElementById('impForm').addEventListener('submit', () => {
+        if (input.files.length) {
+            submit.disabled = true;
+            submitText.textContent = '导入中...';
+            progress.classList.add('active');
+        }
+    });
+})();
+</script>
+
+{% endblock %}

@@ -1,149 +1,295 @@
 {% extends "base.html" %}
-{% from "_cover.html" import cover %}
+{% from "_work_card.html" import work_card %}
 {% block title %}AKM · 作品{% endblock %}
 {% block content %}
-
-<div class="page-header">
-    <div>
-        <h1 class="page-title">作品</h1>
-        <p class="page-subtitle">共 {{ total }} 件作品呢～</p>
+<!-- 导出弹窗 -->
+<div class="export-mask" id="exportMask" onclick="if(event.target===this)closeExportModal()">
+    <div class="export-modal" role="dialog" aria-modal="true" aria-label="导出作品">
+        <div class="export-modal-head">
+            <h3 class="export-modal-title">
+                <span class="card-title-icon" style="background: var(--primary-glow); color: var(--primary);">📦</span>
+                导出作品
+            </h3>
+            <button type="button" class="export-modal-close" onclick="closeExportModal()" aria-label="关闭">✕</button>
+        </div>
+        <div class="export-modal-body">
+            <div class="export-scope" id="exportScope"></div>
+            <div class="export-formats" id="exportFormats">
+                <button type="button" class="export-fmt-card active" data-fmt="folder">
+                    <span class="export-fmt-ico">📁</span>
+                    <span class="export-fmt-info">
+                        <b>文件夹</b>
+                        <small>按作者 / 系列分目录</small>
+                    </span>
+                </button>
+                <button type="button" class="export-fmt-card" data-fmt="zip">
+                    <span class="export-fmt-ico">🗜</span>
+                    <span class="export-fmt-info">
+                        <b>ZIP 压缩包</b>
+                        <small>打包为单个压缩文件</small>
+                    </span>
+                </button>
+                <button type="button" class="export-fmt-card" data-fmt="epub">
+                    <span class="export-fmt-ico">📖</span>
+                    <span class="export-fmt-info">
+                        <b>EPUB</b>
+                        <small>电子书格式（小说）</small>
+                    </span>
+                </button>
+            </div>
+            <div class="export-dest">
+                <span>导出到</span>
+                <code class="export-dest-path">{{ export_path or '（未设置，请到设置页配置）' }}</code>
+                <a href="/settings" class="export-dest-link">设置</a>
+            </div>
+            <div class="export-status" id="exportStatus" style="display:none;"></div>
+        </div>
+        <div class="export-modal-foot">
+            <button type="button" class="export-btn ghost" id="exportCancelBtn" onclick="closeExportModal()">取消</button>
+            <button type="button" class="export-btn primary" id="exportStartBtn" onclick="startExport()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                开始导出
+            </button>
+        </div>
     </div>
 </div>
 
-<!-- 搜索栏 -->
-<div class="search-bar animate-in">
-    <form method="get" action="/works" class="search-form">
-        <div class="search-input-wrap">
-            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" name="q" value="{{ q }}" placeholder="搜索标题..." class="search-input">
+
+{%- macro href() -%}
+{%- set ps = {'q': q, 'author': author, 'tags': tags, 'file_type': file_type, 'source': source, 'favorited': favorited, 'page': page} -%}
+{%- for k, v in kwargs.items() -%}{% if ps.update({k: v}) %}{% endif %}{%- endfor -%}
+{%- set out = [] -%}
+{%- for k, v in ps.items() -%}
+{%- if v and out.append(k ~ '=' ~ (v|string|urlencode)) %}{% endif -%}
+{%- endfor -%}
+{%- if out %}/works?{{ out|join('&') }}{% else %}/works{% endif -%}
+{%- endmacro %}
+
+{%- macro type_cls(t) -%}
+{%- if t == '小说' %}t-novel{%- elif t == '漫画' %}t-manga{%- elif t == '音乐' %}t-music{%- elif t == '电影' %}t-movie{%- elif t == '图片' %}t-image{%- else %}t-other{%- endif -%}
+{%- endmacro %}
+
+{%- macro type_link(t) -%}
+<a href="{{ href(file_type=t, page=1) }}" class="w-pill {{ type_cls(t) }} {% if file_type == t %}active{% endif %}">{{ t or '全部' }}</a>
+{%- endmacro %}
+
+{%- set has_filters = q or author or tags or file_type or source or favorited -%}
+
+<div class="works-page animate-in">
+    <!-- 头部 -->
+    <header class="works-header">
+        <div>
+            <h1 class="works-title">作品 <span class="works-count">{{ total }}</span></h1>
+            <p class="works-subtitle">
+                {% if q %}「{{ q }}」的搜索结果
+                {% elif has_filters %}筛选结果
+                {% else %}全部作品{% endif %}
+                {% if file_type %} · {{ file_type }}{% endif %}
+            </p>
         </div>
-        <input type="text" name="author" value="{{ author }}" placeholder="作者" class="search-filter">
-        <input type="text" name="tags" value="{{ tags }}" placeholder="标签" class="search-filter">
-        <select name="file_type" class="search-filter search-select">
-            <option value="">全部类型</option>
-            <option value="小说" {% if file_type == '小说' %}selected{% endif %}>小说</option>
-            <option value="漫画" {% if file_type == '漫画' %}selected{% endif %}>漫画</option>
-            <option value="音乐" {% if file_type == '音乐' %}selected{% endif %}>音乐</option>
-            <option value="电影" {% if file_type == '电影' %}selected{% endif %}>电影</option>
-            <option value="图片" {% if file_type == '图片' %}selected{% endif %}>图片</option>
-        </select>
-        <select name="favorited" class="search-filter search-select">
-            <option value="">全部</option>
-            <option value="yes" {% if favorited == 'yes' %}selected{% endif %}>已收藏</option>
-            <option value="no" {% if favorited == 'no' %}selected{% endif %}>未收藏</option>
-        </select>
-        <button type="submit" class="search-btn">搜索～</button>
-    </form>
-</div>
+        {% if has_filters %}
+        <a href="/works" class="works-clear">✕ 清除筛选</a>
+        {% endif %}
+    </header>
 
-<!-- 视图切换 -->
-<div class="view-switch">
-    <a href="/works?q={{ q }}&author={{ author }}&tags={{ tags }}&file_type={{ file_type }}&favorited={{ favorited }}"
-       class="view-btn {% if group != 'author' %}active{% endif %}">平铺</a>
-    <a href="/works?q={{ q }}&author={{ author }}&tags={{ tags }}&file_type={{ file_type }}&favorited={{ favorited }}&group=author"
-       class="view-btn {% if group == 'author' %}active{% endif %}">按作者</a>
-    <span class="view-total">共 {{ total }} 部</span>
-</div>
+    <!-- 搜索工具条 -->
+    <div class="works-toolbar">
+        <form method="get" action="/works" class="works-form">
+            <div class="works-search-row">
+                <div class="works-search">
+                    <svg class="ws-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input type="text" name="q" value="{{ q }}" placeholder="搜索标题…" id="worksSearchInput" autocomplete="off" spellcheck="false">
+                    <button type="button" class="ws-clear" id="worksSearchClear" title="清空搜索" tabindex="-1">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                    <kbd class="ws-kbd" title="快捷键：⌘K / /">⌘K</kbd>
+                    <button type="submit" class="works-search-btn">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        搜索
+                    </button>
+                </div>
+            </div>
 
-<!-- 按作者分组视图 -->
-{% if group == 'author' %}
-<div class="author-group-toolbar">
-    <span class="author-group-total">共 {{ author_groups|length }} 位作者 · {{ total }} 部作品</span>
-    <div class="author-group-actions">
-        <button type="button" class="collapse-btn" id="collapseAll">全部收起</button>
-        <button type="button" class="collapse-btn" id="expandAll">全部展开</button>
+            <div class="works-filters">
+                <div class="wf-group">
+                    <span class="wf-label">类型</span>
+                    {{ type_link('') }}
+                    {{ type_link('小说') }}
+                    {{ type_link('漫画') }}
+                    {{ type_link('音乐') }}
+                    {{ type_link('电影') }}
+                    {{ type_link('图片') }}
+                </div>
+                <span class="wf-sep"></span>
+                <div class="wf-group">
+                    <span class="wf-label">收藏</span>
+                    <a href="{{ href(favorited='', page=1) }}" class="w-pill {% if not favorited %}active{% endif %}">全部</a>
+                    <a href="{{ href(favorited='yes', page=1) }}" class="w-pill fav-pill {% if favorited == 'yes' %}active{% endif %}">★ 已收藏</a>
+                </div>
+                <span class="wf-sep"></span>
+                <div class="wf-group wf-inputs">
+                    <input type="text" name="author" value="{{ author }}" placeholder="作者" class="wf-input">
+                    <input type="text" name="tags" value="{{ tags }}" placeholder="标签" class="wf-input">
+                    <input type="text" name="source" value="{{ source }}" placeholder="来源" class="wf-input">
+                </div>
+            </div>
+        </form>
     </div>
-</div>
-<div class="author-groups" id="authorGroups">
-    {% for author_name, g in author_groups.items() %}
-    <section class="author-group" data-group="{{ loop.index }}">
-        <div class="author-group-header" onclick="toggleGroup(this)">
-            <span class="author-avatar">{{ author_name[:1] }}</span>
-            <span class="author-group-name">{{ author_name }}</span>
-            <span class="author-group-count">{{ g.total }} 部</span>
-            {% if g.total > g.works|length %}
-            <a class="author-group-more" href="/works?author={{ author_name | urlencode }}" onclick="event.stopPropagation()">查看全部 →</a>
-            {% endif %}
-            <span class="author-group-caret">▾</span>
-        </div>
-        <div class="author-group-body">
-            <div class="works-grid">
-                {% for w in g.works %}
-                <a href="/works/{{ w.id }}" class="work-card">
-                    {{ cover(w) }}
-                    <div class="work-info">
-                        <div class="work-title">{{ w.title[:20] }}</div>
-                        <div class="work-meta">
-                            <span class="work-id">{{ w.short_id }}</span>
-                        </div>
-                    </div>
-                </a>
-                {% endfor %}
-            </div>
-        </div>
-    </section>
-    {% endfor %}
-</div>
-<script>
-function toggleGroup(header) {
-    const section = header.closest('.author-group');
-    section.classList.toggle('collapsed');
-    const caret = header.querySelector('.author-group-caret');
-    if (caret) caret.textContent = section.classList.contains('collapsed') ? '▸' : '▾';
-}
-document.getElementById('collapseAll')?.addEventListener('click', () => {
-    document.querySelectorAll('#authorGroups .author-group').forEach(s => s.classList.add('collapsed'));
-    document.querySelectorAll('#authorGroups .author-group-caret').forEach(c => c.textContent = '▸');
-});
-document.getElementById('expandAll')?.addEventListener('click', () => {
-    document.querySelectorAll('#authorGroups .author-group').forEach(s => s.classList.remove('collapsed'));
-    document.querySelectorAll('#authorGroups .author-group-caret').forEach(c => c.textContent = '▾');
-});
-</script>
 
-<!-- 平铺视图 -->
-{% elif works %}
-<div class="works-grid">
-    {% for w in works %}
-    <a href="/works/{{ w.id }}" class="work-card animate-in" style="animation-delay: {{ loop.index0 * 0.03 }}s">
-        {{ cover(w) }}
-        <div class="work-info">
-            <div class="work-title">{{ w.title[:20] }}</div>
-            <div class="work-meta">
-                <span class="work-author">{{ w.author_name or '未知' }}</span>
-                <span class="work-id">{{ w.short_id }}</span>
-            </div>
-            {% if w.tags %}
-            <div class="work-tags">
-                {% for tag in (w.tags or '').split(',')[:3] %}
-                <span class="work-tag">{{ tag.strip() }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-    </a>
-    {% endfor %}
-</div>
+    <!-- 结果条 -->
+    <div class="works-bar">
+        <span class="wb-total">共 <b>{{ total }}</b> 件作品</span>
+        {% if author_groups %}<span class="wb-sub">{{ author_groups|length }} 位作者</span>{% endif %}
+        <span class="wb-spacer"></span>
+        {% if total %}
+        <button type="button" class="wb-export-btn" id="exportBtn"
+                data-q="{{ q }}" data-author="{{ author }}" data-tags="{{ tags }}"
+                data-type="{{ file_type }}" data-source="{{ source }}" data-fav="{{ favorited }}"
+                data-total="{{ total }}" data-fmt="{{ export_fmt }}"
+                title="按当前筛选条件导出作品" onclick="openExportModal()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            导出
+        </button>
+        {% endif %}
+    </div>
 
-<!-- 分页 -->
-{% if total_pages > 1 %}
-<div class="pagination">
-    {% if page > 1 %}
-    <a href="/works?q={{ q }}&author={{ author }}&tags={{ tags }}&file_type={{ file_type }}&favorited={{ favorited }}&page={{ page - 1 }}" class="page-link">← 上一页</a>
+    <!-- 按作者分组视图（同系列已合并） -->
+    {% if author_groups %}
+    <div class="ag-list" id="authorGroups">
+        {% for author_name, g in author_groups.items() %}
+        <section class="ag-group{% if g.lazy %} ag-lazy{% endif %}" data-group="{{ loop.index }}">
+            <button type="button" class="ag-header" onclick="toggleGroup(this)" data-author="{{ author_name }}">
+                <span class="ag-avatar">{{ author_name[:1] }}</span>
+                <span class="ag-name">{{ author_name }}</span>
+                {% if not author and g.total > g.works|length %}
+                <a class="ag-more" href="{{ href(author=author_name, page=1) }}" onclick="event.stopPropagation()">查看全部 {{ g.total }} 部 →</a>
+                {% else %}
+                <span class="ag-count">{{ g.total }} 部</span>
+                {% endif %}
+                <span class="ag-caret">▾</span>
+            </button>
+            <div class="ag-body">
+                {% if g.works %}
+                <div class="w-grid">
+                    {% for w in g.works %}
+                    {{ work_card(w) }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+    <script>
+    async function loadAuthorGroup(header) {
+        const author = header.getAttribute('data-author');
+        const group = header.closest('.ag-group');
+        const body = group.querySelector('.ag-body');
+        if (!author || !body || body.dataset.loaded) return;
+        body.dataset.loaded = '1';
+        body.innerHTML = '<div class="ag-loading">(・ω・) 正在加载…</div>';
+        try {
+            const resp = await fetch(`/works/author/works?name=${encodeURIComponent(author)}&limit=24`);
+            const data = await resp.json();
+            body.innerHTML = data.html
+                ? `<div class="w-grid">${data.html}</div>`
+                : '<div class="ag-loading">(・ω・) 暂无作品呢～</div>';
+            if (data.has_more) {
+                body.insertAdjacentHTML('beforeend',
+                    `<div class="ag-more-bar"><a href="/works?author=${encodeURIComponent(author)}&page=1">查看全部 ${data.total} 部 →</a></div>`);
+            }
+        } catch (e) {
+            body.innerHTML = '<div class="ag-loading">(｡•́︿•̀｡) 加载失败，再点一次重试</div>';
+            delete body.dataset.loaded;
+        }
+    }
+
+    function toggleGroup(header) {
+        const section = header.closest('.ag-group');
+        const willExpand = section.classList.contains('collapsed') || !section.classList.contains('expanded');
+        section.classList.toggle('collapsed');
+        section.classList.add('expanded');
+        if (willExpand && section.classList.contains('ag-lazy') && !section.querySelector('.ag-body').dataset.loaded) {
+            loadAuthorGroup(header);
+        }
+    }
+    </script>
+
+    <!-- 单作者分页 -->
+    {% if author and total_pages is defined and total_pages > 1 %}
+    {% set start = [1, page - 2]|max %}
+    {% set end = [total_pages, page + 2]|min %}
+    <nav class="w-pagination">
+        {% if page > 1 %}
+        <a class="w-page" href="{{ href(page=page - 1) }}" title="上一页">‹</a>
+        {% endif %}
+        {% for p in range(start, end + 1) %}
+        {% if p == page %}
+        <span class="w-page current">{{ p }}</span>
+        {% else %}
+        <a class="w-page" href="{{ href(page=p) }}">{{ p }}</a>
+        {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+        <a class="w-page" href="{{ href(page=page + 1) }}" title="下一页">›</a>
+        {% endif %}
+    </nav>
     {% endif %}
-    <span class="page-info">{{ page }} / {{ total_pages }}</span>
-    {% if page < total_pages %}
-    <a href="/works?q={{ q }}&author={{ author }}&tags={{ tags }}&file_type={{ file_type }}&favorited={{ favorited }}&page={{ page + 1 }}" class="page-link">下一页 →</a>
+
+    {% else %}
+    <!-- 空状态 -->
+    <div class="w-empty">
+        <div class="w-empty-icon">🔍</div>
+        <p class="w-empty-title">{{ '(・ω・) 没有找到符合条件的作品呀～' if has_filters else '书架空空如也～' }}</p>
+        <p class="w-empty-sub">{{ '试试调整关键词或筛选条件吧～' if has_filters else '通过 <code>akm import</code> 导入或 <code>akm pull</code> 下载作品吧～' }}</p>
+        {% if has_filters %}<a href="/works" class="w-empty-btn">清除筛选</a>{% endif %}
+    </div>
     {% endif %}
 </div>
-{% endif %}
-
-{% else %}
-<div class="empty-state animate-in">
-    <div class="empty-icon-lg">📚</div>
-    <p>(・ω・) 书架空空如也～</p>
-    <p class="empty-sub">通过 <code>akm import</code> 导入或 <code>akm pull</code> 下载作品吧～</p>
-</div>
-{% endif %}
 
 {% endblock %}
+
+<script>
+(function () {
+    const input = document.getElementById('worksSearchInput');
+    if (!input) return;
+    const clearBtn = document.getElementById('worksSearchClear');
+    const kbd = document.querySelector('.ws-kbd');
+
+    function update() {
+        const hasText = input.value.length > 0;
+        if (clearBtn) clearBtn.style.display = hasText ? 'inline-flex' : 'none';
+        if (kbd) kbd.style.display = (hasText || document.activeElement === input) ? 'none' : 'inline-flex';
+    }
+    input.addEventListener('input', update);
+    input.addEventListener('focus', update);
+    input.addEventListener('blur', update);
+
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        input.value = '';
+        update();
+        input.focus();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        const tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+        // ⌘K / Ctrl+K 聚焦搜索
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            input.focus();
+            input.select();
+        }
+        // / 聚焦搜索（不在输入框中时）
+        if (e.key === '/' && !['input', 'textarea', 'select'].includes(tag)) {
+            e.preventDefault();
+            input.focus();
+        }
+        // Esc 失焦
+        if (e.key === 'Escape' && document.activeElement === input) {
+            input.blur();
+        }
+    });
+
+    update();
+})();
+</script>

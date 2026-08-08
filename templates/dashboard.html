@@ -1,234 +1,347 @@
 {% extends "base.html" %}
 {% block title %}AKM · 仪表盘{% endblock %}
 {% block content %}
+{% set top_tags_max = top_tags[0][1] if top_tags else 1 %}
+{% set seg_map = {'小说': 0, '漫画': 1, '音乐': 2, '电影': 3, '图片': 4} %}
+{%- macro act_type_cls(t) -%}
+{%- if t == '小说' %}t-novel{%- elif t == '漫画' %}t-manga{%- elif t == '音乐' %}t-music{%- elif t == '电影' %}t-movie{%- elif t == '图片' %}t-image{%- else %}t-other{%- endif -%}
+{%- endmacro -%}
+{%- macro act_type_icon(t) -%}
+{%- if t == '小说' %}📖{%- elif t == '漫画' %}📕{%- elif t == '音乐' %}🎵{%- elif t == '电影' %}🎬{%- elif t == '图片' %}🎨{%- else %}📄{%- endif -%}
+{%- endmacro -%}
 
-<!-- Hero 横幅（内嵌分类分布） -->
-<section class="dash-hero animate-in">
-    <div class="dash-hero-top">
-        <div class="dash-hero-text">
-            <div class="dash-hero-kicker">AKM · 作品管理系统</div>
-            <h1 class="dash-hero-title">你的作品库</h1>
-            <p class="dash-hero-sub">共 {{ stats.total_books }} 部作品 · 随时翻阅 (◕‿◕)</p>
-        </div>
-        <div class="dash-hero-stats">
-            <div class="hero-stat">
-                <div class="hero-stat-value">{{ stats.total_books }}</div>
-                <div class="hero-stat-label">作品</div>
+<div class="dash-page animate-in">
+    <!-- Hero 欢迎区(轻量:标题 + 状态胶囊 + 一行主数字) -->
+    <section class="dash-hero">
+        <div class="dash-hero-top">
+            <div class="dash-hero-text">
+                <div class="dash-hero-kicker"><span class="hero-kicker-dot"></span>AKM · 作品管理系统</div>
+                <h1 class="dash-hero-title">你的作品库</h1>
+                <p class="dash-hero-sub">所有作品都已就位，随时翻阅 (◕‿◕)</p>
+                <div class="dash-hero-chips">
+                    {% if stats.liked_count %}<span class="hero-chip">♥ {{ stats.liked_count }} 点赞</span>{% endif %}
+                    {% if stats.avg_rating %}<span class="hero-chip">⭐ 均分 {{ stats.avg_rating }}</span>{% endif %}
+                    {% if stats.rated_count %}<span class="hero-chip">🏅 {{ stats.rated_count }} 已评分</span>{% endif %}
+                </div>
             </div>
-            <div class="hero-stat">
-                <div class="hero-stat-value">{{ stats.total_authors }}</div>
-                <div class="hero-stat-label">作者</div>
-            </div>
-            <div class="hero-stat">
-                <div class="hero-stat-value">{{ stats.total_series }}</div>
-                <div class="hero-stat-label">系列</div>
-            </div>
-        </div>
-    </div>
-    {% if type_share %}
-    <div class="dash-hero-dist">
-        <div class="type-stack-bar">
-            {% for t in type_share %}
-            <div class="type-stack-seg seg-{{ loop.index0 % 5 }}" style="width: {{ t.pct }}%"
-                 title="{{ t.name }}：{{ t.count }}（{{ t.pct }}%）"></div>
-            {% endfor %}
-        </div>
-        <div class="type-legend">
-            {% for t in type_share %}
-            <span class="type-legend-item">
-                <span class="legend-dot dot-{{ loop.index0 % 5 }}"></span>
-                {{ t.name }} <b>{{ t.count }}</b>（{{ t.pct }}%）
-            </span>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-</section>
-
-<!-- 统计卡片 -->
-<section class="stats-grid">
-    <div class="stat-card stat-amber animate-in animate-in-delay-1">
-        <div class="stat-icon">⭐</div>
-        <div class="stat-info">
-            <div class="stat-value" data-count="{{ stats.favorited_count }}">0</div>
-            <div class="stat-label">收藏</div>
-        </div>
-    </div>
-    <div class="stat-card stat-pink animate-in animate-in-delay-1">
-        <div class="stat-icon">❤️</div>
-        <div class="stat-info">
-            <div class="stat-value" data-count="{{ stats.liked_count }}">0</div>
-            <div class="stat-label">点赞合计</div>
-        </div>
-    </div>
-    <div class="stat-card stat-violet animate-in animate-in-delay-1">
-        <div class="stat-icon">💾</div>
-        <div class="stat-info">
-            <div class="stat-value stat-value-sm">{{ stats.total_size_human }}</div>
-            <div class="stat-label">总大小</div>
-        </div>
-    </div>
-    <div class="stat-card stat-blue animate-in animate-in-delay-2">
-        <div class="stat-icon">🏅</div>
-        <div class="stat-info">
-            <div class="stat-value" data-count="{{ stats.rated_count }}">0</div>
-            <div class="stat-label">评分作品</div>
-        </div>
-    </div>
-    <div class="stat-card stat-teal animate-in animate-in-delay-2">
-        <div class="stat-icon">⬇️</div>
-        <div class="stat-info">
-            <div class="stat-value" data-count="{{ stats.queue_pending }}">0</div>
-            <div class="stat-label">待下载</div>
-        </div>
-    </div>
-    <div class="stat-card stat-purple animate-in animate-in-delay-2">
-        <div class="stat-icon">🔗</div>
-        <div class="stat-info">
-            <div class="stat-value">{{ stats.follow_stats.get('active', 0) + stats.follow_stats.get('paused', 0) + stats.follow_stats.get('dead', 0) }}</div>
-            <div class="stat-label">关注作者</div>
-        </div>
-    </div>
-</section>
-
-<!-- 最近活动 + 猜你喜欢 -->
-<div class="dashboard-row row-2col">
-    <section class="card animate-in animate-in-delay-1">
-        <h2 class="card-title">
-            <span class="card-title-icon" style="background: rgba(92,184,138,0.1); color: #5cb88a;">📋</span>
-            最近活动
-        </h2>
-        <div class="activity-columns">
-            <div class="activity-col">
-                <h3 class="activity-header col-green"><span class="dot"></span>最近打开</h3>
-                {% for item in activity.recent_open %}
-                <a href="/works/{{ item.work_id }}" class="activity-item" style="text-decoration:none;color:inherit;">
-                    <span class="item-id">{{ item.short_id }}</span>
-                    <span class="item-title">{{ item.title[:15] }}</span>
-                </a>
-                {% else %}
-                <div class="empty-hint"><div class="empty-icon">📭</div>(・ω・) 还没有记录哦～</div>
-                {% endfor %}
-            </div>
-            <div class="activity-col">
-                <h3 class="activity-header col-yellow"><span class="dot"></span>最近导入</h3>
-                {% for item in activity.recent_import %}
-                <a href="/works/{{ item.id }}" class="activity-item" style="text-decoration:none;color:inherit;">
-                    <span class="item-id">{{ item.short_id }}</span>
-                    <span class="item-title">{{ item.title[:15] }}</span>
-                </a>
-                {% else %}
-                <div class="empty-hint"><div class="empty-icon">📭</div>(・ω・) 还没有记录哦～</div>
-                {% endfor %}
-            </div>
-            <div class="activity-col">
-                <h3 class="activity-header col-blue"><span class="dot"></span>最近下载</h3>
-                {% for item in activity.recent_download %}
-                <a href="/works/{{ item.id }}" class="activity-item" style="text-decoration:none;color:inherit;">
-                    <span class="item-id">{{ item.short_id }}</span>
-                    <span class="item-title">{{ item.title[:15] }}</span>
-                </a>
-                {% else %}
-                <div class="empty-hint"><div class="empty-icon">📭</div>(・ω・) 还没有记录哦～</div>
-                {% endfor %}
+            <div class="dash-hero-stats">
+                <div class="hero-stat hero-stat-book">
+                    <div class="hero-stat-value" data-count="{{ stats.total_books }}">0</div>
+                    <div class="hero-stat-label">作品</div>
+                </div>
+                <div class="hero-stat hero-stat-author">
+                    <div class="hero-stat-value" data-count="{{ stats.total_authors }}">0</div>
+                    <div class="hero-stat-label">作者</div>
+                </div>
+                <div class="hero-stat hero-stat-series">
+                    <div class="hero-stat-value" data-count="{{ stats.total_series }}">0</div>
+                    <div class="hero-stat-label">系列</div>
+                </div>
+                <div class="hero-stat hero-stat-fav">
+                    <div class="hero-stat-value" data-count="{{ stats.favorited_count }}">0</div>
+                    <div class="hero-stat-label">收藏</div>
+                </div>
             </div>
         </div>
     </section>
 
-    <section class="card animate-in animate-in-delay-2">
-        <h2 class="card-title">
-            <span class="card-title-icon" style="background: var(--accent-glow); color: var(--accent);">💡</span>
-            猜你喜欢
-        </h2>
-        <div class="recommend-scroll">
-            {% for item in recommendations %}
-            <div class="recommend-item" onclick="window.location='/works/{{ item.work_id }}'">
-                <div class="recommend-cover">
-                    <img src="/works/{{ item.work_id }}/cover" alt="" class="rec-cover-img"
-                         onerror="this.style.display='none';this.parentElement.classList.add('placeholder-cover');this.nextElementSibling.style.display='flex';">
-                    <span class="cover-type" style="display:none;">{{ '📕' if item.kind == 'series' else '📖' }}</span>
-                </div>
-                <div class="recommend-info">
-                    <div class="recommend-title">
-                        {{ item.title[:18] }}
-                        {% if item.series_count %}<span class="series-count">{{ item.series_count }}本</span>{% endif %}
+    <div class="dash-main-area">
+    <!-- 行1:猜你喜欢 + 最近活动(同行等高,猜你喜欢升主位) -->
+    <div class="dash-row dash-row-2">
+<section class="card recommend-card animate-in animate-in-delay-2">
+            <h2 class="card-title">
+                <span class="card-title-icon" style="background: var(--accent-glow); color: var(--accent);">💡</span>
+                猜你喜欢
+                <button type="button" class="rec-shuffle" id="recShuffle" title="换一批推荐" aria-label="换一批推荐">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    换一批
+                </button>
+            </h2>
+            <div class="rec-list" id="recommendList">
+                {% for item in recommendations[:5] %}
+                <div class="rec-row" onclick="window.location='/works/{{ item.work_id }}'">
+                    <div class="rec-row-cover">
+                        <img src="/works/{{ item.work_id }}/cover" alt="" loading="lazy"
+                             onerror="this.style.display='none';this.parentElement.classList.add('placeholder-cover');this.nextElementSibling.style.display='flex';">
+                        <span class="rec-row-kind">{{ '📚' if item.kind == 'series' else '📖' }}</span>
                     </div>
-                    <div class="recommend-reasons">
-                        {% for reason in item.reasons %}
-                        <span class="reason-tag">{{ reason }}</span>
+                    <div class="rec-row-info">
+                        <div class="rec-row-title">
+                            <span class="rec-row-title-text">{{ item.title[:16] }}</span>
+                            {% if item.series_count %}<span class="series-count">{{ item.series_count }} 本</span>{% endif %}
+                        </div>
+                        <div class="rec-row-reasons">
+                            {% for reason in item.reasons %}
+                            <span class="reason-tag">{{ reason }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <button class="rec-row-open" onclick="event.stopPropagation();openWork('{{ item.work_id }}')" title="本地打开">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </button>
+                </div>
+                {% else %}
+                <div class="empty-hint"><div class="empty-icon">🔍</div>(・ω・) 还没有推荐呢～</div>
+                {% endfor %}
+            </div>
+        </section>
+
+<section class="card animate-in animate-in-delay-1">
+            <h2 class="card-title">
+                <span class="card-title-icon" style="background: rgba(92,184,138,0.1); color: #5cb88a;">📋</span>
+                最近活动
+                <div class="act-tabs">
+                    <button type="button" class="act-tab active" data-tab="open">打开</button>
+                    <button type="button" class="act-tab" data-tab="import">导入</button>
+                    <button type="button" class="act-tab" data-tab="download">下载</button>
+                </div>
+            </h2>
+            <div class="dash-activity">
+                {% for tab, items, id_key in [
+                    ('open', activity.recent_open, 'work_id'),
+                    ('import', activity.recent_import, 'id'),
+                    ('download', activity.recent_download, 'id'),
+                ] %}
+                <div class="activity-panel{% if tab == 'open' %} active{% endif %}" id="act-{{ tab }}">
+                    {% if items %}
+                    <div class="act-list">
+                        {% for item in items %}
+                        <a href="/works/{{ item[id_key] }}" class="act-row {{ act_type_cls(item.file_type) }}" title="{{ item.title }}">
+                            <div class="act-row-cover">
+                                <img src="/works/{{ item[id_key] }}/cover" alt="" loading="lazy"
+                                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                <span class="act-row-fallback" style="display:none;">{{ act_type_icon(item.file_type) }}</span>
+                            </div>
+                            <div class="act-row-info">
+                                <div class="act-row-title">{{ item.title }}</div>
+                                <div class="act-row-meta">
+                                    <span class="act-row-type">{{ act_type_icon(item.file_type) }} {{ item.file_type or '未知' }}</span>
+                                    <span class="act-row-dot">·</span>
+                                    <span class="act-row-time">{{ item.time_ago }}</span>
+                                    <span class="act-row-id">{{ item.short_id }}</span>
+                                </div>
+                            </div>
+                            <span class="act-row-open" title="打开">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                            </span>
+                        </a>
                         {% endfor %}
                     </div>
+                    {% else %}
+                    <div class="act-empty">
+                        <div class="act-empty-icon">📭</div>
+                        <p>还没有{{ {'open': '打开', 'import': '导入', 'download': '下载'}[tab] }}记录哦～</p>
+                        <p class="act-empty-sub">{% if tab == 'open' %}在作品卡上点「打开本地」会记录在这里{% elif tab == 'import' %}通过 <code>akm import</code> 导入的作品会记录在这里{% else %}通过 <code>akm pull</code> 下载的作品会记录在这里{% endif %}</p>
+                    </div>
+                    {% endif %}
                 </div>
-                <button class="rec-open-btn" onclick="event.stopPropagation();openWork('{{ item.work_id }}')" title="本地打开">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                </button>
+                {% endfor %}
             </div>
-            {% else %}
-            <div class="empty-hint"><div class="empty-icon">🔍</div>(・ω・) 还没有推荐呢～</div>
+        </section>
+    </div>
+    <!-- 行2:标签排行 + 数据指标/排行榜(同行等高) -->
+    <div class="dash-row dash-row-2">
+<section class="card cloud-card animate-in animate-in-delay-3">
+        <div class="card-head">
+            <h2 class="card-title">
+                <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">🏷️</span>
+                标签排行
+            </h2>
+            <span class="cloud-meta">TOP {{ word_cloud_data[:15] | length }} 标签 · 点击筛选</span>
+        </div>
+        {% set cloud_max = (word_cloud_data[0].count if word_cloud_data else 1) %}
+        {% set cloud_colors = ['#8a6bf0', '#14b8a6', '#e0943f', '#3e96e8', '#e0567a', '#d9a441', '#5fae7f', '#e2729b', '#5aa8f5', '#a78bfa'] %}
+        <div class="cloud-rank-list">
+            {% for d in word_cloud_data[:15] %}
+            <a href="/works?tags={{ d.name | urlencode }}" class="cloud-rank-row" title="查看「{{ d.name }}」相关作品（{{ d.count }} 次）">
+                <span class="cloud-rank-no {% if loop.index <= 3 %}medal{% endif %}">{% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}</span>
+                <span class="cloud-rank-name" data-tag="{{ d.name }}">{{ d.name }}</span>
+                <span class="cloud-rank-bar"><span class="cloud-rank-bar-fill" style="width: {{ [3, d.count / cloud_max * 100] | max | round(1) }}%; background: {{ cloud_colors[loop.index0 % 10] }};"></span></span>
+                <span class="cloud-rank-cnt">{{ d.count }}</span>
+            </a>
             {% endfor %}
         </div>
     </section>
+
+        <div class="dash-side-stack">
+<section class="card animate-in animate-in-delay-1">
+            <h2 class="card-title">
+                <span class="card-title-icon" style="background: rgba(92,184,138,0.1); color: #5cb88a;">📊</span>
+                数据指标
+            </h2>
+            <div class="side-stats">
+        <div class="side-stat stat-teal">
+            <div class="stat-icon">⬇️</div>
+            <div class="stat-info">
+                <div class="stat-value" data-count="{{ stats.queue_pending }}">0</div>
+                <div class="stat-label">待下载</div>
+            </div>
+        </div>
+        <div class="side-stat stat-blue">
+            <div class="stat-icon">💾</div>
+            <div class="stat-info">
+                <div class="stat-value stat-value-sm">{{ stats.total_size_human }}</div>
+                <div class="stat-label">总大小</div>
+            </div>
+        </div>
+        <div class="side-stat stat-pink">
+            <div class="stat-icon">🏅</div>
+            <div class="stat-info">
+                <div class="stat-value" data-count="{{ stats.rated_count }}">0</div>
+                <div class="stat-label">评分作品</div>
+            </div>
+        </div>
+        <div class="side-stat stat-purple">
+            <div class="stat-icon">🔗</div>
+            <div class="stat-info">
+                <div class="stat-value">{{ stats.follow_stats.get('active', 0) + stats.follow_stats.get('paused', 0) + stats.follow_stats.get('dead', 0) }}</div>
+                <div class="stat-label">关注作者</div>
+            </div>
+        </div>
+            </div>
+        </section>
+
+<section class="card animate-in animate-in-delay-2">
+            <h2 class="card-title">
+                <span class="card-title-icon" style="background: rgba(232,180,88,0.1); color: #e8b458;">🏆</span>
+                排行榜
+                <div class="rank-tabs">
+                    <button type="button" class="rank-tab active" data-rtab="author">作者</button>
+                    <button type="button" class="rank-tab" data-rtab="likes">点赞</button>
+                </div>
+            </h2>
+            <div class="rank-panel" id="rank-author">
+                <div class="top-list">
+                    {% set author_colors = ['#8a6bf0,#a78bfa', '#14b8a6,#4ed4c2', '#e0943f,#f0b270', '#3e96e8,#6cb6f5', '#e0567a,#f27a98'] %}
+                    {% for r in top_authors %}
+                    <a href="/works?author={{ r.name | urlencode }}" class="top-list-item top-author-item" title="查看 {{ r.name }} 的全部作品">
+                        <span class="rank {% if loop.index in [1,2,3] %}rank-medal rank-{{ loop.index }}{% else %}rank-num{% endif %}">
+                            {% if loop.index == 1 %}👑{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+                        </span>
+                        <span class="top-avatar" style="background: linear-gradient(135deg, {{ author_colors[loop.index0 % 5] | replace(',', ', ') }});">{{ r.name[:1] }}</span>
+                        <div class="top-info">
+                            <div class="top-title">{{ r.name }}</div>
+                            <div class="top-meta">
+                                <span class="top-meta-chip top-meta-fav">♥ {{ r.fav_cnt or 0 }}</span>
+                                <span class="top-meta-chip top-meta-work">📚 {{ r.cnt }}</span>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="rank-panel" id="rank-likes" style="display:none;">
+                <div class="top-list">
+                    {% for r in top_likes %}
+                    <a href="/works/{{ r.work_id }}" class="top-list-item top-likes-item {{ act_type_cls(r.file_type) }}" title="查看《{{ r.title }}》">
+                        <span class="rank {% if loop.index in [1,2,3] %}rank-medal rank-{{ loop.index }}{% else %}rank-num{% endif %}">
+                            {% if loop.index == 1 %}👑{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+                        </span>
+                        <span class="top-cover">
+                            <img src="/works/{{ r.work_id }}/cover" alt="" loading="lazy"
+                                 onerror="this.style.display='none';this.parentElement.classList.add('placeholder-cover');this.nextElementSibling.style.display='flex';">
+                            <span class="top-cover-fallback" style="display:none;">{{ act_type_icon(r.file_type) }}</span>
+                        </span>
+                        <div class="top-info">
+                            <div class="top-title">{{ (r.title or '')[:18] }}</div>
+                            <div class="top-sub">{{ r.author }}</div>
+                        </div>
+                        <span class="top-badge badge-pink">♥ {{ r.like_count }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        </div>
+    </div>
 </div>
 
-<!-- 标签云 + 排行 -->
-<div class="dashboard-row row-3col">
-    <section class="card animate-in animate-in-delay-2">
-        <h2 class="card-title">
-            <span class="card-title-icon" style="background: rgba(91,79,199,0.1); color: #5b4fc7;">🏷️</span>
-            标签云
-        </h2>
-        <div class="tag-cloud">
-            {% for t in tag_cloud %}
-            <a class="cloud-tag cloud-size-{{ t.size }}" style="color: {{ t.color }};"
-               href="/works?tags={{ t.tag | urlencode }}" title="{{ t.tag }}（{{ t.count }}）">{{ t.tag }}</a>
-            {% endfor %}
-        </div>
-    </section>
 
-    <section class="card animate-in animate-in-delay-3">
-        <h2 class="card-title">
-            <span class="card-title-icon" style="background: rgba(232,180,88,0.1); color: #e8b458;">👑</span>
-            作者 Top 5
-        </h2>
-        <div class="top-list">
-            {% for r in top_authors %}
-            <div class="top-list-item">
-                <span class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% else %}rank-other{% endif %}">{{ loop.index }}</span>
-                <span class="top-name">{{ r.name }}</span>
-                <span class="top-badge badge-teal">{{ r.cnt }} 作品</span>
-                {% if r.fav_cnt %}<span class="top-fav">♥ {{ r.fav_cnt }}</span>{% endif %}
-            </div>
-            {% endfor %}
-        </div>
-    </section>
-
-    <section class="card animate-in animate-in-delay-4">
-        <h2 class="card-title">
-            <span class="card-title-icon" style="background: rgba(232,160,191,0.12); color: #e8a0bf;">❤️</span>
-            点赞 Top 5
-        </h2>
-        <div class="top-list">
-            {% for r in top_likes %}
-            <div class="top-list-item">
-                <span class="rank {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% else %}rank-other{% endif %}">{{ loop.index }}</span>
-                <div class="top-info">
-                    <div class="top-title">{{ (r.title or '')[:16] }}</div>
-                    <div class="top-sub">{{ r.author }}</div>
-                </div>
-                <span class="top-badge badge-pink">{{ r.like_count }} ♥</span>
-            </div>
-            {% endfor %}
-        </div>
-    </section>
 </div>
 
 <script>
-function openWork(id) {
-    fetch(`/works/${id}/open`, { method: 'POST' })
-        .then(r => r.json())
-        .then(data => { if (!data.success) alert(data.error || '(｡•́︿•̀｡) 打开失败呀～'); })
-        .catch(() => alert('(｡•́︿•̀｡) 打开失败呀～'));
-}
+document.querySelectorAll('.act-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const panel = document.getElementById('act-' + tab.dataset.tab);
+        if (!panel) return;
+        document.querySelectorAll('.act-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelectorAll('.activity-panel').forEach(p => p.classList.remove('active'));
+        panel.classList.add('active');
+    });
+});
+// 排行榜 Tab(作者/点赞)切换
+document.querySelectorAll('.rank-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const panel = document.getElementById('rank-' + tab.dataset.rtab);
+        if (!panel) return;
+        document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelectorAll('.rank-panel').forEach(p => { p.style.display = 'none'; });
+        panel.style.display = '';
+    });
+});
+// 猜你喜欢「换一批」：从 15 条推荐池随机重选 5 条
+(function () {
+    const list = document.getElementById('recommendList');
+    const btn = document.getElementById('recShuffle');
+    if (!list || !btn) return;
+    const pool = {{ recommendations | tojson }};
+    if (!pool.length || pool.length <= 5) { btn.style.display = 'none'; return; }
+    const esc = function (s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    };
+    const itemHTML = function (item) {
+        const kind = item.kind === 'series' ? '📚' : '📖';
+        const reasons = (item.reasons || []).map(function (r) {
+            return '<span class="reason-tag">' + esc(r) + '</span>';
+        }).join('');
+        const count = item.series_count ? '<span class="series-count">' + item.series_count + ' 本</span>' : '';
+        return '<div class="rec-row" onclick="window.location=\'/works/' + esc(item.work_id) + '\'">' +
+            '<div class="rec-row-cover">' +
+            '<img src="/works/' + esc(item.work_id) + '/cover" alt="" loading="lazy" ' +
+            'onerror="this.style.display=\'none\';this.parentElement.classList.add(\'placeholder-cover\');this.nextElementSibling.style.display=\'flex\';">' +
+            '<span class="rec-row-kind">' + kind + '</span></div>' +
+            '<div class="rec-row-info">' +
+            '<div class="rec-row-title"><span class="rec-row-title-text">' + esc(String(item.title || '').slice(0, 16)) + '</span>' + count + '</div>' +
+            '<div class="rec-row-reasons">' + reasons + '</div></div>' +
+            '<button class="rec-row-open" onclick="event.stopPropagation();openWork(\'' + esc(item.work_id) + '\')" title="本地打开">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+            '<polyline points="14 2 14 8 20 8"/></svg></button></div>';
+    };
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        btn.classList.remove('spinning');
+        void btn.offsetWidth; /* 重新触发动画 */
+        btn.classList.add('spinning');
+        const picked = pool.slice().sort(function () { return Math.random() - 0.5; }).slice(0, 5);
+        list.innerHTML = picked.map(itemHTML).join('');
+    });
+})();
+
+// 标签排行：隐私模式下陌生化标签名（与全站一致的三重脱敏：生僻字 + 草书 + blur），并禁用跳转
+(function () {
+    const rows = document.querySelectorAll('.cloud-rank-row');
+    const isPrivacy = document.documentElement.classList.contains('privacy-mode');
+    if (isPrivacy) {
+        const _RARE = '龘鱻麤爨齉鬱齾灪靐曌叒叕垚壵夔奭嫑嬲嫐巭弢弸彧忞恚恧悃愠慥戆戇攲攴斝斠斡旖旒朤朥朧黢黩黻黼黾鼍鼗鼬齁齃齆齇齈齎齕齗齘齙齚齛齜齝齞齟齠齣齤齥齦齧齨齩齪爮爰爳爿牀牁牂牃牄牅牉牊牋牍牎牏牐牑牒牓牔牕牖牗牚牜牝牞牣牤牥牨牪牫牬牰牱牳牴牶牷牸牻牼牾牿';
+        const _LAT = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        rows.forEach(function (row) {
+            const name = row.querySelector('.cloud-rank-name');
+            if (!name) return;
+            const orig = name.dataset.tag || name.textContent;
+            name.textContent = Array.from(orig).map(function (ch) {
+                const pool = ch.charCodeAt(0) > 0xFF ? _RARE : _LAT;
+                return pool[Math.floor(Math.random() * pool.length)];
+            }).join('');
+            row.addEventListener('click', function (e) { e.preventDefault(); });
+            row.removeAttribute('href'); /* 彻底移除原标签 URL,防泄露 */
+        });
+    }
+})();
+
 </script>
 
 {% endblock %}

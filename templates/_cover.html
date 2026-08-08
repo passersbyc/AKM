@@ -17,14 +17,15 @@
 {% macro cover(work, cls='') -%}
 <div class="work-cover {{ cls }}">
   {% if work.file_ext in ('.epub', '.pdf') %}
-  <img src="/works/{{ work.id }}/cover" alt="{{ work.title }}" class="cover-img"
+  <img src="/works/{{ work.cover_id or work.id }}/cover" alt="{{ work.title }}" class="cover-img"
        loading="lazy"
        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
   <span class="work-cover-icon" style="display:none;">{{ cover_icon(work.file_type) }}</span>
   {% else %}
   <span class="work-cover-icon">{{ cover_icon(work.file_type) }}</span>
   {% endif %}
-  {% if work.favorite %}<span class="work-fav" title="收藏">★</span>{% endif %}
+  {% if work.favorite %}<span class="work-fav on" data-fav-id="{{ work.id }}" title="已收藏（点击取消）" onclick="event.preventDefault();event.stopPropagation();toggleFav('{{ work.id }}')">♥</span>
+  {% else %}<span class="work-fav" data-fav-id="{{ work.id }}" title="点击收藏" onclick="event.preventDefault();event.stopPropagation();toggleFav('{{ work.id }}')">♡</span>{% endif %}
   <span class="work-type-badge">{{ work.file_type or '' }}</span>
 </div>
 {%- endmacro %}
