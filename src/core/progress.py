@@ -1,10 +1,10 @@
 """统一进度条显示 — rich 驱动。
 
 两行式布局（TTY 动画 / 非终端自动禁用渲染）：
-    (◕‿◕) 同步检查  ━━━━━━━━━━  165/175  [0:00:11]  14.9个/s
-                      成功165  失败0  跳过0
+    同步检查  ━━━━━━━━━━  165/175  94%  [0:00:11 0:00:01]  14.9个/s
+               成功165  失败0  跳过0
 
-- 第一行：描述 + 进度条 + 完成数/总数 + 耗时 + 速率
+- 第一行：描述 + 进度条 + 完成数/总数 + 百分比 + 耗时/剩余 + 速率
 - 第二行：成功/失败/跳过计数，独立表格渲染（列不与主行共享），
   居中显示且位置稳定，不会因终端宽度/动画刷新而抖动错位
 - 两行各自 no_wrap：窄终端截断而非换行，布局永不被破坏
@@ -21,6 +21,7 @@ from rich.progress import (
     ProgressColumn,
     TextColumn,
     TimeElapsedColumn,
+    TimeRemainingColumn,
 )
 from rich.table import Table
 from rich.text import Text
@@ -100,28 +101,33 @@ class _TwoRowProgress(Progress):
         return out
 
 
-def make_progress(counts: dict, desc: str = "进度",
-                  total: int = 1) -> tuple[Progress, int, int]:
+def make_progress(counts: dict | None, desc: str = "进度",
+                  total: int = 1) -> tuple[Progress, int, int | None]:
     """创建两行式进度条，返回 (progress, 主行task_id, 计数行task_id)。
 
-    调用方用 advance() 同步推进两行。
+    调用方用 advance() 同步推进两行；counts 为 None 时只创建主行
+    （计数行 task_id 返回 None），适合顺序处理场景。
     非终端环境（管道/重定向/后台）自动禁用渲染，不产生噪声。
     """
     progress = _TwoRowProgress(
         [
             TextColumn("[bold magenta]{task.description}[/bold magenta]",
                        justify="left"),
-            BarColumn(bar_width=8, complete_style="magenta",
+            BarColumn(bar_width=12, complete_style="magenta",
                       finished_style="green"),
             TextColumn("{task.completed}/{task.total}"),
+            TextColumn("{task.percentage:>3.0f}%"),
             TimeElapsedColumn(),
+            TimeRemainingColumn(),
             RateColumn(),
         ],
-        [CountsColumn(counts, _console)],
+        [CountsColumn(counts, _console)] if counts is not None else [],
         console=_console,
         disable=not _console.is_terminal,
     )
-    main_id = progress.add_task(description=f"(◕‿◕) {desc}", total=total)
+    main_id = progress.add_task(description=desc, total=total)
+    if counts is None:
+        return progress, main_id, None
     counts_id = progress.add_task(description="", total=total)
     progress._main_ids = {main_id}
     progress._counts_ids = {counts_id}
