@@ -183,6 +183,22 @@ def _merge_series(results: list[dict]) -> list[dict]:
     ]
 
 
+def _group_extras(works: list[dict]) -> dict:
+    """作者分组的辅助统计：系列数与类型分布（供分组头展示）。"""
+    series_names = set()
+    type_counts: dict[str, int] = {}
+    for raw in works:
+        sname = (raw.get("系列") or "").strip()
+        if sname:
+            series_names.add(sname)
+        ftype = raw.get("分类") or "未知"
+        type_counts[ftype] = type_counts.get(ftype, 0) + 1
+    return {
+        "series_count": len(series_names),
+        "type_counts": type_counts,
+    }
+
+
 @router.get("/works")
 def works_list(
     request: Request,
@@ -234,6 +250,7 @@ def works_list(
             "total": len(results),
             "pages": total_pages,
             "page": page,
+            **_group_extras(results),
         }
         ctx.update(page=page, total_pages=total_pages)
     else:
@@ -243,12 +260,14 @@ def works_list(
                 author_groups[name] = {
                     "works": _merge_series(ws)[:GROUP_PREVIEW],
                     "total": len(ws),
+                    **_group_extras(ws),
                 }
             else:
                 author_groups[name] = {
                     "works": [],
                     "total": len(ws),
                     "lazy": True,
+                    **_group_extras(ws),
                 }
 
     ctx["author_groups"] = author_groups

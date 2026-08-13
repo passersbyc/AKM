@@ -70,7 +70,8 @@
 {%- endmacro %}
 
 {%- macro type_link(t) -%}
-<a href="{{ href(file_type=t, page=1) }}" class="w-pill {{ type_cls(t) }} {% if file_type == t %}active{% endif %}">{{ t or '全部' }}</a>
+{%- set cnt = (stats.type_distribution or {}).get(t, 0) if t else stats.total_books -%}
+<a href="{{ href(file_type=t, page=1) }}" class="w-pill {{ type_cls(t) }} {% if file_type == t %}active{% endif %}">{{ t or '全部' }}<em class="w-pill-n">{{ cnt }}</em></a>
 {%- endmacro %}
 
 {%- set has_filters = q or author or tags or file_type or source or favorited -%}
@@ -161,6 +162,12 @@
             <button type="button" class="ag-header" onclick="toggleGroup(this)" data-author="{{ author_name }}">
                 <span class="ag-avatar">{{ author_name[:1] }}</span>
                 <span class="ag-name">{{ author_name }}</span>
+                {% if g.series_count %}<span class="ag-series" title="{{ g.series_count }} 个系列">📚 {{ g.series_count }} 系列</span>{% endif %}
+                <span class="ag-types" title="类型分布">
+                    {% for t, n in g.type_counts.items() %}
+                    <span class="ag-type-dot {{ type_cls(t) }}" title="{{ t }} {{ n }} 部"></span>
+                    {% endfor %}
+                </span>
                 {% if not author and g.total > g.works|length %}
                 <a class="ag-more" href="{{ href(author=author_name, page=1) }}" onclick="event.stopPropagation()">查看全部 {{ g.total }} 部 →</a>
                 {% else %}
@@ -181,38 +188,63 @@
         {% endfor %}
     </div>
     <script>
+    const GROUP_STORAGE_KEY = 'akm_group_collapsed';
+    function readCollapsedMap() {
+        try { return JSON.parse(localStorage.getItem(GROUP_STORAGE_KEY) || '{}'); } catch (e) { return {}; }
+    }
+    function writeCollapsedMap(map) {
+        try { localStorage.setItem(GROUP_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+
     async function loadAuthorGroup(header) {
         const author = header.getAttribute('data-author');
         const group = header.closest('.ag-group');
         const body = group.querySelector('.ag-body');
         if (!author || !body || body.dataset.loaded) return;
         body.dataset.loaded = '1';
-        body.innerHTML = '<div class="ag-loading">(・ω・) 正在加载…</div>';
+        body.innerHTML = '<div class="ag-loading">正在加载…</div>';
         try {
             const resp = await fetch(`/works/author/works?name=${encodeURIComponent(author)}&limit=24`);
             const data = await resp.json();
             body.innerHTML = data.html
                 ? `<div class="w-grid">${data.html}</div>`
-                : '<div class="ag-loading">(・ω・) 暂无作品呢～</div>';
+                : '<div class="ag-loading">暂无作品呢～</div>';
             if (data.has_more) {
                 body.insertAdjacentHTML('beforeend',
                     `<div class="ag-more-bar"><a href="/works?author=${encodeURIComponent(author)}&page=1">查看全部 ${data.total} 部 →</a></div>`);
             }
         } catch (e) {
-            body.innerHTML = '<div class="ag-loading">(｡•́︿•̀｡) 加载失败，再点一次重试</div>';
+            body.innerHTML = '<div class="ag-loading">加载失败，再点一次重试</div>';
             delete body.dataset.loaded;
         }
     }
 
     function toggleGroup(header) {
         const section = header.closest('.ag-group');
+        const author = header.getAttribute('data-author');
         const willExpand = section.classList.contains('collapsed') || !section.classList.contains('expanded');
         section.classList.toggle('collapsed');
         section.classList.add('expanded');
+        // 持久化折叠状态（按作者名记忆）
+        const map = readCollapsedMap();
+        if (author) {
+            if (section.classList.contains('collapsed')) map[author] = 1; else delete map[author];
+            writeCollapsedMap(map);
+        }
         if (willExpand && section.classList.contains('ag-lazy') && !section.querySelector('.ag-body').dataset.loaded) {
             loadAuthorGroup(header);
         }
     }
+
+    // 初始化：应用持久化的折叠状态
+    (function () {
+        const saved = readCollapsedMap();
+        document.querySelectorAll('.ag-group').forEach(section => {
+            const btn = section.querySelector('.ag-header');
+            const author = btn && btn.getAttribute('data-author');
+            if (author && saved[author]) section.classList.add('collapsed');
+        });
+    })();
     </script>
 
     <!-- 单作者分页 -->
@@ -240,7 +272,7 @@
     <!-- 空状态 -->
     <div class="w-empty">
         <div class="w-empty-icon">🔍</div>
-        <p class="w-empty-title">{{ '(・ω・) 没有找到符合条件的作品呀～' if has_filters else '书架空空如也～' }}</p>
+        <p class="w-empty-title">{{ '没有找到符合条件的作品呀～' if has_filters else '书架空空如也～' }}</p>
         <p class="w-empty-sub">{{ '试试调整关键词或筛选条件吧～' if has_filters else '通过 <code>akm import</code> 导入或 <code>akm pull</code> 下载作品吧～' }}</p>
         {% if has_filters %}<a href="/works" class="w-empty-btn">清除筛选</a>{% endif %}
     </div>
