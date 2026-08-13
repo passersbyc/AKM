@@ -23,7 +23,7 @@ class ExportCommand(BaseCommand):
     verb = "export"
     nouns = ["author", "mylikeauthor", "mylikeworks", "all"]
     description = "导出作品到指定目录"
-    group = "导出 (ノ・ω・)ノ"
+    group = "导出"
     noun_descriptions = {
         "author": "导出指定作者的全部作品",
         "mylikeauthor": "导出我关注的作者的作品",
@@ -83,20 +83,20 @@ class ExportCommand(BaseCommand):
         try:
             dest_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            self.output.error(f"[red](｡•́︿•̀｡)[/red] 无法创建目标目录: {e}")
+            self.output.error(f"无法创建目标目录: {e}")
             return None
         return dest_dir
 
     def _print_result(self, result: dict, fmt_label: str) -> int:
         if not result["success"]:
-            self.output.info(f"[red](｡•́︿•̀｡)[/red] 导出失败: {result.get('error', '未知错误')}")
+            self.output.info(f"导出失败: {result.get('error', '未知错误')}")
             return 1
         dest = result.get("destination", "")
         try:
             dest = str(Path(dest).relative_to(Path.cwd()))
         except ValueError:
             pass
-        self.output.info(f"[green](◕‿◕) 导出完成:[/green] {fmt_label} "
+        self.output.info(f"[green]导出完成:[/green] {fmt_label} "
                          f"[bright_green]{dest}[/bright_green] "
                          f"[yellow]({result['exported']} 项)[/yellow]")
         return 0
@@ -187,7 +187,7 @@ class ExportCommand(BaseCommand):
             output_format=getattr(args, 'format', 'zip'),
         )
         if not result["success"]:
-            self.output.info(f"[red](｡•́︿•̀｡)[/red] 导出失败: {result.get('error', '未知错误')}")
+            self.output.info(f"导出失败: {result.get('error', '未知错误')}")
             return 1
         dest = result.get("destination", "")
         try:
@@ -200,6 +200,6 @@ class ExportCommand(BaseCommand):
             detail = f" [yellow](作者 {r['succeeded']}/{r['total']}，{result['exported']} 个文件)[/yellow]"
             if r.get("errors"):
                 detail += f"\n[yellow]失败: {'; '.join(r['errors'][:5])}[/yellow]"
-        self.output.info(f"[green](◕‿◕) 导出完成:[/green] 压缩包 "
+        self.output.info(f"[green]导出完成:[/green] 压缩包 "
                          f"[bright_green]{dest}[/bright_green]{detail}")
         return 0

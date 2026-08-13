@@ -9,7 +9,7 @@ class InfoCommand(BaseCommand):
     verb = "info"
     nouns = ["work"]
     description = "查看作品完整元数据"
-    group = "浏览 (・ω・)"
+    group = "浏览"
     noun_descriptions = {"work": "查看作品的完整元数据"}
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
@@ -24,22 +24,22 @@ class InfoCommand(BaseCommand):
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         if noun != "work":
-            return self.output.result(False, error="[yellow](・ω・)[/yellow] info 仅支持 work 哦～")
+            return self.output.result(False, error="info 仅支持 work 哦～")
         target = args.target
         book = get_info(target, "book")
         if not book:
-            return self.output.result(False, error=f"[yellow](・ω・)[/yellow]? 找不到 ID: {target} 哦～")
+            return self.output.result(False, error=f"找不到 ID: {target} 哦～")
 
         if getattr(args, "url", False):
             source = book.get("来源", "").strip()
             if source and source.startswith("http"):
                 import webbrowser
                 webbrowser.open(source)
-                logger.info(f"(◕‿◕) 已打开: {source}")
+                logger.info(f" 已打开: {source}")
             elif source == "local":
-                logger.info("(・ω・) 该作品为本地导入，没有来源网址哦～")
+                logger.info(" 该作品为本地导入，没有来源网址哦～")
             else:
-                logger.warning(f"(・ω・) 来源不是有效网址: {source or '(空)'}")
+                logger.warning(f" 来源不是有效网址: {source or '(空)'}")
 
         if getattr(args, "open", False):
             from pathlib import Path
@@ -47,10 +47,10 @@ class InfoCommand(BaseCommand):
             fp = Path(book.get("文件路径", "").strip())
             if fp.exists():
                 subprocess.run(["open", str(fp)])
-                logger.info(f"(◕‿◕) 已打开: {fp.name}")
+                logger.info(f" 已打开: {fp.name}")
                 self._record_open(target, book.get("标题", ""))
             else:
-                logger.warning(f"(｡•́︿•̀｡) 文件不存在: {fp}")
+                logger.warning(f" 文件不存在: {fp}")
 
         if self.output.json_mode:
             return self.output.result(True, data={"book": book})
@@ -74,7 +74,7 @@ class InfoCommand(BaseCommand):
                 ("文件大小", f"{book.get('文件大小(KB)', '0')} KB"),
                 ("MD5", book.get("MD5", "")),
                 ("导入时间", book.get("导入时间", "")),
-                ("收藏", "(◕‿◕)" if book.get("收藏", "否") == "是" else ""),
+                ("收藏", "" if book.get("收藏", "否") == "是" else ""),
             ]:
                 table.add_row(k, str(v))
             likes = book.get("点赞", "0") or "0"

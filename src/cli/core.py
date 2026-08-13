@@ -87,14 +87,14 @@ class NoExitArgumentParser(argparse.ArgumentParser):
 class CLIApp:
     #: 顶层/交互帮助的命令分组展示顺序；未声明的组按发现顺序排在最后
     GROUP_ORDER: list[str] = [
-        "浏览 (・ω・)",
-        "管理 (๑•̀ㅂ•́)و",
-        "订阅下载 (◕‿◕)",
-        "导出 (ノ・ω・)ノ",
-        "系统 ⚙️",
+        "浏览",
+        "管理",
+        "订阅下载",
+        "导出",
+        "系统",
     ]
 
-    def __init__(self, prog_name: str = "akm", description: str = "作品管理系统 CLI (◕‿◕)"):
+    def __init__(self, prog_name: str = "akm", description: str = "作品管理系统 CLI"):
         self.prog_name = prog_name
         self.description = description
         self.parser = NoExitArgumentParser(prog=prog_name, description=description)
@@ -302,7 +302,7 @@ class CLIApp:
 
             command = self._commands.get(verb)
             if command is None:
-                logger.error(f"(・ω・) 未知命令: {verb}")
+                logger.error(f"未知命令: {verb}")
                 return 1
 
             # 如果 verb 有 nouns 且第一个非 flag 参数匹配某 noun，用 noun subparser
@@ -323,7 +323,7 @@ class CLIApp:
                 noun = first_pos
                 noun_parser = self._noun_parsers.get((verb, noun))
                 if noun_parser is None:
-                    logger.error(f"(・ω・) noun {noun} 未注册")
+                    logger.error(f"noun {noun} 未注册")
                     return 1
                 noun_args = remaining[:first_pos_idx] + remaining[first_pos_idx + 1:]
                 args = noun_parser.parse_args(noun_args)
@@ -335,7 +335,7 @@ class CLIApp:
                 # 用 verb exec parser（无 subparsers，不会拦截 positional）
                 verb_parser = self._exec_parsers.get(verb)
                 if verb_parser is None:
-                    logger.error(f"(・ω・) verb {verb} 未注册")
+                    logger.error(f"verb {verb} 未注册")
                     return 1
                 args = verb_parser.parse_args(remaining)
                 args.verb = verb
@@ -345,10 +345,10 @@ class CLIApp:
         except ArgumentParserError as e:
             if "Exited with status 0" in str(e):
                 return 0
-            logger.error(f"(｡•́︿•̀｡) 用法错误: {translate_error(str(e))}")
+            logger.error(f"用法错误: {translate_error(str(e))}")
             return 1
         except Exception as e:
-            logger.error(f"(｡•́︿•̀｡) 错误: {e}")
+            logger.error(f"错误: {e}")
             return 1
 
     def _print_interactive_help(self) -> None:
@@ -377,14 +377,14 @@ class CLIApp:
                         content.append(desc, style="dim")
             console.print(Panel(
                 content,
-                title="[bold]可用的命令们 (・ω・)[/bold]",
+                title="[bold]可用的命令们[/bold]",
                 subtitle="[dim]输入 <命令> --help 查看参数  |  exit 退出哦[/dim]",
                 box=box.ROUNDED,
                 border_style="bright_cyan",
                 padding=(1, 2),
             ))
         except ImportError:
-            print("\n可用的命令们 (・ω・):")
+            print("\n可用的命令们:")
             for group, cmds in ordered:
                 print(f"\n  {group}")
                 for verb, cls in cmds:
@@ -424,7 +424,7 @@ class CLIApp:
                 try:
                     argv = shlex.split(user_input, posix=not is_windows)
                 except ValueError as e:
-                    print(f"(｡•́︿•̀｡) 解析错误: {translate_error(str(e))}")
+                    print(f" 解析错误: {translate_error(str(e))}")
                     continue
                 if is_windows:
                     argv = [arg.strip("\"'") for arg in argv]
@@ -432,15 +432,15 @@ class CLIApp:
                 try:
                     self.run(argv)
                 except ArgumentParserError as e:
-                    print(f"(｡•́︿•̀｡) 错误: {e}")
+                    print(f" 错误: {e}")
                 except SystemExit:
                     pass
             except KeyboardInterrupt:
                 print("\n输入 'exit' 退出程序哦。")
             except EOFError:
-                print("\n(・ω・) 正在退出...")
+                print("\n 正在退出...")
                 break
             except Exception as e:
-                print(f"(｡•́︿•̀｡) 意外错误: {e}")
+                print(f" 意外错误: {e}")
 
         return 0

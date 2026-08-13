@@ -15,7 +15,7 @@ class PullCommand(BaseCommand):
     verb = "pull"
     nouns: list[str] = []
     description = "拉取下载队列中的待下载作品并入库"
-    group = "订阅下载 (◕‿◕)"
+    group = "订阅下载"
 
     def __init__(self) -> None:
         super().__init__()
@@ -36,7 +36,7 @@ class PullCommand(BaseCommand):
         all_urls = [e["url"] for e in entries]
 
         if not all_urls:
-            self.output.info("[yellow](・ω・)[/yellow] 下载队列空空如也，先用 follow 同步收集新作再 pull 哦～")
+            self.output.info("下载队列空空如也，先用 follow 同步收集新作再 pull 哦～")
             return 0
 
         logger.info(f"从下载队列拉取 {len(all_urls)} 个作品")

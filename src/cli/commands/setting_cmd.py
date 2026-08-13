@@ -45,7 +45,7 @@ class SettingCommand(BaseCommand):
     verb = "setting"
     nouns = list(_SETTING_KEYS.keys()) + ["check"]
     description = "交互式配置项目设置"
-    group = "系统 ⚙️"
+    group = "系统"
     noun_descriptions = {
         "export_path": "设置导出目录路径",
         "export_format": "设置导出格式（folder/zip/epub）",
@@ -109,13 +109,13 @@ class SettingCommand(BaseCommand):
             return 0
 
         if not value:
-            self.output.info("[dim](・ω・) 未修改～[/dim]")
+            self.output.info("[dim]未修改～[/dim]")
             return 0
 
         if "choices" in cfg:
             value = value.lower()
             if value not in cfg["choices"]:
-                self.output.info(f"[red](｡•́︿•̀｡) 无效格式: {value}，可选: {', '.join(cfg['choices'])}[/red]")
+                self.output.info(f"[red]无效格式: {value}，可选: {', '.join(cfg['choices'])}[/red]")
                 return 1
 
         # ── db_path: 目录自动追加 library.db ─────────────
@@ -132,28 +132,28 @@ class SettingCommand(BaseCommand):
                 size = self._dir_size(old_path) if old_path.is_dir() else old_path.stat().st_size
                 size_str = f"{size / 1024:.0f} KB" if size < 1024 * 1024 else f"{size / 1024 / 1024:.1f} MB"
 
-                self.output.info(f"\n[yellow](・ω・) 检测到旧路径有数据: {old_path} ({size_str})[/yellow]")
+                self.output.info(f"\n[yellow]检测到旧路径有数据: {old_path} ({size_str})[/yellow]")
                 try:
-                    confirm = input("(・ω・) 要把数据迁移到新路径吗？ [y/N]: ").strip().lower()
+                    confirm = input(" 要把数据迁移到新路径吗？ [y/N]: ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     confirm = "n"
 
                 if confirm in ("y", "yes"):
                     if self._migrate(noun, old_path, new_path):
-                        self.output.info(f"[green](◕‿◕) 迁移完成[/green]")
+                        self.output.info(f"[green]迁移完成[/green]")
                     else:
-                        self.output.info("[red](｡•́︿•̀｡) 迁移失败，请手动处理吧[/red]")
+                        self.output.info("[red]迁移失败，请手动处理吧[/red]")
                         return 1
                 else:
-                    self.output.info("[dim](・ω・) 跳过迁移～[/dim]")
+                    self.output.info("[dim]跳过迁移～[/dim]")
 
         self._set_value(config, cfg, value)
         self._save_config(config)
 
-        self.output.info(f"[green](◕‿◕) 已更新 {label}: {value}[/green]")
+        self.output.info(f"[green]已更新 {label}: {value}[/green]")
 
         if noun in ("library_path", "library_db_path"):
-            self.output.info("[yellow](・ω・) 请重启程序让路径变更生效哦[/yellow]")
+            self.output.info("[yellow]请重启程序让路径变更生效哦[/yellow]")
 
         return 0
 
@@ -203,9 +203,9 @@ class SettingCommand(BaseCommand):
             if event == "start":
                 total = kw.get("total", 0)
                 if not total:
-                    self.output.info("[yellow](・ω・)[/yellow] 书架空空如也，无需检查哦～")
+                    self.output.info("书架空空如也，无需检查哦～")
                     return
-                self.output.info(f"[green](◕‿◕)[/green] 检查中... [bold]{total}[/bold] 个作品\n")
+                self.output.info(f"检查中... [bold]{total}[/bold] 个作品\n")
                 from src.core.progress import make_progress
                 state["progress"], *tasks = make_progress(
                     {"success": 0, "failed": 0, "skipped": 0}, "检查进度", total=total)
@@ -237,23 +237,23 @@ class SettingCommand(BaseCommand):
         total = result["total"]
 
         self.output.info("")
-        self.output.info(f"[bold](◕‿◕) 检查完成: {total} 作品[/bold]")
-        self.output.info(f"  [green](◕‿◕) OK:       {ok}[/green]")
+        self.output.info(f"[bold]检查完成: {total} 作品[/bold]")
+        self.output.info(f"  [green]OK:       {ok}[/green]")
         if corrupt:
-            self.output.info(f"  [red](｡•́︿•̀｡) 损坏:    {corrupt} (文件缺失/损坏)[/red]")
+            self.output.info(f"  [red]损坏:    {corrupt} (文件缺失/损坏)[/red]")
         if queued:
-            self.output.info(f"  [yellow](◕‿◕) 已入队:    {queued} (将重新下载)[/yellow]")
+            self.output.info(f"  [yellow]已入队:    {queued} (将重新下载)[/yellow]")
         if deleted:
-            self.output.info(f"  [red](｡•́︿•̀｡) 已删除:    {deleted} (无源可恢复)[/red]")
+            self.output.info(f"  [red]已删除:    {deleted} (无源可恢复)[/red]")
         if cleaned:
-            self.output.info(f"  [dim](・ω・) 已清理:    {cleaned} (孤立文件)[/dim]")
+            self.output.info(f"  [dim]已清理:    {cleaned} (孤立文件)[/dim]")
         if not corrupt and not queued and not deleted and not cleaned:
-            self.output.info(f"  [green](◕‿◕) 全部正常[/green]")
+            self.output.info(f"  [green]全部正常[/green]")
         else:
             total_pending = corrupt + queued + deleted
-            self.output.info(f"\n[dim](｡•́︿•̀｡) 共 {total_pending} 项异常，{cleaned} 个孤立文件已清理[/dim]")
+            self.output.info(f"\n[dim]共 {total_pending} 项异常，{cleaned} 个孤立文件已清理[/dim]")
             if queued:
-                self.output.info("[yellow](◕‿◕) 运行 pull 重新下载已入队的作品吧[/yellow]")
+                self.output.info("[yellow]运行 pull 重新下载已入队的作品吧[/yellow]")
 
         return 0
 

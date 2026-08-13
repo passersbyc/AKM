@@ -9,7 +9,7 @@ class SearchCommand(BaseCommand):
     verb = "search"
     nouns = ["author", "label"]
     description = "搜索作品、作者或标签"
-    group = "浏览 (・ω・)"
+    group = "浏览"
     noun_descriptions = {
         "author": "按名称搜索作者（同时列出名下作品）",
         "label": "按标签搜索作品",
@@ -67,10 +67,10 @@ class SearchCommand(BaseCommand):
             return self.output.result(True, {"total": total, "items": items})
 
         if not items:
-            self.output.info("[yellow](・ω・)? 什么都没有找到哦～[/yellow]")
+            self.output.info("[yellow]? 什么都没有找到哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan](◕‿◕) 找到 {total} 个结果：[/cyan]")
+        self.output.info(f"[cyan]找到 {total} 个结果：[/cyan]")
         columns = [
             {"header": "ID", "width": 10},
             {"header": "标题", "style": "green"},
@@ -87,7 +87,7 @@ class SearchCommand(BaseCommand):
                 row.get("标题", ""),
                 row.get("作者", "未知"),
                 row.get("分类", "") or "未知",
-                "(◕‿◕)" if row.get("收藏", "否") == "是" else "",
+                "♥" if row.get("收藏", "否") == "是" else "",
                 rating if float(rating) > 0 else "",
             ])
         self.output.table("搜索结果", columns, rows)
@@ -104,10 +104,10 @@ class SearchCommand(BaseCommand):
             return self.output.result(True, {"total": total, "items": [dict(r) for r in rows]})
 
         if not rows:
-            self.output.info(f"[yellow](・ω・)? 没有找到标签 [{args.query}] 的作品哦～[/yellow]")
+            self.output.info(f"[yellow]? 没有找到标签 [{args.query}] 的作品哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan](◕‿◕) 标签 [{args.query}] 找到 {total} 个作品：[/cyan]")
+        self.output.info(f"[cyan]标签 [{args.query}] 找到 {total} 个作品：[/cyan]")
         self.output.table("标签搜索结果", [
             {"header": "ID", "width": 10},
             {"header": "标题", "style": "green"},
@@ -122,7 +122,7 @@ class SearchCommand(BaseCommand):
                 r["author_name"] or "未知",
                 r["file_type"] or "未知",
                 r["tags"] or "",
-                "(◕‿◕)" if r["favorite"] else "",
+                "" if r["favorite"] else "",
             ]
             for r in rows
         ])
@@ -148,17 +148,17 @@ class SearchCommand(BaseCommand):
             })
 
         if not rows:
-            self.output.info("[yellow](・ω・)? 没有找到匹配的作者哦～[/yellow]")
+            self.output.info("[yellow]? 没有找到匹配的作者哦～[/yellow]")
             return 0
 
-        self.output.info(f"[cyan](◕‿◕) 找到 {total} 位作者：[/cyan]")
+        self.output.info(f"[cyan]找到 {total} 位作者：[/cyan]")
         self.output.table("作者搜索结果", [
             {"header": "ID", "style": "magenta", "width": 6},
             {"header": "名称", "style": "bold"},
             {"header": "收藏", "style": "red", "width": 4},
             {"header": "作品数", "justify": "right", "style": "green"},
         ], [
-            [r["id"], r["name"], "(◕‿◕)" if r["favorite"] else "", str(r["work_count"])]
+            [r["id"], r["name"], "" if r["favorite"] else "", str(r["work_count"])]
             for r in rows
         ])
 

@@ -24,7 +24,7 @@ class StatsCommand(BaseCommand):
     verb = "stats"
     nouns: list[str] = []
     description = "库仪表盘：概览 + 分类/状态 + 最近活动 + 标签/作者/点赞排行"
-    group = "浏览 (・ω・)"
+    group = "浏览"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--top", type=int, default=10,
@@ -47,7 +47,7 @@ class StatsCommand(BaseCommand):
 
         # ── 概览 ──
         console.print()
-        console.print(Rule("[bold bright_cyan]库统计 (◕‿◕)[/bold bright_cyan]", style="bright_cyan"))
+        console.print(Rule("[bold bright_cyan]库统计 [/bold bright_cyan]", style="bright_cyan"))
         console.print(
             f"  [dim]作品[/dim] [bold yellow]{_fmt(stats['total_books'])}[/bold yellow]"
             f"   [dim]作者[/dim] [bold yellow]{_fmt(stats['total_authors'])}[/bold yellow]"

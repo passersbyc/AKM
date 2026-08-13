@@ -10,7 +10,7 @@ class ImportCommand(BaseCommand):
     verb = "import"
     nouns: list[str] = []
     description = "将文件导入到作品库中（自动识别单文件 / cdbook 目录 / 普通文件夹）"
-    group = "管理 (๑•̀ㅂ•́)و"
+    group = "管理"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("files", type=str, nargs="+", help="要导入的文件路径～")
@@ -30,7 +30,7 @@ class ImportCommand(BaseCommand):
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         rating = args.rating
         if not (0.0 <= rating <= 10.0):
-            return self.output.result(False, error="[red](｡•́︿•̀｡)[/red] 评分必须在 0-10 之间哦！")
+            return self.output.result(False, error="评分必须在 0-10 之间哦！")
 
         paths = [Path(f) for f in args.files]
         cdbook_dirs = [p for p in paths if p.is_dir() and p.name.lower() == "cdbook"]
@@ -39,7 +39,7 @@ class ImportCommand(BaseCommand):
 
         if non_cdbook_dirs:
             if cdbook_dirs or files or len(non_cdbook_dirs) > 1:
-                return self.output.result(False, error="[yellow](・ω・)[/yellow] 文件夹导入不能与其他路径混合啦，一次只能一个哦～")
+                return self.output.result(False, error="文件夹导入不能与其他路径混合啦，一次只能一个哦～")
             folder = str(non_cdbook_dirs[0])
             logger.info(f"检测到文件夹，作者: {non_cdbook_dirs[0].name}，进入批量导入模式...")
             return self._report_batch(
@@ -51,7 +51,7 @@ class ImportCommand(BaseCommand):
 
         if cdbook_dirs:
             if len(cdbook_dirs) > 1 or files:
-                return self.output.result(False, error="[yellow](・ω・)[/yellow] cdbook 目录导入不能与其他路径混合啦，一次只能一个哦～")
+                return self.output.result(False, error="cdbook 目录导入不能与其他路径混合啦，一次只能一个哦～")
             logger.info("检测到 cdbook 目录，进入批量导入模式...")
             return self._report_batch(
                 batch_import_cdbook(directory=str(cdbook_dirs[0]),
@@ -60,7 +60,7 @@ class ImportCommand(BaseCommand):
             )
 
         if not files:
-            return self.output.result(False, error="[yellow](・ω・)[/yellow]? 找不到有效的文件或 cdbook 目录哦～")
+            return self.output.result(False, error="找不到有效的文件或 cdbook 目录哦～")
 
         results = import_files_batch(
             files=[str(f) for f in files], author=args.author or "佚名", series=args.series,

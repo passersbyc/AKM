@@ -10,7 +10,7 @@ class ListCommand(BaseCommand):
     verb = "list"
     nouns = ["author", "download"]
     description = "列出库中的作品或作者"
-    group = "浏览 (・ω・)"
+    group = "浏览"
     noun_descriptions = {
         "author": "列出库中的作者",
         "download": "查看下载队列",
@@ -60,7 +60,7 @@ class ListCommand(BaseCommand):
             return self.output.result(True, data={"works": items, "total": total})
 
         if not items:
-            logger.info("(・ω・) 书架空空如也～")
+            logger.info(" 书架空空如也～")
             return 0
 
         limit = args.number if args.number > 0 else (0 if args.no_limit else 300)
@@ -93,7 +93,7 @@ class ListCommand(BaseCommand):
                 author,
                 row.get("系列", "-") or "-",
                 row.get("分类", "") or "未知",
-                "(◕‿◕)" if row.get("收藏", "否") == "是" else "",
+                "♥" if row.get("收藏", "否") == "是" else "",
                 likes if int(likes) > 0 else "",
                 rating if float(rating) > 0 else "",
                 end_section=is_last_of_author,
@@ -108,7 +108,7 @@ class ListCommand(BaseCommand):
             from src.operations.matcher import resolve_author
             author = resolve_author(target)
             if not author:
-                self.output.info(f"[red](｡•́︿•̀｡)[/red] 未找到作者: {target}")
+                self.output.info(f"未找到作者: {target}")
                 return 1
             args.author = author.get("name", target)
             args.sort_by = getattr(args, "sort_by", "id")
@@ -127,7 +127,7 @@ class ListCommand(BaseCommand):
             return self.output.result(True, data={"authors": items, "total": len(items)})
 
         if not items:
-            logger.info("(・ω・) 还没有作者呢～")
+            logger.info(" 还没有作者呢～")
             return 0
 
         from rich.table import Table
@@ -174,7 +174,7 @@ class ListCommand(BaseCommand):
         rows = list_download_queue(show_all=getattr(args, "all", False))
 
         if not rows:
-            self.output.info("[yellow](・ω・)[/yellow] 下载队列空空如也～")
+            self.output.info("下载队列空空如也～")
             return 0
 
         if self.output.json_mode:

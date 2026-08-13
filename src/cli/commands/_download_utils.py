@@ -34,16 +34,16 @@ def _key_listener(ctrl: DownloadControl):
             key = sys.stdin.read(1).lower()
             if key == 'p' and not ctrl.paused:
                 ctrl.pause.set()
-                sys.stderr.write("\r(・ω・) 正在暂停...\n")
+                sys.stderr.write("\r正在暂停...\n")
                 sys.stderr.flush()
             elif key == 'o' and ctrl.paused:
                 ctrl.pause.clear()
-                sys.stderr.write("\r(◕‿◕) 已继续～\n")
+                sys.stderr.write("\r已继续～\n")
                 sys.stderr.flush()
             elif key == 'c':
                 ctrl.pause.set()
                 ctrl.request_cancel()
-                sys.stderr.write("\r(｡•́︿•̀｡) 退出中...\n")
+                sys.stderr.write("\r退出中...\n")
                 sys.stderr.flush()
                 break
     finally:
@@ -83,7 +83,7 @@ class DownloadGroupRunner:
             self.ctrl.sigint_count += 1
             if self.ctrl.sigint_count == 1:
                 self.ctrl.pause.set()
-                sys.stderr.write("\r(・ω・) 正在暂停... (再按 Ctrl+C 强制退出)\n")
+                sys.stderr.write("\r正在暂停... (再按 Ctrl+C 强制退出)\n")
                 sys.stderr.flush()
             else:
                 self.ctrl.request_cancel()
