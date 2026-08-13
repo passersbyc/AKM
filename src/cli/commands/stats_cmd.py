@@ -24,6 +24,7 @@ class StatsCommand(BaseCommand):
     verb = "stats"
     nouns: list[str] = []
     description = "库仪表盘：概览 + 分类/状态 + 最近活动 + 标签/作者/点赞排行"
+    group = "浏览 (・ω・)"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--top", type=int, default=10,

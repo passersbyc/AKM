@@ -3,11 +3,71 @@ import argparse
 import json
 import shlex
 import sys
+import unicodedata
 from typing import Optional
 
 from src.cli.base import BaseCommand
 from src.core.config import translate_error
 from src.core.logging import logger
+
+
+def _display_width(text: str) -> int:
+    """按终端显示列宽计算长度（CJK 宽字符 = 2，组合音标 = 0）。"""
+    width = 0
+    for ch in text:
+        if unicodedata.category(ch) in ("Mn", "Me"):
+            continue
+        width += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    return width
+
+
+def _truncate_display(text: str, width: int) -> str:
+    """按显示宽度截断，超出部分替换为 …（预留 1 列）。"""
+    out: list[str] = []
+    used = 0
+    for ch in text:
+        ch_w = _display_width(ch)
+        if ch_w == 0:
+            out.append(ch)
+            continue
+        if used + ch_w > width - 1:
+            break
+        out.append(ch)
+        used += ch_w
+    result = "".join(out)
+    return result + ("…" if len(result) < len(text) else "")
+
+
+def _wrap_by_width(text: str, width: int) -> list[str]:
+    """按显示宽度折行（CJK 感知，优先在空格处断开），返回行列表。"""
+    if width <= 8:
+        width = 8
+    lines: list[str] = []
+    cur: list[str] = []
+    cur_w = 0
+    last_space = -1  # cur 中最后一个空格的下标
+    for ch in text:
+        ch_w = _display_width(ch)
+        if ch_w == 0:
+            cur.append(ch)
+            continue
+        if cur_w + ch_w > width and cur:
+            if last_space > 0:
+                lines.append("".join(cur[: last_space + 1]).rstrip())
+                rest = cur[last_space + 1 :]
+                cur = rest[:]
+                cur_w = sum(_display_width(c) for c in cur)
+            else:
+                lines.append("".join(cur))
+                cur, cur_w = [], 0
+            last_space = -1
+        if ch == " ":
+            last_space = len(cur)
+        cur.append(ch)
+        cur_w += ch_w
+    if cur:
+        lines.append("".join(cur))
+    return lines or [""]
 
 
 class ArgumentParserError(Exception):
@@ -25,6 +85,15 @@ class NoExitArgumentParser(argparse.ArgumentParser):
 
 
 class CLIApp:
+    #: 顶层/交互帮助的命令分组展示顺序；未声明的组按发现顺序排在最后
+    GROUP_ORDER: list[str] = [
+        "浏览 (・ω・)",
+        "管理 (๑•̀ㅂ•́)و",
+        "订阅下载 (◕‿◕)",
+        "导出 (ノ・ω・)ノ",
+        "系统 ⚙️",
+    ]
+
     def __init__(self, prog_name: str = "akm", description: str = "作品管理系统 CLI (◕‿◕)"):
         self.prog_name = prog_name
         self.description = description
@@ -73,15 +142,125 @@ class CLIApp:
             noun_subs = verb_parser.add_subparsers(dest="noun", help="资源类型")
             self._noun_subs[verb] = noun_subs
             for noun in nouns:
-                np = noun_subs.add_parser(noun, help=f"{noun}")
+                noun_help = command_cls.noun_descriptions.get(noun) or f"{verb} {noun}"
+                np = noun_subs.add_parser(noun, help=noun_help)
                 self._add_global_flags(np)
                 command.configure_noun_parser(np, noun)
 
                 # 独立 noun parser
-                exec_np = NoExitArgumentParser(prog=f"{verb} {noun}", description=f"{noun}")
+                exec_np = NoExitArgumentParser(prog=f"{verb} {noun}", description=noun_help)
                 self._add_global_flags(exec_np)
                 command.configure_noun_parser(exec_np, noun)
                 self._noun_parsers[(verb, noun)] = exec_np
+
+    # ── 帮助渲染 ──────────────────────────────────────────
+
+    def _ordered_command_groups(self) -> list[tuple[str, list[tuple[str, type[BaseCommand]]]]]:
+        """按 GROUP_ORDER 聚合已注册命令，返回 [(组名, [(verb, 命令类), ...]), ...]。"""
+        groups: dict[str, list[tuple[str, type[BaseCommand]]]] = {}
+        for verb, command in self._commands.items():
+            group = getattr(command, "group", "") or "其他"
+            groups.setdefault(group, []).append((verb, type(command)))
+
+        def _group_rank(item: tuple[str, list]) -> tuple[int, int]:
+            group = item[0]
+            try:
+                return (0, self.GROUP_ORDER.index(group))
+            except ValueError:
+                return (1, list(groups).index(group))
+
+        return sorted(groups.items(), key=_group_rank)
+
+    @staticmethod
+    def _noun_hint(nouns: list[str], max_width: int = 26) -> str:
+        """生成 [a|b|c] 提示；超宽时在 | 边界截断为 [a|b|…]。"""
+        if not nouns:
+            return ""
+        hint = "[" + "|".join(nouns) + "]"
+        if _display_width(hint) <= max_width:
+            return hint
+        best = ""
+        for noun in nouns:
+            candidate = f"{best}|{noun}" if best else noun
+            if _display_width(f"[{candidate}|…]") > max_width:
+                break
+            best = candidate
+        return f"[{best}|…]" if best else f"[{_truncate_display(nouns[0], max_width - 5)}…]"
+
+    @staticmethod
+    def _layout_rows(left_text: str, desc: str, hint: str, width: int, verb_col: int) -> list[tuple[str, str, str]]:
+        """排版一条命令为多行：[(左列, 描述, 提示), ...]，续行左列为空格填充，描述按显示宽折行。"""
+        first_avail = width - 2 - (verb_col - 2) - 2 - (_display_width(hint) + 2 if hint else 0)
+        chunks = _wrap_by_width(desc, max(first_avail, 12))
+        rows = [(left_text.ljust(verb_col - 2), chunks[0], hint)]
+        rows += [(" " * (verb_col - 2), chunk, "") for chunk in chunks[1:]]
+        return rows
+
+    def _print_top_help(self, json_mode: bool = False) -> int:
+        """渲染顶层 `akm --help`：rich 分组面板，--json 时输出机器可读清单。"""
+        ordered = self._ordered_command_groups()
+
+        if json_mode:
+            payload = {
+                "program": self.prog_name,
+                "description": self.description,
+                "usage": f"{self.prog_name} <命令> [参数]  [--json] [--no-confirm]",
+                "global_flags": [
+                    {"flag": "--json", "help": "以JSON格式输出（智能体模式）"},
+                    {"flag": "--no-confirm", "help": "跳过所有确认提示（智能体模式）"},
+                ],
+                "groups": [
+                    {
+                        "group": group,
+                        "commands": [
+                            {
+                                "verb": verb,
+                                "description": cls.description,
+                                "nouns": list(cls.nouns or []),
+                                "noun_descriptions": dict(cls.noun_descriptions or {}),
+                            }
+                            for verb, cls in cmds
+                        ],
+                    }
+                    for group, cmds in ordered
+                ],
+            }
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 0
+
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
+        from rich import box
+        console = Console()
+        # Panel 边框 2 + 左右 padding 4*2，内容可用宽
+        width = max(60, (console.width or 80) - 10)
+
+        content = Text()
+        content.append(f"用法: {self.prog_name} <命令> [参数]  [--json] [--no-confirm]", style="bold")
+        content.append(f"\n{self.description}", style="dim")
+
+        for group, cmds in ordered:
+            content.append(f"\n\n{group}", style="bold bright_cyan")
+            for verb, cls in cmds:
+                hint = self._noun_hint(list(cls.nouns or []), 30)
+                for left, desc, hint_part in self._layout_rows(verb, cls.description, hint, width, 12):
+                    content.append("\n  ")
+                    content.append(left, style="bold cyan")
+                    content.append(" ")
+                    content.append(desc, style="default")
+                    if hint_part:
+                        content.append("  ")
+                        content.append(hint_part, style="italic yellow")
+        console.print(Panel(
+            content,
+            title="[bold]AKM · 作品管理系统[/bold]",
+            subtitle="[dim]akm <命令> --help 查看参数  |  直接运行 akm 进入交互模式[/dim]",
+            box=box.ROUNDED,
+            border_style="bright_cyan",
+            padding=(1, 2),
+        ))
+        return 0
 
     def _show_welcome_once(self) -> None:
         if self._welcome_shown:
@@ -98,6 +277,13 @@ class CLIApp:
 
         if not argv:
             return self.run_interactive()
+
+        # 顶层帮助：无 verb 的 -h/--help（如 `akm --help`、`akm --json -h`）
+        # 有 verb 时（`akm list -h`）走 argparse 默认的子命令帮助
+        if any(a in ("-h", "--help") for a in argv):
+            first_pos = next((a for a in argv if not a.startswith("-")), None)
+            if first_pos not in self._commands:
+                return self._print_top_help(json_mode="--json" in argv)
 
         self._show_welcome_once()
 
@@ -166,44 +352,29 @@ class CLIApp:
             return 1
 
     def _print_interactive_help(self) -> None:
-        groups = [
-            ("浏览 (・ω・)", [
-                ("list [N]", "列出作品～"),
-                ("list author [N]", "列出作者～"),
-                ("open <id/名称>", "打开作品文件哦"),
-                ("open url <id/名称/作者>", "打开来源网址呀"),
-                ("search <关键词> [N]", "搜索作品呀"),
-                ("search author <关键词> [N]", "搜索作者呀"),
-                ("search label <标签> [N]", "按标签搜索啦"),
-                ("stats", "库仪表盘 (・ω・)"),
-            ]),
-            ("增删改 (・ω・)", [
-                ("import <路径>", "导入文件～"),
-                ("edit <id/名称>", "交互式编辑作品哦"),
-                ("delete <id/名称>", "删除作品呀"),
-                ("delete author <id/名称>", "删除作者呀"),
-                ("delete all", "清空库哦"),
-            ]),
-            ("订阅 (・ω・)", [
-                ("follow", "同步下载队列～"),
-                ("follow <url>", "关注作者 (◕‿◕)"),
-                ("pull", "下载队列作品 (◕‿◕)"),
-            ]),
-        ]
+        """交互模式 help — 从已注册命令动态生成（按 group 分组，不再硬编码）。"""
+        ordered = self._ordered_command_groups()
         try:
             from rich.console import Console
             from rich.panel import Panel
             from rich.text import Text
             from rich import box
             console = Console()
+            width = max(60, (console.width or 80) - 10)
+
             content = Text()
-            for i, (group_name, cmds) in enumerate(groups):
-                if i:
-                    content.append("\n")
-                content.append(f"  {group_name}\n", style="bold bright_cyan")
-                for canonical, desc in cmds:
-                    content.append(f"    {canonical:<28}", style="bold white")
-                    content.append(f"  {desc}\n", style="dim")
+            for group_i, (group, cmds) in enumerate(ordered):
+                if group_i:
+                    content.append("\n\n")
+                content.append(group, style="bold bright_cyan")
+                for verb, cls in cmds:
+                    nouns = list(cls.nouns or [])
+                    usage = f"{verb} {self._noun_hint(nouns, 20)}".rstrip()
+                    for left, desc, _hint in self._layout_rows(usage, cls.description, "", width, 32):
+                        content.append("\n  ")
+                        content.append(left, style="bold white")
+                        content.append(" ")
+                        content.append(desc, style="dim")
             console.print(Panel(
                 content,
                 title="[bold]可用的命令们 (・ω・)[/bold]",
@@ -213,16 +384,21 @@ class CLIApp:
                 padding=(1, 2),
             ))
         except ImportError:
-            print(f"\n可用的命令们 (・ω・):")
-            for group_name, cmds in groups:
-                print(f"\n  {group_name}")
-                for canonical, desc in cmds:
-                    print(f"    {canonical:<28}  {desc}")
+            print("\n可用的命令们 (・ω・):")
+            for group, cmds in ordered:
+                print(f"\n  {group}")
+                for verb, cls in cmds:
+                    nouns = list(cls.nouns or [])
+                    usage = f"{verb} {self._noun_hint(nouns, 20)}".rstrip()
+                    print(f"    {usage:<28}  {cls.description}")
             print("\n输入 <命令> --help 查看参数  |  exit 退出哦\n")
 
     def run_interactive(self) -> int:
         from src.cli.ui.banner import show_interactive_banner
-        show_interactive_banner(self.prog_name)
+        show_interactive_banner(
+            self.prog_name,
+            [(verb, cls.description) for verb, cls in self._commands.items()],
+        )
         self._welcome_shown = True
 
         from src.cli.completion import build_completer

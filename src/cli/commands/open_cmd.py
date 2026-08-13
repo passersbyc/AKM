@@ -12,6 +12,8 @@ class OpenCommand(BaseCommand):
     verb = "open"
     nouns = ["url"]
     description = "在关联应用中打开作品文件，或打开来源网址"
+    group = "浏览 (・ω・)"
+    noun_descriptions = {"url": "打开作品或作者的来源网址"}
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("target", type=str, help="作品 ID 或名称～")

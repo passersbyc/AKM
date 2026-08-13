@@ -22,6 +22,10 @@ class BaseCommand(abc.ABC):
     verb: ClassVar[str] = ""
     nouns: ClassVar[list[str]] = []
     description: ClassVar[str] = ""
+    #: 帮助显示时所属的命令分组（如 "浏览 (・ω・)"），空字符串归入「其他」
+    group: ClassVar[str] = ""
+    #: noun → 一句话说明，用于 `akm <verb> --help` 的 noun 列表与子命令帮助
+    noun_descriptions: ClassVar[dict[str, str]] = {}
 
     def __init__(self):
         self.config = self._load_config()

@@ -45,6 +45,14 @@ class SettingCommand(BaseCommand):
     verb = "setting"
     nouns = list(_SETTING_KEYS.keys()) + ["check"]
     description = "交互式配置项目设置"
+    group = "系统 ⚙️"
+    noun_descriptions = {
+        "export_path": "设置导出目录路径",
+        "export_format": "设置导出格式（folder/zip/epub）",
+        "library_path": "设置书库存储路径（支持数据迁移）",
+        "library_db_path": "设置数据库路径（支持数据迁移）",
+        "check": "检查当前项目配置",
+    }
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         pass

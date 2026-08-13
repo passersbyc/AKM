@@ -10,6 +10,11 @@ class ListCommand(BaseCommand):
     verb = "list"
     nouns = ["author", "download"]
     description = "列出库中的作品或作者"
+    group = "浏览 (・ω・)"
+    noun_descriptions = {
+        "author": "列出库中的作者",
+        "download": "查看下载队列",
+    }
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("number", type=int, nargs="?", default=0,

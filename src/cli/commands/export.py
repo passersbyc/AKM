@@ -23,6 +23,13 @@ class ExportCommand(BaseCommand):
     verb = "export"
     nouns = ["author", "mylikeauthor", "mylikeworks", "all"]
     description = "导出作品到指定目录"
+    group = "导出 (ノ・ω・)ノ"
+    noun_descriptions = {
+        "author": "导出指定作者的全部作品",
+        "mylikeauthor": "导出我关注的作者的作品",
+        "mylikeworks": "导出我收藏的作品",
+        "all": "全库备份（作者文件夹 + 类型压缩包）",
+    }
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         defaults = _get_export_defaults()

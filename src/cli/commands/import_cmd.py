@@ -10,6 +10,7 @@ class ImportCommand(BaseCommand):
     verb = "import"
     nouns: list[str] = []
     description = "将文件导入到作品库中（自动识别单文件 / cdbook 目录 / 普通文件夹）"
+    group = "管理 (๑•̀ㅂ•́)و"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("files", type=str, nargs="+", help="要导入的文件路径～")

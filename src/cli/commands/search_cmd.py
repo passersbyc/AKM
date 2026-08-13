@@ -9,6 +9,11 @@ class SearchCommand(BaseCommand):
     verb = "search"
     nouns = ["author", "label"]
     description = "搜索作品、作者或标签"
+    group = "浏览 (・ω・)"
+    noun_descriptions = {
+        "author": "按名称搜索作者（同时列出名下作品）",
+        "label": "按标签搜索作品",
+    }
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("rest", type=str, nargs="*", help="搜索关键词 [数量]～")

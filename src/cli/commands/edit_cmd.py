@@ -25,6 +25,7 @@ class EditCommand(BaseCommand):
     verb = "edit"
     nouns: list[str] = []
     description = "交互式编辑作品元数据（逐字段提示）"
+    group = "管理 (๑•̀ㅂ•́)و"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("target", type=str, help="作品 ID 或名称～")

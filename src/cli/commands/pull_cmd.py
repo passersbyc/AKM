@@ -15,6 +15,7 @@ class PullCommand(BaseCommand):
     verb = "pull"
     nouns: list[str] = []
     description = "拉取下载队列中的待下载作品并入库"
+    group = "订阅下载 (◕‿◕)"
 
     def __init__(self) -> None:
         super().__init__()

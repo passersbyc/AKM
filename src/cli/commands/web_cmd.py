@@ -24,6 +24,7 @@ class StartUICommand(BaseCommand):
     verb = "startui"
     nouns: list[str] = []
     description = "启动 Web UI 界面（自动打开浏览器）"
+    group = "系统 ⚙️"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--host", default="127.0.0.1", help="绑定地址（默认 127.0.0.1）～")

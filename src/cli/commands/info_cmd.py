@@ -9,6 +9,8 @@ class InfoCommand(BaseCommand):
     verb = "info"
     nouns = ["work"]
     description = "查看作品完整元数据"
+    group = "浏览 (・ω・)"
+    noun_descriptions = {"work": "查看作品的完整元数据"}
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         pass

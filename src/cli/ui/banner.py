@@ -1,4 +1,6 @@
 """交互模式横幅与首次欢迎界面（从旧 core.py 拆出）。"""
+from typing import Optional
+
 from src.core.logging import logger
 
 
@@ -51,7 +53,8 @@ def _render_recommendations(console, recent_open, recent_import, recent_download
     console.print(rec_table)
 
 
-def show_interactive_banner(prog_name: str) -> None:
+def show_interactive_banner(prog_name: str, commands: Optional[list[tuple[str, str]]] = None) -> None:
+    """交互模式横幅。commands 为 [(verb, 描述)] 时动态生成快捷命令栏（默认 6 个兜底）。"""
     try:
         from rich.table import Table
         from rich.panel import Panel
@@ -158,20 +161,33 @@ def show_interactive_banner(prog_name: str) -> None:
             _render_recommendations(console, recent_open, recent_import, recent_download)
 
         console.print()
-        shortcuts = Table(show_header=False, box=box.SIMPLE, padding=(0, 3))
-        shortcuts.add_column(width=24)
-        shortcuts.add_column(width=24)
-        shortcuts.add_column(width=24)
-        shortcuts.add_row(
-            "[bold cyan]list[/]  [dim]查看作品[/]",
-            "[bold cyan]search[/]  [dim]搜索[/]",
-            "[bold cyan]stats[/]  [dim]仪表盘[/]",
-        )
-        shortcuts.add_row(
-            "[bold cyan]import[/]  [dim]导入[/]",
-            "[bold cyan]open[/]  [dim]打开[/]",
-            "[bold cyan]follow[/]  [dim]关注/同步[/]",
-        )
+        if commands:
+            # 动态快捷命令栏：取注册顺序前 6 个，描述取括号前部分截断
+            cells: list[str] = []
+            for verb, desc in commands[:6]:
+                short = desc.split("（")[0].split("(")[0].strip()[:6]
+                cells.append(f"[bold cyan]{verb}[/]  [dim]{short}[/]")
+            cells += [""] * (6 - len(cells))
+            shortcuts = Table(show_header=False, box=box.SIMPLE, padding=(0, 2))
+            for _ in range(3):
+                shortcuts.add_column(width=26)
+            for i in range(0, 6, 3):
+                shortcuts.add_row(cells[i], cells[i + 1], cells[i + 2])
+        else:
+            shortcuts = Table(show_header=False, box=box.SIMPLE, padding=(0, 2))
+            shortcuts.add_column(width=26)
+            shortcuts.add_column(width=26)
+            shortcuts.add_column(width=26)
+            shortcuts.add_row(
+                "[bold cyan]list[/]  [dim]查看作品[/]",
+                "[bold cyan]search[/]  [dim]搜索[/]",
+                "[bold cyan]stats[/]  [dim]仪表盘[/]",
+            )
+            shortcuts.add_row(
+                "[bold cyan]import[/]  [dim]导入[/]",
+                "[bold cyan]open[/]  [dim]打开[/]",
+                "[bold cyan]follow[/]  [dim]关注/同步[/]",
+            )
         console.print(Align.center(shortcuts))
 
         console.print()

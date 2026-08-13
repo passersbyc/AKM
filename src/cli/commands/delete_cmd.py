@@ -12,6 +12,11 @@ class DeleteCommand(BaseCommand):
     verb = "delete"
     nouns = ["author", "all"]
     description = "删除作品或作者，或清空库"
+    group = "管理 (๑•̀ㅂ•́)و"
+    noun_descriptions = {
+        "author": "删除作者及其全部作品",
+        "all": "清空整个作品库",
+    }
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("target", type=str, nargs="?", help="作品 ID 或名称～")

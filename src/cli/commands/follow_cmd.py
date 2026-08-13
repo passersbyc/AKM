@@ -13,6 +13,7 @@ class FollowCommand(BaseCommand):
     verb = "follow"
     nouns: list[str] = []
     description = "关注 Pixiv 作者 / 同步作者新作到下载队列"
+    group = "订阅下载 (◕‿◕)"
 
     def __init__(self) -> None:
         super().__init__()
