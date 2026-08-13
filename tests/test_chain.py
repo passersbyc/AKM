@@ -104,146 +104,156 @@ def _ids_from_import(data):
     return ids
 
 
-print(f"\n{B}{' akm 核心命令测试链路 v3.0 ':─^50}{N}\n")
+def main() -> int:
+    """运行完整命令链路测试。
 
-if not TEST_DIR.is_dir():
-    print(f"{R}测试目录不存在: {TEST_DIR}{N}")
-    print(f"  用法: python3 tests/test_chain.py /path/to/test_files")
-    sys.exit(1)
+    pytest 收集此模块时只 import 定义，不会执行链路（delete all 等）。
+    手动运行: python3 tests/test_chain.py [测试目录]
+    """
+    print(f"\n{B}{' akm 核心命令测试链路 v3.0 ':─^50}{N}\n")
 
-all_files = sorted([f for f in TEST_DIR.iterdir() if f.is_file() and not f.name.startswith(".")])
-epubs = [f for f in all_files if f.suffix.lower() == ".epub"]
-txts = [f for f in all_files if f.suffix.lower() == ".txt"]
-say(f"测试目录: {TEST_DIR}")
-say(f"测试文件: {len(all_files)} 个 ({len(epubs)} EPUB, {len(txts)} TXT)")
+    if not TEST_DIR.is_dir():
+        print(f"{R}测试目录不存在: {TEST_DIR}{N}")
+        print(f"  用法: python3 tests/test_chain.py /path/to/test_files")
+        return 1
 
-# ======================== Phase 0: 清空库 ========================
-ph("0: 清空库 (delete all)")
-res = _json("delete", "all", "--yes", "--no-confirm")
-check(res and res.get("success"), "delete all 执行成功")
+    all_files = sorted([f for f in TEST_DIR.iterdir() if f.is_file() and not f.name.startswith(".")])
+    epubs = [f for f in all_files if f.suffix.lower() == ".epub"]
+    txts = [f for f in all_files if f.suffix.lower() == ".txt"]
+    say(f"测试目录: {TEST_DIR}")
+    say(f"测试文件: {len(all_files)} 个 ({len(epubs)} EPUB, {len(txts)} TXT)")
 
-# ======================== Phase 1: 导入 ========================
-ph("1: 导入 (import)")
-import_rounds = []
-if epubs:
-    import_rounds.append(("R1 基础导入", epubs[:1], ["--author", "testchain", "--yes"]))
-    r2 = epubs[1:3]
-    if r2:
-        import_rounds.append(("R2 含系列+标签+收藏", r2, [
-            "--author", "testchain", "--series", "都市系列",
-            "--tags", "测试,TSF", "--favorite", "--rating", "8.5",
-            "--description", "测试简介", "--source", "https://example.com/test",
-            "--yes",
-        ]))
-if txts:
-    import_rounds.append(("R3 TXT 导入", txts[:2], ["--author", "testchain", "--yes"]))
+    # ======================== Phase 0: 清空库 ========================
+    ph("0: 清空库 (delete all)")
+    res = _json("delete", "all", "--yes", "--no-confirm")
+    check(res and res.get("success"), "delete all 执行成功")
 
-all_imported_ids = []
-for round_name, files, extra_args in import_rounds:
-    say(round_name)
-    res = _json("import", *[str(f) for f in files], *extra_args)
-    data = _unwrap(res or {})
-    check(res and res.get("success"), f"{round_name}: 执行成功")
-    imported = data.get("imported", 0)
-    check(imported == len(files), f"{round_name}: 全部导入 ({imported}/{len(files)})")
-    rids = _ids_from_import(data)
-    all_imported_ids.extend(rids)
-    for i, id_ in enumerate(rids):
-        try:
-            parsed = check_id(id_)
-            check(parsed["author"] == "001", f"{round_name} ID[{i}] author=001", f"实际: {parsed['author']}")
-        except AssertionError as e:
-            check(False, f"{round_name} ID[{i}]: 格式", str(e))
+    # ======================== Phase 1: 导入 ========================
+    ph("1: 导入 (import)")
+    import_rounds = []
+    if epubs:
+        import_rounds.append(("R1 基础导入", epubs[:1], ["--author", "testchain", "--yes"]))
+        r2 = epubs[1:3]
+        if r2:
+            import_rounds.append(("R2 含系列+标签+收藏", r2, [
+                "--author", "testchain", "--series", "都市系列",
+                "--tags", "测试,TSF", "--favorite", "--rating", "8.5",
+                "--description", "测试简介", "--source", "https://example.com/test",
+                "--yes",
+            ]))
+    if txts:
+        import_rounds.append(("R3 TXT 导入", txts[:2], ["--author", "testchain", "--yes"]))
 
-# ======================== Phase 1.5: MD5 重复拒绝 ========================
-ph("1.5: MD5 重复拒绝")
-if epubs:
-    res = _json("import", str(epubs[0]), "--author", "testchain", "--yes")
-    data = _unwrap(res or {})
-    skipped = sum(1 for r in data.get("results", []) if r.get("duplicate_of"))
-    check(skipped >= 1, "MD5 重复被跳过", f"skipped={skipped}")
+    all_imported_ids = []
+    for round_name, files, extra_args in import_rounds:
+        say(round_name)
+        res = _json("import", *[str(f) for f in files], *extra_args)
+        data = _unwrap(res or {})
+        check(res and res.get("success"), f"{round_name}: 执行成功")
+        imported = data.get("imported", 0)
+        check(imported == len(files), f"{round_name}: 全部导入 ({imported}/{len(files)})")
+        rids = _ids_from_import(data)
+        all_imported_ids.extend(rids)
+        for i, id_ in enumerate(rids):
+            try:
+                parsed = check_id(id_)
+                check(parsed["author"] == "001", f"{round_name} ID[{i}] author=001", f"实际: {parsed['author']}")
+            except AssertionError as e:
+                check(False, f"{round_name} ID[{i}]: 格式", str(e))
 
-# ======================== Phase 2: 打开 (open) ========================
-ph("2: 打开 (open)")
-if all_imported_ids:
-    test_id = all_imported_ids[0]
-    res = _json("open", test_id)
-    data = _unwrap(res or {})
-    check(res and res.get("success"), "open 执行成功")
-    check(data.get("id") == test_id, "open 返回正确 ID", f"got {data.get('id')}")
-    check(bool(data.get("file_path")), "open 包含文件路径")
-    # 不存在的 ID
-    res = _json("open", "nZZZ000000")
-    check(res and not res.get("success"), "open 不存在 ID 返回失败")
+    # ======================== Phase 1.5: MD5 重复拒绝 ========================
+    ph("1.5: MD5 重复拒绝")
+    if epubs:
+        res = _json("import", str(epubs[0]), "--author", "testchain", "--yes")
+        data = _unwrap(res or {})
+        skipped = sum(1 for r in data.get("results", []) if r.get("duplicate_of"))
+        check(skipped >= 1, "MD5 重复被跳过", f"skipped={skipped}")
 
-# ======================== Phase 3: 列表 (list) ========================
-ph("3: 列表 (list)")
-res = _json("list")
-data = _unwrap(res or {})
-check(res and res.get("success"), "list 执行成功")
-works = data.get("works", [])
-check(len(works) == len(all_imported_ids), "list 返回数量等于导入数",
-      f"list={len(works)} imported={len(all_imported_ids)}")
+    # ======================== Phase 2: 打开 (open) ========================
+    ph("2: 打开 (open)")
+    if all_imported_ids:
+        test_id = all_imported_ids[0]
+        res = _json("open", test_id)
+        data = _unwrap(res or {})
+        check(res and res.get("success"), "open 执行成功")
+        check(data.get("id") == test_id, "open 返回正确 ID", f"got {data.get('id')}")
+        check(bool(data.get("file_path")), "open 包含文件路径")
+        # 不存在的 ID
+        res = _json("open", "nZZZ000000")
+        check(res and not res.get("success"), "open 不存在 ID 返回失败")
 
-res = _json("list", "author")
-data = _unwrap(res or {})
-check(res and res.get("success"), "list author 执行成功")
-
-# ======================== Phase 4: 搜索 (search) ========================
-ph("4: 搜索 (search)")
-res = _json("search", "novel", "--author", "testchain")
-data = _unwrap(res or {})
-check(res and res.get("success"), "search 执行成功")
-check(data.get("total", 0) == len(all_imported_ids), "search 按作者返回全部",
-      f"total={data.get('total')} expected={len(all_imported_ids)}")
-
-res = _json("search", "author", "testchain")
-data = _unwrap(res or {})
-check(res and res.get("success"), "search author 执行成功")
-
-# ======================== Phase 5: 统计 (stats) ========================
-ph("5: 统计 (stats)")
-res = _json("stats")
-data = _unwrap(res or {})
-check(res and res.get("success"), "stats 执行成功")
-check(data.get("total_books", 0) == len(all_imported_ids), "stats total_books 等于导入数",
-      f"got {data.get('total_books')} expected {len(all_imported_ids)}")
-check(isinstance(data.get("id_type_distribution"), dict), "stats 包含 id_type_distribution")
-
-# ======================== Phase 6: 删除 (delete) ========================
-ph("6: 删除 (delete)")
-if len(all_imported_ids) >= 2:
+    # ======================== Phase 3: 列表 (list) ========================
+    ph("3: 列表 (list)")
     res = _json("list")
-    before_count = len(_unwrap(res or {}).get("works", []))
-    del_count = 0
+    data = _unwrap(res or {})
+    check(res and res.get("success"), "list 执行成功")
+    works = data.get("works", [])
+    check(len(works) == len(all_imported_ids), "list 返回数量等于导入数",
+          f"list={len(works)} imported={len(all_imported_ids)}")
 
-    for _ in range(2):
+    res = _json("list", "author")
+    data = _unwrap(res or {})
+    check(res and res.get("success"), "list author 执行成功")
+
+    # ======================== Phase 4: 搜索 (search) ========================
+    ph("4: 搜索 (search)")
+    res = _json("search", "novel", "--author", "testchain")
+    data = _unwrap(res or {})
+    check(res and res.get("success"), "search 执行成功")
+    check(data.get("total", 0) == len(all_imported_ids), "search 按作者返回全部",
+          f"total={data.get('total')} expected={len(all_imported_ids)}")
+
+    res = _json("search", "author", "testchain")
+    data = _unwrap(res or {})
+    check(res and res.get("success"), "search author 执行成功")
+
+    # ======================== Phase 5: 统计 (stats) ========================
+    ph("5: 统计 (stats)")
+    res = _json("stats")
+    data = _unwrap(res or {})
+    check(res and res.get("success"), "stats 执行成功")
+    check(data.get("total_books", 0) == len(all_imported_ids), "stats total_books 等于导入数",
+          f"got {data.get('total_books')} expected {len(all_imported_ids)}")
+    check(isinstance(data.get("id_type_distribution"), dict), "stats 包含 id_type_distribution")
+
+    # ======================== Phase 6: 删除 (delete) ========================
+    ph("6: 删除 (delete)")
+    if len(all_imported_ids) >= 2:
         res = _json("list")
-        works = _unwrap(res or {}).get("works", [])
-        if not works:
-            break
-        del_id = works[-1]["ID"]
-        res = _json("delete", del_id, "--yes", "--no-confirm")
-        check(res and res.get("success"), f"delete {del_id} 执行成功")
-        del_count += 1
+        before_count = len(_unwrap(res or {}).get("works", []))
+        del_count = 0
 
+        for _ in range(2):
+            res = _json("list")
+            works = _unwrap(res or {}).get("works", [])
+            if not works:
+                break
+            del_id = works[-1]["ID"]
+            res = _json("delete", del_id, "--yes", "--no-confirm")
+            check(res and res.get("success"), f"delete {del_id} 执行成功")
+            del_count += 1
+
+        res = _json("list")
+        after_count = len(_unwrap(res or {}).get("works", []))
+        check(after_count == before_count - del_count, f"删除后减少 {del_count} 项",
+              f"before={before_count} after={after_count}")
+
+    # ======================== Phase 7: 清空 (delete all) ========================
+    ph("7: 清空 (delete all)")
+    res = _json("delete", "all", "--yes", "--no-confirm")
+    check(res and res.get("success"), "delete all 执行成功")
     res = _json("list")
-    after_count = len(_unwrap(res or {}).get("works", []))
-    check(after_count == before_count - del_count, f"删除后减少 {del_count} 项",
-          f"before={before_count} after={after_count}")
+    check(len(_unwrap(res or {}).get("works", [])) == 0, "清空后 list 为空")
 
-# ======================== Phase 7: 清空 (delete all) ========================
-ph("7: 清空 (delete all)")
-res = _json("delete", "all", "--yes", "--no-confirm")
-check(res and res.get("success"), "delete all 执行成功")
-res = _json("list")
-check(len(_unwrap(res or {}).get("works", [])) == 0, "清空后 list 为空")
+    # ======================== Summary ========================
+    print(f"\n{B}{' 测试总结 ':─^50}{N}")
+    print(f"  {G}通过: {passed}{N}  {R}失败: {failed}{N}")
+    if failures:
+        print(f"\n{R}失败详情:{N}")
+        for p, label, detail in failures:
+            print(f"  [{p}] {label}" + (f" — {D}{detail}{N}" if detail else ""))
+    return 0 if failed == 0 else 1
 
-# ======================== Summary ========================
-print(f"\n{B}{' 测试总结 ':─^50}{N}")
-print(f"  {G}通过: {passed}{N}  {R}失败: {failed}{N}")
-if failures:
-    print(f"\n{R}失败详情:{N}")
-    for p, label, detail in failures:
-        print(f"  [{p}] {label}" + (f" — {D}{detail}{N}" if detail else ""))
-sys.exit(0 if failed == 0 else 1)
+
+if __name__ == "__main__":
+    sys.exit(main())
