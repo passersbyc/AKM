@@ -304,7 +304,7 @@ class PixivDownloader(BaseDownloader):
             "文件大小(KB)": "0",
             "MD5": source_md5,
             "文件路径": str(target.absolute()),
-            "收藏": "否",
+            "收藏": "是" if self.favorited else "否",
             "评分": "",
             "简介": description,
             "点赞": str(like_count),
@@ -506,6 +506,159 @@ class PixivDownloader(BaseDownloader):
     def _get_user_work_urls(self, uid: str) -> List[str]:
         extractor = PixivUserExtractor(self.client, self.config)
         return extractor._get_user_works(uid)
+
+    # ── 收藏作品 ─────────────────────────────────────────
+
+    def list_bookmarks(self, rest: str = "show") -> List[Dict[str, Any]]:
+        """返回账号收藏作品的元数据列表（插画/漫画 + 小说）。
+
+        优先用主账号（primary_cookie）拉收藏，未配置主账号则退回默认下载账号。
+        走网页 ajax 接口（Cookie 鉴权）。rest: show=公开收藏 / hide=私密收藏。
+
+        每项含 id/title/author/content_type（illust|novel）。
+        Cookie 失效或未登录时返回空列表。
+        """
+        from .extractors import BASE_URL
+
+        # 优先用主账号（favorite 专用），用完恢复下载账号
+        primary = self.config.primary_cookie
+        original_cookie = self.config.cookie
+        switched = bool(primary) and primary != original_cookie
+        if switched:
+            self.client.set_cookie(primary)
+        try:
+            return self._list_bookmarks_with(BASE_URL, rest)
+        finally:
+            if switched:
+                self.client.set_cookie(original_cookie)
+
+    def _list_bookmarks_with(self, base_url: str,
+                             rest: str) -> List[Dict[str, Any]]:
+        # 从 cookie 的 PHPSESSID 提取 uid（pixiv 格式 {uid}_{随机串}），
+        # 省掉一次 /ajax/user/self 请求；提取失败回退 self 请求。
+        uid = self._uid_from_cookie(self.config.cookie)
+        if not uid:
+            try:
+                data = self.client.get_json(f"{base_url}/ajax/user/self")
+            except Exception as e:
+                logger.warning("获取 Pixiv 账号 UID 失败（Cookie 可能失效）: %s", e)
+                return []
+            if not data or data.get("error"):
+                return []
+            uid = str((data.get("userData") or {}).get("id", ""))
+        if not uid:
+            return []
+
+        # 插画 / 小说收藏并行查询（novels 接口偶发 3s+ 延迟，串行会拖慢显示）
+        from concurrent.futures import ThreadPoolExecutor
+
+        def fetch(content_type: str) -> List[Dict[str, Any]]:
+            return self._fetch_bookmarks_kind(base_url, uid, content_type, rest)
+
+        bookmarks: List[Dict[str, Any]] = []
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(fetch, ct) for ct in ("illust", "novel")]
+            for f in futures:
+                try:
+                    bookmarks.extend(f.result())
+                except Exception:
+                    continue
+        return bookmarks
+
+    @staticmethod
+    def _uid_from_cookie(cookie: str) -> str:
+        """从 cookie 的 PHPSESSID 提取 uid，失败返回空字符串。"""
+        import re
+        m = re.search(r"PHPSESSID=(\d+)_", cookie)
+        return m.group(1) if m else ""
+
+    def _fetch_bookmarks_kind(self, base_url: str, uid: str,
+                              content_type: str,
+                              rest: str) -> List[Dict[str, Any]]:
+        """分页拉取某一类型（illust/novel）的收藏作品。"""
+        kind = "illusts" if content_type == "illust" else "novels"
+        offset = 0
+        limit = 48
+        result: List[Dict[str, Any]] = []
+        while True:
+            body = self.client.get_json(
+                f"{base_url}/ajax/user/{uid}/{kind}/bookmarks",
+                params={"tag": "", "offset": offset, "limit": limit,
+                        "rest": rest, "lang": "zh"},
+            )
+            if not body or body.get("error"):
+                break
+            works = (body.get("body") or {}).get("works") or []
+            if not works:
+                break
+            for w in works:
+                wid = str(w.get("id", ""))
+                if not wid:
+                    continue
+                result.append({
+                    "id": wid,
+                    "title": w.get("title", ""),
+                    "author": w.get("userName") or str(w.get("userId", "")),
+                    "content_type": content_type,
+                })
+            offset += limit
+            if len(works) < limit:
+                break
+        return result
+
+    def get_favorite_works(self, rest: str = "show") -> List[str]:
+        """返回账号收藏作品的稳定 URL 列表（供下载管线展开）。
+
+        rest: show=公开收藏 / hide=私密收藏。
+        """
+        from .extractors import PixivBaseExtractor
+        return [
+            PixivBaseExtractor._build_work_url(b["id"], b["content_type"])
+            for b in self.list_bookmarks(rest)
+            if b.get("id")
+        ]
+
+    def list_following(self) -> List[Dict[str, Any]]:
+        """返回账号（主账号优先）关注的作者列表，每项含 uid/name。
+
+        走网页 ajax 接口（Cookie 鉴权），分页拉取 /ajax/user/{uid}/following。
+        """
+        from .extractors import BASE_URL
+
+        uid = self._uid_from_cookie(
+            self.config.primary_cookie or self.config.cookie)
+        if not uid:
+            try:
+                data = self.client.get_json(f"{BASE_URL}/ajax/user/self")
+            except Exception:
+                return []
+            if not data or data.get("error"):
+                return []
+            uid = str((data.get("userData") or {}).get("id", ""))
+
+        followed: List[Dict[str, Any]] = []
+        offset = 0
+        limit = 100
+        while True:
+            body = self.client.get_json(
+                f"{BASE_URL}/ajax/user/{uid}/following",
+                params={"offset": offset, "limit": limit, "rest": "show",
+                        "tag": "", "lang": "zh"},
+            )
+            if not body or body.get("error"):
+                break
+            users = (body.get("body") or {}).get("users") or []
+            if not users:
+                break
+            for u in users:
+                followed.append({
+                    "uid": str(u.get("userId", "")),
+                    "name": u.get("userName", ""),
+                })
+            offset += limit
+            if len(users) < limit:
+                break
+        return followed
 
     def get_series_works(self, series_id: str, is_novel: bool = False) -> List[str]:
         return self._get_illust_series_work_urls(series_id) if not is_novel else self._get_novel_series_work_urls(series_id)

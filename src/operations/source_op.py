@@ -93,12 +93,15 @@ def follow_author_by_url(url: str) -> dict | None:
             "already_followed": bool(already), "row": row}
 
 
-def queue_author_works(url: str) -> dict | None:
+def queue_author_works(url: str, exts: Optional[set] = None,
+                       max_size_mb: Optional[float] = None) -> dict | None:
     """关注作者并排队其全部作品到下载队列。
 
     完整封装：resolve → get_author_info → extract_uid → upsert
     → get_user_works → source_set 去重 → 构建 entries → append_or_update。
     get_author_info 全程只调用一次（消除原 _follow_url 的重复网络调用）。
+
+    exts / max_size_mb：作品过滤（仅下载器支持时生效），见 downloader.get_user_works。
 
     Returns:
         {"uid", "name", "local_id", "already_followed", "row",
@@ -125,6 +128,9 @@ def queue_author_works(url: str) -> dict | None:
 
     # 拉作品（网络调用，包异常）
     try:
+        works = downloader.get_user_works(url, exts=exts, max_size_mb=max_size_mb)
+    except TypeError:
+        # 下载器不支持过滤参数（如 pixiv），降级为不过滤
         works = downloader.get_user_works(url)
     except Exception as e:
         logger.error("获取作者 %s 作品列表失败: %s", name, e)

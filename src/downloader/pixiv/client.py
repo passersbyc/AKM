@@ -36,6 +36,8 @@ class PixivClient:
         self._429_count = 0
         self._cookie_index = 0
         self._cookie_lock = threading.Lock()
+        #: 记录 401/403 失效的 cookie，下载时据此切换到下一个、全失效 fallback 主账号
+        self._cookie_failed: set = set()
         # 最近一次 API 请求的 HTTP 状态码（0=未知/网络失败），
         # 用于区分 404（作品确实删除）与网络抖动/取消（响应为 None）
         self.last_status: int = 0
@@ -117,6 +119,46 @@ class PixivClient:
                         self._stop_event.wait(2 * (attempt + 1))
             return False
 
+    @staticmethod
+    def check_cookie_validity(cookie: str, timeout: int = 15) -> tuple[str, str, str]:
+        """检测单个 cookie 的状态，区分「失效」与「断网」。
+
+        用 /ajax/user/self 判断：
+        - "valid"    能拿到 uid，登录态有效
+        - "expired"  HTTP 401/403 或 200 但无 uid，登录态失效
+        - "offline"  网络不可达 / 超时 / 5xx，无法判断（不应据此清理 cookie）
+        返回 (status, uid, 昵称)。独立 requests，不污染本实例 session。
+        """
+        import requests as _requests
+
+        headers = {
+            "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/127.0.0.0 Safari/537.36"),
+            "Cookie": cookie,
+            "Referer": "https://www.pixiv.net/",
+        }
+        try:
+            r = _requests.get("https://www.pixiv.net/ajax/user/self",
+                              headers=headers, timeout=timeout)
+        except _requests.exceptions.ConnectionError:
+            return "offline", "", ""
+        except _requests.exceptions.Timeout:
+            return "offline", "", ""
+        except Exception:
+            return "offline", "", ""
+
+        if r.status_code in (401, 403):
+            return "expired", "", ""
+        if not r.ok:
+            return "offline", "", ""
+        j = r.json()
+        ud = j.get("userData") or {}
+        uid = str(ud.get("id", ""))
+        if not uid:
+            return "expired", "", ""
+        return "valid", uid, ud.get("name", "")
+
     def get_json(self, url: str, params: Optional[dict] = None,
                   timeout: Optional[int] = None, max_retries: int = 8) -> Optional[dict]:
         last_status = 0
@@ -137,7 +179,10 @@ class PixivClient:
                     continue
                 if r.status_code in (401, 403):
                     self._access_token = None
-                    if self.authenticate():
+                    if self._refresh_token and self.authenticate():
+                        continue
+                    # cookie 失效 → 切换池内下一个下载账号，全失效 fallback 主账号
+                    if self._handle_401_cookie_fallback():
                         continue
                     raise Exception(f"HTTP {r.status_code} at {url}")
                 if r.status_code == 404:
@@ -287,6 +332,34 @@ class PixivClient:
 
     def _is_authenticated(self) -> bool:
         return bool(self._access_token or self._config.cookie)
+
+    def set_cookie(self, cookie: str) -> None:
+        """切换当前使用的 cookie（下载账号 ↔ 主账号），并更新 session 头。"""
+        self._config.cookie = cookie
+        if cookie:
+            self._session.headers["Cookie"] = cookie
+        else:
+            self._session.headers.pop("Cookie", None)
+
+    def _handle_401_cookie_fallback(self) -> bool:
+        """当前 cookie 失效（401/403）时切换池内下一个；全失效 fallback 主账号。
+
+        主账号（primary_cookie）作为下载的最后手段，通常用于 favorite 收藏。
+        返回是否切换成功。
+        """
+        self._cookie_failed.add(self._config.cookie)
+        pool = self._config.cookie_pool
+        for c in pool:
+            if c and c not in self._cookie_failed:
+                self.set_cookie(c)
+                logger.warning("Cookie 失效，切换到池内下一个账号")
+                return True
+        primary = self._config.primary_cookie
+        if primary and primary not in self._cookie_failed:
+            self.set_cookie(primary)
+            logger.warning("下载账号全部失效，fallback 到主账号")
+            return True
+        return False
 
     def _api_rate_limit(self):
         if self._is_authenticated():

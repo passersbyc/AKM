@@ -99,5 +99,9 @@
             "YOUR_PIXIV_COOKIE_1",
             "YOUR_PIXIV_COOKIE_2"
         ]
+    },
+    "asmrmoon": {
+        "workers": 3,
+        "cookie": ""
     }
 }

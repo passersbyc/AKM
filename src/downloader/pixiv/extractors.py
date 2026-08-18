@@ -392,8 +392,11 @@ class PixivWorkExtractor(PixivBaseExtractor):
             return
 
         text, markup_items = convert_novel_markup(text, "m_")
+        # 内嵌图片走图片限流（30rps，比 API 15rps 更宽松），下载更快
+        def _dl_inline_image(url: str):
+            return self.client.download_binary(url, image_limit=True)
         text, img_items = build_inline_images(
-            text, body, "", self.client.download_binary, self.client._stop_event
+            text, body, "", _dl_inline_image, self.client._stop_event
         )
         inline_images = (markup_items or []) + (img_items or [])
 

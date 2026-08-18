@@ -147,7 +147,9 @@ def build_inline_images(text: str, body: dict, prefix: str = "",
     if download_fn:
         import concurrent.futures
         tasks = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        # 并发数按图片数动态取（8 图一批并行），上限 12 避免过多并发
+        workers = max(1, min(len(url_map), 12))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             for image_id, url in url_map.items():
                 tasks[image_id] = executor.submit(download_fn, url)
             for image_id, future in tasks.items():

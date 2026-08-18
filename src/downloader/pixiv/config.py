@@ -14,7 +14,9 @@ DEFAULTS = {
     "base_url": "https://www.pixiv.net",
     "ajax_url": "https://www.pixiv.net/ajax/illust",
     "headers": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/127.0.0.0 Safari/537.36"),
         "Referer": "https://www.pixiv.net/",
         "Origin": "https://www.pixiv.net",
         "Accept-Language": "zh-CN,zh;q=0.9",
@@ -83,6 +85,11 @@ class PixivConfig:
         self._data["cookie"] = value
 
     @property
+    def primary_cookie(self) -> str:
+        """主账号 cookie：专用于 favorite（收藏）拉取，下载时的最后 fallback。"""
+        return self.get("primary_cookie", default="") or ""
+
+    @property
     def cookie_pool(self) -> list[str]:
         pool = self.get("cookie_pool")
         return pool if isinstance(pool, list) else []
@@ -111,6 +118,21 @@ class PixivConfig:
         self.cookie = pool[next_index]
         self._save_to_file()
         return next_index, pool[next_index]
+
+    def remove_cookie_from_pool(self, cookie: str) -> bool:
+        """从 cookie 池移除指定 cookie，并写回 config.json。
+
+        若移除的是当前使用的 cookie，则切换到剩余第一个（或清空）。
+        返回是否真的移除了。
+        """
+        pool = [c for c in self.cookie_pool if c != cookie]
+        if len(pool) == len(self.cookie_pool):
+            return False
+        self._data["cookie_pool"] = pool
+        if self.cookie == cookie:
+            self._data["cookie"] = pool[0] if pool else ""
+        self._save_to_file()
+        return True
 
     @property
     def base_url(self) -> str:

@@ -35,6 +35,10 @@ class FollowCommand(BaseCommand):
                             help="导入当前 Pixiv 账号的全部关注作者～")
         parser.add_argument("--dry-run", action="store_true", help="仅对比不修改（只看不动手）～")
         parser.add_argument("--favorite", action="store_true", help="仅同步收藏作者～")
+        parser.add_argument("--ext", type=str, default=None,
+                            help="只下载指定格式（逗号分隔，如 mp3,flac）～")
+        parser.add_argument("--max-size", type=float, default=None,
+                            help="跳过超过该大小（MB）的文件～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         # --pixiv: 批量导入关注列表
@@ -43,15 +47,22 @@ class FollowCommand(BaseCommand):
 
         # 提供 URL: 关注单个作者并排队全部作品
         if args.url:
-            return self._follow_url(args.url)
+            return self._follow_url(args.url, ext=args.ext,
+                                    max_size=args.max_size)
 
         # 无 URL: 同步新作
         return self._sync(args)
 
     # ── 关注 ──────────────────────────────────────────────
 
-    def _follow_url(self, url: str) -> int:
-        result = source_op.queue_author_works(url)
+    def _follow_url(self, url: str, ext: str = None,
+                    max_size: float = None) -> int:
+        exts = None
+        if ext:
+            exts = {"." + e.strip().lower().lstrip(".")
+                    for e in ext.split(",") if e.strip()}
+        result = source_op.queue_author_works(url, exts=exts,
+                                              max_size_mb=max_size)
         if not result:
             self.output.info("无法获取作者信息，再检查一下 URL 或 Cookie 吧？")
             return 1

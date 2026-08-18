@@ -66,6 +66,8 @@ class BaseDownloader(ABC):
         self.download_file_path: str = "downloads"
         self.stop_event = threading.Event()
         self._ctrl = DownloadControl()
+        #: 本次下载的作品是否标记为「收藏」（favorite 下载时置 True）
+        self.favorited: bool = False
 
     @abstractmethod
     def process_url(self, urls: Union[str, List[str]], mode: str = "both") -> Dict[str, int]:
@@ -395,6 +397,8 @@ class BaseDownloader(ABC):
         like_count = metadata_info.get("like_count", 0)
         create_date = metadata_info.get("create_date", "")
         source_status = metadata_info.get("source_status", "ok")
+        # 收藏标记：metadata 显式指定 > 下载器实例的 favorited 开关
+        favorited = bool(metadata_info.get("favorited", self.favorited))
 
         result = import_one(
             file_path=str(file_path),
@@ -408,6 +412,7 @@ class BaseDownloader(ABC):
             source_status=source_status,
             title=title,
             user_id=metadata_info.get("user_id", ""),
+            favorited=favorited,
             convert_doc=False,
         )
 

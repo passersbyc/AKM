@@ -26,6 +26,7 @@ def run_download_groups(
     *,
     mode: str = "both",
     site: Optional[str] = None,
+    favorited: bool = False,
     pull_base_mapping: Optional[dict] = None,
     ctrl: Optional[DownloadControl] = None,
     progress_callback: Optional[Callable] = None,
@@ -82,6 +83,7 @@ def run_download_groups(
                     "skipped": 0, "_timeline": None}
         downloader = cls()
         downloader.set_download_control(ctrl)
+        downloader.favorited = favorited
         if pull_base_mapping:
             downloader.set_pull_base_mapping(pull_base_mapping)
         group_stats = {"success": 0, "failed": 0, "skipped": 0,

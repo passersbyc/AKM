@@ -58,11 +58,13 @@ class DownloadGroupRunner:
 
     def __init__(self, urls: list[str], *, mode: str = "both",
                  site: Optional[str] = None,
+                 favorited: bool = False,
                  pull_base_mapping: Optional[dict] = None,
                  show_chart: bool = False):
         self.urls = urls
         self.mode = mode
         self.site = site
+        self.favorited = favorited
         self.pull_base_mapping = pull_base_mapping or {}
         self.show_chart = show_chart
         self.ctrl = DownloadControl()
@@ -103,6 +105,7 @@ class DownloadGroupRunner:
                 self.urls,
                 mode=self.mode,
                 site=self.site,
+                favorited=self.favorited,
                 pull_base_mapping=self.pull_base_mapping,
                 ctrl=self.ctrl,
                 executor_hook=_hook,

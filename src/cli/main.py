@@ -16,6 +16,9 @@ def load_commands(app: CLIApp) -> None:
     from src.cli.commands.delete_cmd import DeleteCommand
     from src.cli.commands.follow_cmd import FollowCommand
     from src.cli.commands.pull_cmd import PullCommand
+    from src.cli.commands.download_cmd import DownloadCommand
+    from src.cli.commands.favorite_cmd import FavoriteCommand
+    from src.cli.commands.cookie_cmd import CookieCommand
     from src.cli.commands.export import ExportCommand
     from src.cli.commands.setting_cmd import SettingCommand
     from src.cli.commands.web_cmd import StartUICommand
@@ -31,6 +34,9 @@ def load_commands(app: CLIApp) -> None:
         DeleteCommand,
         FollowCommand,
         PullCommand,
+        DownloadCommand,
+        FavoriteCommand,
+        CookieCommand,
         ExportCommand,
         SettingCommand,
         StartUICommand,
