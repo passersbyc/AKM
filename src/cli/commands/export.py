@@ -55,8 +55,8 @@ class ExportCommand(BaseCommand):
                                 help="按点赞量限制数量～")
         elif noun == "all":
             parser.add_argument("dest", nargs="?",
-                                default="/Users/passersbyh/Desktop/备份library",
-                                help="导出目标路径（默认备份到 Desktop/备份library）～")
+                                default=defaults["dest"],
+                                help="导出目标路径（默认用 config 的 export_path）～")
             parser.add_argument("--format", default="zip",
                                 choices=["folder", "zip"],
                                 help="导出格式（默认 zip 压缩包）～")

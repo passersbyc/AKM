@@ -360,8 +360,10 @@ class PawchiveDownloader(BaseDownloader):
                 att, source, title, author, password)
             if result is not None:
                 return result
-            logger.warning("zip 解压合并 PDF 失败，回退为直接入库 zip: %s",
-                           filename)
+            # 解压失败：zip 已移入 library/压缩包 隔离区，标记失败（不入库）
+            return PipelineResult.failed(
+                f"{source}?f={filename}",
+                "zip 解压失败，压缩包已移入 library/压缩包 隔离区")
 
         safe_title = re.sub(r'[\\/:*?"<>|]', "_", title).strip() or "未命名"
         tmp_dir = Path(tempfile.mkdtemp())
@@ -383,6 +385,26 @@ class PawchiveDownloader(BaseDownloader):
         if result[1] == "ok":
             return PipelineResult.success(f"{source}?f={filename}")
         return PipelineResult.failed(f"{source}?f={filename}", result[1])
+
+    def _quarantine_archive(self, archive: Path) -> Path | None:
+        """解压失败的压缩包移入 library/压缩包 隔离区（不入库），返回目标路径。
+
+        压缩包不应作为最终形态进库——解压失败说明下载流程异常，原件移入
+        隔离区供手动抢救，而不是伪装成正常作品入库。
+        """
+        if not archive or not Path(archive).exists():
+            return None
+        from datetime import datetime
+        from src.core.config import get_library_path
+        archive = Path(archive)
+        qdir = get_library_path() / "压缩包"
+        qdir.mkdir(parents=True, exist_ok=True)
+        dest = qdir / archive.name
+        if dest.exists():
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            dest = qdir / f"{archive.stem}-{stamp}{archive.suffix}"
+        shutil.move(str(archive), str(dest))
+        return dest
 
     def _download_zip_as_pdf(self, att: dict, source: str, title: str,
                              author: str, password: str) -> Optional[PipelineResult]:
@@ -435,6 +457,8 @@ class PawchiveDownloader(BaseDownloader):
             return PipelineResult.failed(f"{source}?f={filename}", result[1])
         except Exception as e:
             logger.debug("zip 解压合并失败: %s - %s", filename, e)
+            # 解压失败：压缩包原件移入隔离区，不入库（压缩包不应作为最终形态）
+            self._quarantine_archive(zip_path)
             return None
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -488,10 +512,11 @@ class PawchiveDownloader(BaseDownloader):
                     try:
                         self._extract_archive(archive, password, extract_dir)
                     except Exception as e:
-                        logger.warning("解压失败，直接入库原文件: %s - %s",
-                                       archive.name, e)
-                        all_results.append(self._import_file(
-                            archive, gsource, title, author))
+                        q = self._quarantine_archive(archive)
+                        logger.warning("解压失败，压缩包移入隔离区: %s -> %s",
+                                       archive.name, q)
+                        all_results.append(PipelineResult.failed(
+                            gsource, f"解压失败，压缩包已存至 {q}"))
                         continue
                     all_results.extend(self._import_extracted(
                         extract_dir, source, title, author))

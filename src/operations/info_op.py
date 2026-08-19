@@ -67,7 +67,7 @@ def record_open(work_id: str, title: str) -> None:
         )
         db.execute(
             "DELETE FROM recent_opens WHERE id NOT IN "
-            "(SELECT id FROM recent_opens ORDER BY opened_at DESC LIMIT 50)"
+            "(SELECT id FROM recent_opens ORDER BY id DESC LIMIT 50)"
         )
 
 

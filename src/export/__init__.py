@@ -367,6 +367,10 @@ def export_all_works(rows: list[dict], request: ExportRequest) -> ExportResult:
         return ExportResult(False, 0, error="没有可导出的作者")
 
     library_root = request.dest_dir
+    try:
+        _validate_export_dest(library_root)
+    except ValueError as e:
+        return ExportResult(False, 0, error=str(e))
     library_root.mkdir(parents=True, exist_ok=True)
     temp_root = request.dest_dir / "_library_all_tmp"
     if temp_root.exists():
@@ -474,6 +478,22 @@ def _classify_by_series(rows: list[dict]) -> tuple[list[dict], dict[str, list[di
     for sg in series_groups.values():
         sg.sort(key=lambda x: x.get("ID", ""))
     return standalone, series_groups
+
+
+def _validate_export_dest(dest_dir: Path) -> None:
+    """禁止导出目标落在源库/项目根内，防止覆盖式删除误删源数据。
+
+    all 模式会按作者覆盖式重建目录/zip，若 dest 误配成源库或项目根，
+    会把原作品/代码一并删掉。此处拦一道。
+    """
+    from src.core.config import get_library_path, get_project_root
+    dest = dest_dir.resolve()
+    for forbidden in (get_library_path().resolve(), get_project_root().resolve()):
+        if dest == forbidden or forbidden in dest.parents:
+            raise ValueError(
+                f"导出目标 {dest} 落在受保护目录 {forbidden} 内或就是该目录，"
+                f"覆盖式导出会删除源数据，已拒绝执行"
+            )
 
 
 def _replace_dest(final: Path, is_dir: bool) -> Path:

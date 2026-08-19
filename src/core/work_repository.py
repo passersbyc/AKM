@@ -291,6 +291,11 @@ def delete_entries(ids: set[str]) -> list[dict]:
         with _lock, db:
             placeholders = ",".join("?" for _ in ids)
             db.execute(f"DELETE FROM works WHERE id IN ({placeholders})", list(ids))
+            # 联动清理最近打开记录，避免 banner/stats 展示已删除作品的孤儿记录
+            db.execute(
+                f"DELETE FROM recent_opens WHERE work_id IN ({placeholders})",
+                list(ids),
+            )
             # 联动：删除队列中对应 URL 记录——作品已被用户删除，
             # pull 不应自动重新下载（否则删除形同虚设）。
             # 若用户想重新获取：follow 同步会因 works 无记录而把 URL

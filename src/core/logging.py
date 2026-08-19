@@ -57,7 +57,9 @@ def setup_logging(level: Optional[int] = None, *, reset: bool = False) -> None:
         level = getattr(logging, level_str, logging.INFO)
 
     root = logging.getLogger("akm")
-    root.setLevel(level)
+    # 根 logger 保持 DEBUG，让 debug 消息能落到文件 handler；
+    # 终端是否显示由 console handler 级别决定（默认 INFO）
+    root.setLevel(logging.DEBUG)
     root.propagate = False
 
     if root.hasHandlers():
@@ -130,7 +132,7 @@ def set_level(level: int | str) -> None:
     if isinstance(level, str):
         level = getattr(logging, level.upper(), logging.INFO)
     root = logging.getLogger("akm")
-    root.setLevel(level)
+    # root 保持 DEBUG（debug 始终落盘），只调终端 handler 级别控制显示
     for handler in _console_handlers:
         handler.setLevel(level)
 

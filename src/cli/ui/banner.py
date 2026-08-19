@@ -104,8 +104,8 @@ def show_interactive_banner(prog_name: str, commands: Optional[list[tuple[str, s
 
         # ── 最近活动三栏 ──
         recent_open = db.execute(
-            "SELECT work_id, title, opened_at FROM recent_opens "
-            "ORDER BY opened_at DESC LIMIT 5"
+            "SELECT work_id, title, MAX(opened_at) AS opened_at "
+            "FROM recent_opens GROUP BY work_id ORDER BY opened_at DESC LIMIT 5"
         ).fetchall()
         recent_import = db.execute(
             "SELECT id, title, imported_at FROM works "
