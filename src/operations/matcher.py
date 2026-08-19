@@ -1,5 +1,5 @@
 """模糊匹配工具 — ID 精确匹配 → 标题包含匹配 → 多结果选择。"""
-from src.core.database import get_db, short_id, to_full_id
+from src.core.database import short_id, to_full_id, query_all_sites
 
 
 def resolve_work(target: str, output=None) -> dict | None:
@@ -8,29 +8,23 @@ def resolve_work(target: str, output=None) -> dict | None:
     返回 work dict（含 id, title, author_id, tags, series_id, file_type,
     favorite, rating, description, source, file_path, imported_at）或 None。
     """
-    db = get_db()
-
     # 1. 精确全 ID 匹配
-    row = db.execute(
-        "SELECT * FROM works WHERE id = ?", (target,)
-    ).fetchone()
-    if row:
-        return dict(row)
+    rows = query_all_sites("SELECT * FROM works WHERE id = ?", (target,))
+    if rows:
+        return dict(rows[0])
 
     # 2. 短 ID 匹配
     full_id = to_full_id(target)
     if full_id != target:
-        row = db.execute(
-            "SELECT * FROM works WHERE id = ?", (full_id,)
-        ).fetchone()
-        if row:
-            return dict(row)
+        rows = query_all_sites("SELECT * FROM works WHERE id = ?", (full_id,))
+        if rows:
+            return dict(rows[0])
 
     # 3. 标题包含匹配
-    rows = db.execute(
+    rows = query_all_sites(
         "SELECT * FROM works WHERE title LIKE ? ORDER BY imported_at DESC",
         (f"%{target}%",),
-    ).fetchall()
+    )
     if not rows:
         return None
     if len(rows) == 1:
@@ -63,24 +57,22 @@ def resolve_author(target: str, output=None) -> dict | None:
     返回 author dict（含 id, name, source, homepage, favorite, note,
     pixiv_uid, follow_status）或 None。
     """
-    db = get_db()
-
     # 1. 精确 ID 匹配
-    row = db.execute(
+    rows = query_all_sites(
         "SELECT a.*, pt.pixiv_uid, pt.homepage, pt.follow_status "
         "FROM authors a LEFT JOIN pixiv_trackings pt ON a.id = pt.author_id "
         "WHERE a.id = ?", (target,)
-    ).fetchone()
-    if row:
-        return dict(row)
+    )
+    if rows:
+        return dict(rows[0])
 
     # 2. 名称包含匹配
-    rows = db.execute(
+    rows = query_all_sites(
         "SELECT a.*, pt.pixiv_uid, pt.homepage, pt.follow_status "
         "FROM authors a LEFT JOIN pixiv_trackings pt ON a.id = pt.author_id "
         "WHERE a.name LIKE ? ORDER BY a.favorite DESC, a.name",
         (f"%{target}%",),
-    ).fetchall()
+    )
     if not rows:
         return None
     if len(rows) == 1:
@@ -110,29 +102,25 @@ def resolve_author(target: str, output=None) -> dict | None:
 
 def list_work_titles(prefix: str = "", limit: int = 20) -> list[tuple[str, str]]:
     """查询作品标题前缀匹配，返回 [(id, title), ...] 供补全器使用。"""
-    db = get_db()
     if prefix:
-        rows = db.execute(
-            "SELECT id, title FROM works WHERE title LIKE ? ORDER BY imported_at DESC LIMIT ?",
-            (f"%{prefix}%", limit),
-        ).fetchall()
+        rows = query_all_sites(
+            "SELECT id, title FROM works WHERE title LIKE ? ORDER BY imported_at DESC",
+            (f"%{prefix}%",),
+        )
     else:
-        rows = db.execute(
-            "SELECT id, title FROM works ORDER BY imported_at DESC LIMIT ?", (limit,)
-        ).fetchall()
-    return [(r["id"], r["title"]) for r in rows]
+        rows = query_all_sites(
+            "SELECT id, title FROM works ORDER BY imported_at DESC")
+    return [(r["id"], r["title"]) for r in rows][:limit]
 
 
 def list_author_names(prefix: str = "", limit: int = 20) -> list[tuple[str, str]]:
     """查询作者名称前缀匹配，返回 [(id, name), ...] 供补全器使用。"""
-    db = get_db()
     if prefix:
-        rows = db.execute(
-            "SELECT id, name FROM authors WHERE name LIKE ? ORDER BY favorite DESC, name LIMIT ?",
-            (f"%{prefix}%", limit),
-        ).fetchall()
+        rows = query_all_sites(
+            "SELECT id, name FROM authors WHERE name LIKE ? ORDER BY favorite DESC, name",
+            (f"%{prefix}%",),
+        )
     else:
-        rows = db.execute(
-            "SELECT id, name FROM authors ORDER BY favorite DESC, name LIMIT ?", (limit,)
-        ).fetchall()
-    return [(r["id"], r["name"]) for r in rows]
+        rows = query_all_sites(
+            "SELECT id, name FROM authors ORDER BY favorite DESC, name")
+    return [(r["id"], r["name"]) for r in rows][:limit]
