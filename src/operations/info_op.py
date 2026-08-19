@@ -28,10 +28,9 @@ def get_info(target: str, target_type: str = "book") -> dict | None:
 
 
 def _series_by_name(name: str) -> dict | None:
-    db = get_db()
-    from src.core.database import dict_from_row
-    row = db.execute("SELECT * FROM series WHERE name = ?", (name.strip(),)).fetchone()
-    return dict_from_row(row)
+    from src.core.database import query_all_sites
+    rows = query_all_sites("SELECT * FROM series WHERE name = ?", (name.strip(),))
+    return dict(rows[0]) if rows else None
 
 
 def get_author_name(author_id: str) -> str:
@@ -44,17 +43,15 @@ def get_series_name(series_id: str, author_id: str = "") -> str:
     """系列 ID → 名称，找不到返回原 id。"""
     if not series_id:
         return "-"
-    db = get_db()
+    from src.core.database import query_all_sites
     if author_id:
-        row = db.execute(
+        rows = query_all_sites(
             "SELECT name FROM series WHERE id = ? AND author_id = ?",
-            (series_id, author_id),
-        ).fetchone()
+            (series_id, author_id))
     else:
-        row = db.execute(
-            "SELECT name FROM series WHERE id = ?", (series_id,)
-        ).fetchone()
-    return row["name"] if row else series_id
+        rows = query_all_sites(
+            "SELECT name FROM series WHERE id = ?", (series_id,))
+    return rows[0]["name"] if rows else series_id
 
 
 def record_open(work_id: str, title: str, site: str = "local") -> None:

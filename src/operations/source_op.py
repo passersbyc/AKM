@@ -140,12 +140,14 @@ def queue_author_works(url: str, exts: Optional[set] = None,
     in_library = WorkManager.source_set()
 
     # 批量查队列中已有的 URL，区分"新增"与"已在队列（未下载）"
-    from src.core.database import get_db
-    db = get_db()
+    from src.core.site import infer_site
+    from src.core.database import get_site_db
     already_queued = 0
     new_queued = 0
     existing_urls: set[str] = set()
     if works:
+        # 同一作者的作品同属一个站点，按站点库查队列
+        db = get_site_db(infer_site(works[0]))
         placeholders = ",".join("?" * len(works))
         existing_urls = {r[0] for r in db.execute(
             f"SELECT url FROM download_queue WHERE url IN ({placeholders})",
