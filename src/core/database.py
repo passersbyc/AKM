@@ -1,5 +1,6 @@
 import sqlite3
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 from src.core.config import get_data_dir
 from src.core.logging import get_logger
@@ -60,6 +61,83 @@ def get_db() -> sqlite3.Connection:
         conn.row_factory = sqlite3.Row
         _thread_local.conn = conn
     return conn
+
+
+# ── 多站点分库连接层（新增，不影响现有 get_db） ──────────────────
+
+
+def get_current_site() -> str:
+    """当前线程的站点上下文（默认 local）。"""
+    return getattr(_thread_local, "site", "local")
+
+
+@contextmanager
+def site_ctx(site: str):
+    """临时切换当前线程的站点上下文（写操作路由目标）。"""
+    old = getattr(_thread_local, "site", "local")
+    _thread_local.site = site
+    try:
+        yield
+    finally:
+        _thread_local.site = old
+
+
+def get_site_db(site: str) -> sqlite3.Connection:
+    """站点库连接（每线程每站点缓存）。"""
+    from src.core.site import site_db_path
+    conn = getattr(_thread_local, f"conn_{site}", None)
+    if conn is not None:
+        return conn
+    with _db_lock:
+        conn = getattr(_thread_local, f"conn_{site}", None)
+        if conn is not None:
+            return conn
+        p = site_db_path(site)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(p), check_same_thread=False, timeout=30)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.row_factory = sqlite3.Row
+        setattr(_thread_local, f"conn_{site}", conn)
+    return conn
+
+
+def get_meta_db() -> sqlite3.Connection:
+    """主库连接（sites 注册表 + recent_opens + settings），ATTACH 各站点库。"""
+    from src.core.site import meta_db_path, site_db_path, SITES
+    conn = getattr(_thread_local, "meta_conn", None)
+    if conn is not None:
+        return conn
+    with _db_lock:
+        conn = getattr(_thread_local, "meta_conn", None)
+        if conn is not None:
+            return conn
+        p = meta_db_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(p), check_same_thread=False, timeout=30)
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.row_factory = sqlite3.Row
+        for s in SITES:
+            sp = site_db_path(s)
+            if sp.exists():
+                conn.execute(f"ATTACH '{sp}' AS {s}")
+        _thread_local.meta_conn = conn
+    return conn
+
+
+def query_all(sites: list[str], table: str, columns: str = "*",
+              where: str = "", order: str = "", limit: int = 0) -> list[dict]:
+    """跨站点聚合查询：动态拼 UNION ALL（SQLite 视图不能跨库，故用普通查询）。"""
+    meta = get_meta_db()
+    parts = [f"SELECT '{s}' AS site, {columns} FROM {s}.{table}" for s in sites]
+    sql = " UNION ALL ".join(parts)
+    if where:
+        sql += f" WHERE {where}"
+    if order:
+        sql += f" ORDER BY {order}"
+    if limit:
+        sql += f" LIMIT {limit}"
+    return [dict(r) for r in meta.execute(sql).fetchall()]
 
 
 def dict_from_row(row: sqlite3.Row | None) -> dict | None:
