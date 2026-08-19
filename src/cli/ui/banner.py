@@ -63,14 +63,15 @@ def show_interactive_banner(prog_name: str, commands: Optional[list[tuple[str, s
         from rich.rule import Rule
         from rich import box
         from art import text2art
-        from src.core.database import get_db
+        from src.core.database import get_meta_db, query_all_sites
+        from src.core.work_stats import get_stats
 
         console = _console()
-        db = get_db()
-        total_works = db.execute("SELECT COUNT(*) FROM works").fetchone()[0]
-        total_authors = db.execute("SELECT COUNT(DISTINCT author_id) FROM works").fetchone()[0]
-        total_series = db.execute("SELECT COUNT(DISTINCT series_id) FROM works WHERE series_id != ''").fetchone()[0]
-        total_fav = db.execute("SELECT COUNT(*) FROM works WHERE favorite = 1").fetchone()[0]
+        stats = get_stats()
+        total_works = stats["total_books"]
+        total_authors = stats["total_authors"]
+        total_series = stats["total_series"]
+        total_fav = sum(r[0] for r in query_all_sites("SELECT COUNT(*) FROM works WHERE favorite = 1"))
 
         console.print()
         console.print(Rule(style="bright_cyan"))
@@ -103,20 +104,21 @@ def show_interactive_banner(prog_name: str, commands: Optional[list[tuple[str, s
         console.print(Align.center(stats_line))
 
         # ── 最近活动三栏 ──
-        recent_open = db.execute(
-            "SELECT work_id, title, MAX(opened_at) AS opened_at "
-            "FROM recent_opens GROUP BY work_id ORDER BY opened_at DESC LIMIT 5"
+        meta = get_meta_db()
+        recent_open = meta.execute(
+            "SELECT site, work_id, title, MAX(opened_at) AS opened_at "
+            "FROM recent_opens GROUP BY site, work_id ORDER BY opened_at DESC LIMIT 5"
         ).fetchall()
-        recent_import = db.execute(
-            "SELECT id, title, imported_at FROM works "
-            "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%') "
-            "ORDER BY imported_at DESC LIMIT 5"
-        ).fetchall()
-        recent_download = db.execute(
-            "SELECT id, title, imported_at, source FROM works "
-            "WHERE imported_at != '' AND source LIKE 'http%' "
-            "ORDER BY imported_at DESC LIMIT 5"
-        ).fetchall()
+        recent_import = sorted(
+            query_all_sites(
+                "SELECT id, title, imported_at FROM works "
+                "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%')"),
+            key=lambda r: r["imported_at"], reverse=True)[:5]
+        recent_download = sorted(
+            query_all_sites(
+                "SELECT id, title, imported_at, source FROM works "
+                "WHERE imported_at != '' AND source LIKE 'http%'"),
+            key=lambda r: r["imported_at"], reverse=True)[:5]
 
         if recent_open or recent_import or recent_download:
             console.print()

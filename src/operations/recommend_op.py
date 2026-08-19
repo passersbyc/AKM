@@ -23,22 +23,23 @@ def get_recommendations(limit: int = 8) -> list[dict]:
          "reasons": [str], "series_count": int|None,
          "author_id": str, "series_id": str, "score": float}
     """
-    db = get_db()
+    from src.core.database import get_meta_db, query_all_sites
 
-    recent_open = db.execute(
-        "SELECT work_id, title, opened_at FROM recent_opens "
+    meta = get_meta_db()
+    recent_open = meta.execute(
+        "SELECT site, work_id, title, opened_at FROM recent_opens "
         "ORDER BY opened_at DESC LIMIT 5"
     ).fetchall()
-    recent_import = db.execute(
-        "SELECT id, title, imported_at FROM works "
-        "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%') "
-        "ORDER BY imported_at DESC LIMIT 5"
-    ).fetchall()
-    recent_download = db.execute(
-        "SELECT id, title, imported_at, source FROM works "
-        "WHERE imported_at != '' AND source LIKE 'http%' "
-        "ORDER BY imported_at DESC LIMIT 5"
-    ).fetchall()
+    recent_import = sorted(
+        query_all_sites(
+            "SELECT id, title, imported_at FROM works "
+            "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%')"),
+        key=lambda r: r["imported_at"], reverse=True)[:5]
+    recent_download = sorted(
+        query_all_sites(
+            "SELECT id, title, imported_at, source FROM works "
+            "WHERE imported_at != '' AND source LIKE 'http%'"),
+        key=lambda r: r["imported_at"], reverse=True)[:5]
 
     if not recent_open and not recent_import and not recent_download:
         return []
@@ -52,16 +53,14 @@ def get_recommendations(limit: int = 8) -> list[dict]:
     for row in recent_import + recent_download:
         if row and row["id"]:
             shown_ids.add(row["id"])
-    for wid in shown_ids:
-        srow = db.execute("SELECT series_id FROM works WHERE id = ?", (wid,)).fetchone()
-        if srow and srow["series_id"]:
-            shown_series_ids.add(srow["series_id"])
 
     # ── 计算全库 TF-IDF ──
-    all_works = db.execute(
+    all_works = query_all_sites(
         "SELECT id, title, tags, author_id, series_id, file_type, favorite, rating "
-        "FROM works ORDER BY imported_at DESC"
-    ).fetchall()
+        "FROM works ORDER BY imported_at DESC")
+    for w in all_works:
+        if w["id"] in shown_ids and w["series_id"]:
+            shown_series_ids.add(w["series_id"])
     total_works = len(all_works)
 
     tag_doc_freq: Counter = Counter()

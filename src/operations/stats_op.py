@@ -110,22 +110,22 @@ def get_recent_activity() -> dict:
     recent_open 按 work_id 去重（同一作品被打开多次只保留最近一次），
     避免"最近打开"出现重复作品。
     """
-    from src.core.database import get_db
-    db = get_db()
-    recent_open = [dict(r) for r in db.execute(
-        "SELECT work_id, title, MAX(opened_at) AS opened_at "
-        "FROM recent_opens GROUP BY work_id ORDER BY opened_at DESC LIMIT 6"
+    from src.core.database import get_meta_db, query_all_sites
+    meta = get_meta_db()
+    recent_open = [dict(r) for r in meta.execute(
+        "SELECT site, work_id, title, MAX(opened_at) AS opened_at "
+        "FROM recent_opens GROUP BY site, work_id ORDER BY opened_at DESC LIMIT 6"
     ).fetchall()]
-    recent_import = [dict(r) for r in db.execute(
-        "SELECT id, title, imported_at FROM works "
-        "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%') "
-        "ORDER BY imported_at DESC LIMIT 6"
-    ).fetchall()]
-    recent_download = [dict(r) for r in db.execute(
-        "SELECT id, title, imported_at, source FROM works "
-        "WHERE imported_at != '' AND source LIKE 'http%' "
-        "ORDER BY imported_at DESC LIMIT 6"
-    ).fetchall()]
+    recent_import = sorted(
+        query_all_sites(
+            "SELECT id, title, imported_at FROM works "
+            "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%')"),
+        key=lambda r: r["imported_at"], reverse=True)[:6]
+    recent_download = sorted(
+        query_all_sites(
+            "SELECT id, title, imported_at, source FROM works "
+            "WHERE imported_at != '' AND source LIKE 'http%'"),
+        key=lambda r: r["imported_at"], reverse=True)[:6]
     return {"recent_open": recent_open, "recent_import": recent_import, "recent_download": recent_download}
 
 
