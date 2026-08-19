@@ -146,12 +146,15 @@ def delete_all_works(keep_file: bool = False, clear_tables: bool = True) -> dict
     否则 delete_entries 的单作品联动逻辑会把全部队列记录重置为待下载，
     pull 会把刚删掉的作品全部重新下载回来（delete all 形同虚设）。
     """
-    from src.core.database import get_db
-    db = get_db()
-    with db:
-        db.execute("DELETE FROM download_queue")
-    rows = db.execute("SELECT id FROM works").fetchall()
-    ids = {r["id"] for r in rows}
+    from src.core.site import SITES
+    from src.core.database import get_site_db
+    ids: set[str] = set()
+    for site in SITES:
+        db = get_site_db(site)
+        with db:
+            db.execute("DELETE FROM download_queue")
+        for r in db.execute("SELECT id FROM works").fetchall():
+            ids.add(r["id"])
     logger.debug("清空作品库: %d 部 (keep_file=%s, clear_tables=%s)",
                 len(ids), keep_file, clear_tables)
     return delete_book(ids, keep_file=keep_file, clear_tables=clear_tables)

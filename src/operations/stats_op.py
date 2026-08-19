@@ -77,17 +77,20 @@ def _compute_stats() -> dict:
     stats["deleted_count"] = deleted_count
 
     # 库状态：关注分布 + 队列待下载
-    from src.core.database import get_db
-    db = get_db()
+    from src.core.database import get_site_db
+    from src.core.site import SITES
     follow_stats: dict[str, int] = defaultdict(int)
-    for row in db.execute(
+    # pixiv_trackings 在 pixiv 站点库
+    for row in get_site_db("pixiv").execute(
         "SELECT follow_status, COUNT(*) as c FROM pixiv_trackings GROUP BY follow_status"
     ).fetchall():
         follow_stats[row["follow_status"]] = row["c"]
-    queue_pending = db.execute(
-        "SELECT COUNT(*) FROM download_queue "
-        "WHERE is_valid = 1 AND is_in_db = 0 AND is_blacklisted = 0"
-    ).fetchone()[0]
+    queue_pending = 0
+    for site in SITES:
+        queue_pending += get_site_db(site).execute(
+            "SELECT COUNT(*) FROM download_queue "
+            "WHERE is_valid = 1 AND is_in_db = 0 AND is_blacklisted = 0"
+        ).fetchone()[0]
     stats["follow_stats"] = dict(follow_stats)
     stats["queue_pending"] = queue_pending
     return stats
@@ -131,36 +134,35 @@ def get_recent_activity() -> dict:
 
 def get_raw_tags() -> list[str]:
     """返回所有作品的 tags 字段列表（未拆分），供调用方归一化计数。"""
-    from src.core.database import get_db
-    db = get_db()
-    rows = db.execute("SELECT tags FROM works WHERE tags != ''").fetchall()
+    from src.core.database import query_all_sites
+    rows = query_all_sites("SELECT tags FROM works WHERE tags != ''")
     return [r["tags"] for r in rows]
 
 
 def get_top_authors(limit: int = 5) -> list[dict]:
     """返回作品数 Top N 作者 [{name, cnt, fav_cnt}, ...]。"""
-    from src.core.database import get_db
-    db = get_db()
-    rows = db.execute(
+    from src.core.database import query_all_sites
+    rows = query_all_sites(
         "SELECT a.name, COUNT(w.id) as cnt, SUM(CASE WHEN w.favorite = 1 THEN 1 ELSE 0 END) as fav_cnt "
         "FROM authors a JOIN works w ON a.id = w.author_id "
-        "GROUP BY a.id ORDER BY cnt DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
-    return [dict(r) for r in rows]
+        "GROUP BY a.id")
+    merged: dict[str, dict] = {}
+    for r in rows:
+        name = r["name"]
+        d = merged.setdefault(name, {"name": name, "cnt": 0, "fav_cnt": 0})
+        d["cnt"] += r["cnt"] or 0
+        d["fav_cnt"] += r["fav_cnt"] or 0
+    return sorted(merged.values(), key=lambda x: -x["cnt"])[:limit]
 
 
 def get_top_likes(limit: int = 5) -> list[dict]:
     """返回点赞排行 Top N [{work_id, title, author, like_count}, ...]。"""
-    from src.core.database import get_db
-    db = get_db()
-    rows = db.execute(
+    from src.core.database import query_all_sites
+    rows = query_all_sites(
         "SELECT w.id AS work_id, w.title, COALESCE(a.name, '') AS author, w.likes AS like_count "
         "FROM works w LEFT JOIN authors a ON w.author_id = a.id "
-        "WHERE w.likes > 0 "
-        "ORDER BY w.likes DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
+        "WHERE w.likes > 0")
+    rows = sorted(rows, key=lambda r: -r["like_count"])[:limit]
     return [dict(r) for r in rows]
 
 

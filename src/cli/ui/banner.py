@@ -215,9 +215,8 @@ def show_interactive_banner(prog_name: str, commands: Optional[list[tuple[str, s
 
 def show_welcome(prog_name: str) -> None:
     try:
-        from src.core.database import get_db
-        db = get_db()
-        total = db.execute("SELECT COUNT(*) FROM works").fetchone()[0]
+        from src.core.work_stats import get_stats
+        total = get_stats()["total_books"]
         if total > 0:
             return
     except Exception:
