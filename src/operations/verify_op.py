@@ -90,8 +90,15 @@ def check_integrity(progress_callback=None) -> dict:
     from pathlib import Path
     from src.core.hashing import generate_file_md5
     from src.core.download import append_or_update, mark_not_in_db, get_by_url
-    from src.core.database import get_db
+    from src.core.site import SITES
+    from src.core.database import get_site_db
     from src.core.config import get_library_path
+
+    def _delete_work_across_sites(wid: str) -> None:
+        for _s in SITES:
+            _d = get_site_db(_s)
+            _d.execute("DELETE FROM works WHERE id = ?", (wid,))
+            _d.commit()
 
     rows = WorkManager.read()
     if progress_callback:
@@ -100,7 +107,6 @@ def check_integrity(progress_callback=None) -> dict:
         return {"ok": 0, "corrupt": 0, "queued": 0, "deleted": 0, "cleaned": 0, "total": 0}
 
     lib_path = get_library_path()
-    db = get_db()
     ok_count = corrupt_count = queued_count = deleted_count = 0
     existing_paths: set[str] = set()
 
@@ -172,11 +178,9 @@ def check_integrity(progress_callback=None) -> dict:
                 queued_count += 1
                 status = "queued"
                 msg = f"(◕‿◕) 入队: {work_id} → {source_url}"
-            with db:
-                db.execute("DELETE FROM works WHERE id = ?", (work_id,))
+            _delete_work_across_sites(work_id)
         else:
-            with db:
-                db.execute("DELETE FROM works WHERE id = ?", (work_id,))
+            _delete_work_across_sites(work_id)
             deleted_count += 1
             status = "deleted"
             msg = f"(｡•́︿•̀｡) 删除: {work_id} (文件缺失且无来源)"
@@ -201,13 +205,15 @@ def check_integrity(progress_callback=None) -> dict:
 
     # 兜底：扫描 download_queue 中 is_in_db=1 但 works 表无记录的 stale 行
     stale_reset = 0
-    with db:
-        result = db.execute(
-            "UPDATE download_queue SET is_in_db=0, is_valid=1, fail_count=0 "
-            "WHERE is_in_db=1 "
-            "AND NOT EXISTS (SELECT 1 FROM works w WHERE w.source = download_queue.url)"
-        )
-        stale_reset = result.rowcount
+    for _s in SITES:
+        _d = get_site_db(_s)
+        with _d:
+            result = _d.execute(
+                "UPDATE download_queue SET is_in_db=0, is_valid=1, fail_count=0 "
+                "WHERE is_in_db=1 "
+                "AND NOT EXISTS (SELECT 1 FROM works w WHERE w.source = download_queue.url)"
+            )
+            stale_reset += result.rowcount
 
     return {"ok": ok_count, "corrupt": corrupt_count, "queued": queued_count,
             "deleted": deleted_count, "cleaned": cleaned_count,
