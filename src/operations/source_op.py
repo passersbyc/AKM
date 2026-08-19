@@ -85,8 +85,11 @@ def follow_author_by_url(url: str) -> dict | None:
         return None
     name, _ = info
     uid = downloader.extract_uid(url)
-    already = resolve(uid) if uid else None
-    row = upsert(uid=uid, name=name, homepage=url)
+    from src.core.site import infer_site
+    from src.core.database import site_ctx
+    with site_ctx(infer_site(url)):
+        already = resolve(uid) if uid else None
+        row = upsert(uid=uid, name=name, homepage=url)
     if not row:
         return None
     return {"uid": uid, "name": name, "local_id": row.get("id", ""),
@@ -240,15 +243,17 @@ def follow_from_pixiv(cookie: str) -> dict:
         result["error"] = "未获取到关注列表"
         return result
 
-    for u in followed:
-        already = resolve(u["uid"])
-        if already:
-            result["skipped"] += 1
-        else:
-            row = upsert(uid=u["uid"], name=u["name"], homepage=u["url"])
-            if row:
-                result["new"] += 1
-                result["authors"].append(u)
+    from src.core.database import site_ctx
+    with site_ctx("pixiv"):
+        for u in followed:
+            already = resolve(u["uid"])
+            if already:
+                result["skipped"] += 1
+            else:
+                row = upsert(uid=u["uid"], name=u["name"], homepage=u["url"])
+                if row:
+                    result["new"] += 1
+                    result["authors"].append(u)
 
     return result
 
@@ -396,10 +401,13 @@ def sync_one_author(row: dict, downloader=None, dry_run: bool = False,
     # 数据库写操作辅助函数——多线程同步时必须用同一个锁串行化所有写操作，
     # 避免 SQLite bad parameter or other API misuse 错误
     def _db_write(fn):
-        if download_lock:
-            with download_lock:
-                return fn()
-        return fn()
+        from src.core.database import site_ctx
+        # 同步作者写操作路由到对应站点库（follow 同步默认 pixiv）
+        with site_ctx("pixiv"):
+            if download_lock:
+                with download_lock:
+                    return fn()
+            return fn()
 
     if not downloader:
         from src.downloader import registry
