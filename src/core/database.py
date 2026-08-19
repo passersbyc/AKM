@@ -148,6 +148,19 @@ def query_all(sites: list[str], table: str, columns: str = "*",
     return [dict(r) for r in meta.execute(sql).fetchall()]
 
 
+def query_all_sites(sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+    """遍历所有站点库执行同一 SQL，聚合结果（用于含 JOIN 的查询）。
+
+    JOIN 不能跨库 UNION ALL，故单查/联表查询用遍历各站点库的方式聚合。
+    """
+    from src.core.site import SITES
+    rows: list[sqlite3.Row] = []
+    for site in SITES:
+        db = get_site_db(site)
+        rows.extend(db.execute(sql, params).fetchall())
+    return rows
+
+
 def dict_from_row(row: sqlite3.Row | None) -> dict | None:
     if row is None:
         return None

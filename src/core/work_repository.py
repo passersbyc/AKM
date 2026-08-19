@@ -93,44 +93,33 @@ def _append_raw(db, entry: dict) -> None:
 
 def get_by_id(book_id: str) -> dict | None:
     book_id = normalize_id(book_id)
-    db = get_db()
-    with _lock:
-        row = db.execute(
-            JOIN_SQL + " WHERE w.id = ?", (book_id,)
-        ).fetchone()
-    if row:
-        return row_to_manifest(dict(row))
+    from src.core.database import query_all_sites
+    rows = query_all_sites(JOIN_SQL + " WHERE w.id = ?", (book_id,))
+    if rows:
+        return row_to_manifest(dict(rows[0]))
     return None
 
 
 def get_by_author_local_id(local_id: str) -> list[dict]:
-    db = get_db()
-    with _lock:
-        rows = db.execute(
-            JOIN_SQL + " WHERE w.author_id = ? ORDER BY w.id",
-            (local_id,),
-        ).fetchall()
+    from src.core.database import query_all_sites
+    rows = query_all_sites(
+        JOIN_SQL + " WHERE w.author_id = ? ORDER BY w.id", (local_id,))
     return [row_to_manifest(dict(r)) for r in rows]
 
 
 def get_by_series(series: str, exclude_id: str = "") -> list[dict]:
-    db = get_db()
-    with _lock:
-        rows = db.execute(
-            JOIN_SQL + " WHERE s.name = ? AND w.id != ? ORDER BY w.id",
-            (series.strip(), exclude_id),
-        ).fetchall()
+    from src.core.database import query_all_sites
+    rows = query_all_sites(
+        JOIN_SQL + " WHERE s.name = ? AND w.id != ? ORDER BY w.id",
+        (series.strip(), exclude_id))
     return [row_to_manifest(dict(r)) for r in rows]
 
 
 def get_by_source(url: str) -> dict | None:
-    db = get_db()
-    with _lock:
-        row = db.execute(
-            JOIN_SQL + " WHERE w.source = ?", (url.strip(),)
-        ).fetchone()
-    if row:
-        return row_to_manifest(dict(row))
+    from src.core.database import query_all_sites
+    rows = query_all_sites(JOIN_SQL + " WHERE w.source = ?", (url.strip(),))
+    if rows:
+        return row_to_manifest(dict(rows[0]))
     return None
 
 
