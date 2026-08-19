@@ -470,11 +470,18 @@ def sync_one_author(row: dict, downloader=None, dry_run: bool = False,
 
     if new_works:
         new_urls = [u for u in works if extract_pixiv_id(u) in new_works]
+        # 兜底：build_work_index 漏判时（作品实际已入库，如 favorite 直下链路），
+        # 反查 source_set 剔除，避免已下载作品被重复入队/重复下载
+        in_library = WorkManager.source_set()
+        new_urls = [u for u in new_urls if u not in in_library]
+        new_works = {extract_pixiv_id(u) for u in new_urls}
         result["new_urls"] = new_urls
-        result["new_ids"] = [extract_pixiv_id(u) for u in new_urls]
+        result["new_ids"] = sorted(new_works)
         if not dry_run:
-            entries = [{"url": u, "author_name": name, "work_type": "novel" if "/novel/" in u else "illust"}
-                        for u in new_urls]
+            entries = [{"url": u, "author_name": name,
+                        "work_type": "novel" if "/novel/" in u else "illust",
+                        "is_in_db": 0}
+                       for u in new_urls]
             if entries:
                 if download_lock:
                     with download_lock:

@@ -113,11 +113,19 @@ class AsmrMoonDownloader(BaseDownloader):
             return stats
 
         from src.core.progress import make_progress, advance
-        counts = {"success": 0, "failed": 0, "skipped": 0}
-        progress, main_task, counts_task = make_progress(
-            counts, "下载音声", total=len(urls))
+        if self._progress is not None:
+            progress, main_task, counts_task = self._progress
+            counts = self._progress_counts or {"success": 0, "failed": 0,
+                                               "skipped": 0}
+            own_progress = False
+        else:
+            counts = {"success": 0, "failed": 0, "skipped": 0}
+            progress, main_task, counts_task = make_progress(
+                counts, "下载音声", total=len(urls))
+            own_progress = True
         pool = ThreadPoolExecutor(max_workers=self.max_workers)
-        progress.start()
+        if own_progress:
+            progress.start()
         try:
             futures = {pool.submit(self._download_one, u): u for u in urls}
             for f in as_completed(futures):
@@ -135,7 +143,8 @@ class AsmrMoonDownloader(BaseDownloader):
             pool.shutdown(wait=False, cancel_futures=True)
             raise
         finally:
-            progress.stop()
+            if own_progress:
+                progress.stop()
             pool.shutdown(wait=False, cancel_futures=True)
         stats.update(counts)
         return stats

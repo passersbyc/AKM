@@ -103,5 +103,15 @@
     "asmrmoon": {
         "workers": 3,
         "cookie": ""
+    },
+    "pawchive": {
+        "workers": 3,
+        "cookie": "",
+        "zip_passwords": {
+            "12134097": "作者ID对应的zip解压密码"
+        },
+        "gdrive_authors": [
+            "88823736"
+        ]
     }
 }

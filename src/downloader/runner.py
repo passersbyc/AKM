@@ -31,6 +31,7 @@ def run_download_groups(
     ctrl: Optional[DownloadControl] = None,
     progress_callback: Optional[Callable] = None,
     executor_hook: Optional[Callable[[ThreadPoolExecutor], None]] = None,
+    progress_setup: Optional[Callable] = None,
 ) -> dict:
     """下载调度核心：按 site 分组、并发处理、收集结果。
 
@@ -84,6 +85,8 @@ def run_download_groups(
         downloader = cls()
         downloader.set_download_control(ctrl)
         downloader.favorited = favorited
+        if progress_setup:
+            progress_setup(downloader)
         if pull_base_mapping:
             downloader.set_pull_base_mapping(pull_base_mapping)
         group_stats = {"success": 0, "failed": 0, "skipped": 0,

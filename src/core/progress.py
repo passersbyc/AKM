@@ -31,15 +31,19 @@ _console = Console(stderr=True)
 
 
 class CountsColumn(ProgressColumn):
-    """成功/失败/跳过 三色计数列，读取外部 counts dict。"""
+    """成功/失败/跳过 三色计数列。
 
-    def __init__(self, counts: dict, console: Console):
+    优先从 task.fields["counts"] 读取计数（支持一个 Progress 实例承载
+    多个站点的独立计数行）；未提供 fields 时回退到构造时传入的 counts。
+    """
+
+    def __init__(self, counts: dict | None = None, console: Console | None = None):
         super().__init__()
-        self.counts = counts
+        self._default_counts = counts or {}
         self._console = console
 
     def render(self, task) -> Text:
-        c = self.counts
+        c = (task.fields or {}).get("counts") or self._default_counts
         t = Text("    ")  # 计数行缩进，与左端留出间距
         t.append(f"成功{c.get('success', 0)}", style="green")
         t.append(f"  失败{c.get('failed', 0)}", style="red")
@@ -65,16 +69,31 @@ class _TwoRowProgress(Progress):
 
     通过覆盖 get_renderables 让两行使用不同的列集，计数行不再继承
     主行的占位列宽，且可独立居中，窄终端下各自截断而非换行错位。
+
+    支持多组（站点）task 共享同一实例：_pairs 记录 (主行id, 计数行id)
+    的配对顺序，get_renderables 按配对交错渲染，每个站点「主行+计数行」
+    垂直堆叠，互不冲突。
     """
 
     def __init__(self, main_columns, counts_columns, **kwargs):
         self._main_columns = list(main_columns)
         self._counts_columns = list(counts_columns)
-        self._main_ids: set[int] = set()
-        self._counts_ids: set[int] = set()
+        # 有序配对：(主行 task_id, 计数行 task_id 或 None)
+        self._pairs: list[tuple[int, int | None]] = []
         super().__init__(
             *self._main_columns, *self._counts_columns, **kwargs
         )
+
+    def _add_pair(self, desc: str, total: int,
+                  counts: dict | None) -> tuple[int, int | None]:
+        """添加一组两行式 task，记录配对并返回 (main_id, counts_id)。"""
+        main_id = self.add_task(description=desc, total=total)
+        counts_id = None
+        if counts is not None:
+            counts_id = self.add_task(
+                description="", total=total, counts=counts)
+        self._pairs.append((main_id, counts_id))
+        return main_id, counts_id
 
     def _render_group(self, columns, tasks, *, expand=False, center=False) -> Table:
         table_columns = []
@@ -91,13 +110,14 @@ class _TwoRowProgress(Progress):
         return table
 
     def get_renderables(self):
-        main_tasks = [t for t in self.tasks if t.id in self._main_ids]
-        counts_tasks = [t for t in self.tasks if t.id in self._counts_ids]
         out = []
-        if main_tasks:
-            out.append(self._render_group(self._main_columns, main_tasks))
-        if counts_tasks:
-            out.append(self._render_group(self._counts_columns, counts_tasks))
+        for main_id, counts_id in self._pairs:
+            main_tasks = [t for t in self.tasks if t.id == main_id]
+            counts_tasks = [t for t in self.tasks if t.id == counts_id]
+            if main_tasks:
+                out.append(self._render_group(self._main_columns, main_tasks))
+            if counts_tasks:
+                out.append(self._render_group(self._counts_columns, counts_tasks))
         return out
 
 
@@ -121,17 +141,29 @@ def make_progress(counts: dict | None, desc: str = "进度",
             TimeRemainingColumn(),
             RateColumn(),
         ],
-        [CountsColumn(counts, _console)] if counts is not None else [],
+        [CountsColumn(None, _console)] if counts is not None else [],
         console=_console,
         disable=not _console.is_terminal,
     )
-    main_id = progress.add_task(description=desc, total=total)
-    if counts is None:
-        return progress, main_id, None
-    counts_id = progress.add_task(description="", total=total)
-    progress._main_ids = {main_id}
-    progress._counts_ids = {counts_id}
+    main_id, counts_id = progress._add_pair(desc, total, counts)
     return progress, main_id, counts_id
+
+
+def add_progress_task(progress: Progress, counts: dict | None,
+                      desc: str, total: int) -> tuple[int, int | None]:
+    """在共享的两行式 Progress 实例上再添加一组 task（多站点并行下载）。
+
+    返回 (main_id, counts_id)。调用方用 advance() 推进；由外部统一
+    start()/stop() 该共享实例，不要在各自线程内重复 start/stop。
+    """
+    if isinstance(progress, _TwoRowProgress) and hasattr(progress, "_add_pair"):
+        return progress._add_pair(desc, total, counts)
+    main_id = progress.add_task(description=desc, total=total)
+    counts_id = None
+    if counts is not None:
+        counts_id = progress.add_task(
+            description="", total=total, counts=counts)
+    return main_id, counts_id
 
 
 def advance(progress: Progress, main_id: int, counts_id: int, n: int = 1) -> None:

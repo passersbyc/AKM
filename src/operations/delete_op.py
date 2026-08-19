@@ -1,12 +1,26 @@
 """delete 操作 — 编排层：过滤 + 删除。数据操作委托 WorkManager。"""
+import logging
+from src.core.logging import get_logger
 from src.core.work_manager import WorkManager
 from src.core.author_manager import delete_by_id as _delete_author_by_id
 from src.core.series_manager import delete as _delete_series_by_name
+
+# 删除详情日志：只写 application.log，不显示终端。
+# 文件 handler 为 DEBUG、控制台 handler 为 INFO，akm.delete 设 DEBUG 后
+# debug 消息经子 logger 通过、被控制台 handler 过滤，天然只落盘。
+logger = get_logger("akm.delete")
+logger.setLevel(logging.DEBUG)
+
 
 def delete_book(ids: set[str], *, keep_file: bool = False,
                 clear_tables: bool = False) -> dict:
     deleted = WorkManager.delete_and_reindex(
         ids, keep_file=keep_file, clear_tables=clear_tables)
+    if deleted:
+        # 破坏性操作必须留痕：记录数量/ID/参数，便于事后追溯
+        logger.debug("删除作品 %d 部 (keep_file=%s, clear_tables=%s): %s",
+                    len(deleted), keep_file, clear_tables,
+                    ",".join(d.get("ID", "") for d in deleted[:50]))
     return {"deleted": len(deleted), "ids": [d.get("ID") for d in deleted]}
 
 
@@ -107,6 +121,8 @@ def delete_authors(author_ids: list[str]) -> tuple[int, list[str]]:
         if _delete_author_by_id(lid):
             deleted += 1
             ids.append(lid)
+    if deleted:
+        logger.debug("删除作者 %d 位: %s", deleted, ",".join(ids))
     return deleted, ids
 
 
@@ -136,4 +152,6 @@ def delete_all_works(keep_file: bool = False, clear_tables: bool = True) -> dict
         db.execute("DELETE FROM download_queue")
     rows = db.execute("SELECT id FROM works").fetchall()
     ids = {r["id"] for r in rows}
+    logger.debug("清空作品库: %d 部 (keep_file=%s, clear_tables=%s)",
+                len(ids), keep_file, clear_tables)
     return delete_book(ids, keep_file=keep_file, clear_tables=clear_tables)

@@ -66,6 +66,14 @@ def append_or_update(entries: list[dict]) -> int:
                         "added_at=datetime('now') WHERE url=?",
                         (e.get("author_name", ""), e.get("work_type", ""), url))
             else:
+                # 首次入队：调用方未显式指定入库状态时，查 works 表——
+                # 已入库作品不再重复排队（避免 follow 漏判/重判导致重复下载）
+                if "is_in_db" not in e:
+                    work_row = db.execute(
+                        "SELECT 1 FROM works WHERE source = ?", (url,)
+                    ).fetchone()
+                    if work_row:
+                        continue
                 db.execute(
                     "INSERT INTO download_queue "
                     "(url, author_name, work_type, is_in_db) "
@@ -120,14 +128,23 @@ def mark_downloaded(url: str) -> None:
                 author_name = name_row[0]
 
         if author_name:
-            db.execute(
+            cur = db.execute(
                 "UPDATE download_queue SET is_in_db=1, download_time=datetime('now'), "
                 "fail_count=0, author_name=? WHERE url=?",
                 (author_name, url))
         else:
-            db.execute(
+            cur = db.execute(
                 "UPDATE download_queue SET is_in_db=1, download_time=datetime('now'), "
                 "fail_count=0 WHERE url=?", (url,))
+        # 队列无该 URL（如 favorite 直下链路不经 download_queue）→ 补登记已下载，
+        # 保证队列状态完整（verify/重下机制可感知）
+        if cur.rowcount == 0:
+            work_type = "novel" if "/novel/" in url else "illust"
+            db.execute(
+                "INSERT INTO download_queue "
+                "(url, author_name, work_type, is_in_db, download_time) "
+                "VALUES (?, ?, ?, 1, datetime('now'))",
+                (url, author_name, work_type))
 
 
 def mark_invalid(url: str) -> None:

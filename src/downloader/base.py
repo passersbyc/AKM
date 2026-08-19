@@ -68,6 +68,21 @@ class BaseDownloader(ABC):
         self._ctrl = DownloadControl()
         #: 本次下载的作品是否标记为「收藏」（favorite 下载时置 True）
         self.favorited: bool = False
+        #: 共享进度条 (progress, main_id, counts_id)，由外部（多站点并行）
+        #: 注入；None 表示本下载器自己创建/销毁进度条。
+        self._progress: Optional[tuple] = None
+        #: 共享进度条对应的 counts dict（与 CountsColumn 读的 fields 同对象）
+        self._progress_counts: Optional[dict] = None
+
+    def set_progress(self, progress, main_id, counts_id, counts=None) -> None:
+        """注入共享进度条：多站点并行下载时，由外部统一管理进度条生命周期。
+
+        注入后 process_url / _run_batch 复用该进度条（不自己 start/stop），
+        各自线程只推进自己的 task 行；counts 需与 add_progress_task 传入的
+        counts 为同一 dict 对象，保证计数行实时刷新。
+        """
+        self._progress = (progress, main_id, counts_id)
+        self._progress_counts = counts
 
     @abstractmethod
     def process_url(self, urls: Union[str, List[str]], mode: str = "both") -> Dict[str, int]:
@@ -185,11 +200,20 @@ class BaseDownloader(ABC):
         from src.core.progress import make_progress, advance, suppress_console_logging
 
         executor = self._batch_executor(max_workers)
-        counts = {"success": 0, "failed": 0, "skipped": 0}
-        progress, main_task, counts_task = make_progress(
-            counts, desc, total=len(works))
+        if self._progress is not None:
+            # 多站点并行：复用外部注入的共享进度条，不自己 start/stop
+            progress, main_task, counts_task = self._progress
+            counts = self._progress_counts or {"success": 0, "failed": 0,
+                                               "skipped": 0}
+            own_progress = False
+        else:
+            counts = {"success": 0, "failed": 0, "skipped": 0}
+            progress, main_task, counts_task = make_progress(
+                counts, desc, total=len(works))
+            own_progress = True
         with suppress_console_logging():
-            progress.start()
+            if own_progress:
+                progress.start()
             try:
                 import concurrent.futures
                 timeline: list[tuple[float, int]] = []
@@ -290,7 +314,8 @@ class BaseDownloader(ABC):
                                     paused_cancelled.append(u)
                 return timeline
             finally:
-                progress.stop()
+                if own_progress:
+                    progress.stop()
                 self._batch_shutdown(executor)
 
     def _load_base_config(self):

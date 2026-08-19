@@ -654,6 +654,10 @@ class PixivDownloader(BaseDownloader):
                 followed.append({
                     "uid": str(u.get("userId", "")),
                     "name": u.get("userName", ""),
+                    "comment": u.get("userComment", "") or "",
+                    "premium": bool(u.get("premium", False)),
+                    "illust_count": len(u.get("illusts") or []),
+                    "novel_count": len(u.get("novels") or []),
                 })
             offset += limit
             if len(users) < limit:

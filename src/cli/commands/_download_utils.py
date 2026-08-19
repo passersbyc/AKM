@@ -60,13 +60,15 @@ class DownloadGroupRunner:
                  site: Optional[str] = None,
                  favorited: bool = False,
                  pull_base_mapping: Optional[dict] = None,
-                 show_chart: bool = False):
+                 show_chart: bool = False,
+                 progress_setup=None):
         self.urls = urls
         self.mode = mode
         self.site = site
         self.favorited = favorited
         self.pull_base_mapping = pull_base_mapping or {}
         self.show_chart = show_chart
+        self.progress_setup = progress_setup
         self.ctrl = DownloadControl()
         self.results = {"success": 0, "failed": 0, "skipped": 0,
                          "total": 0, "elapsed": 0.0, "timeline": [],
@@ -109,6 +111,7 @@ class DownloadGroupRunner:
                 pull_base_mapping=self.pull_base_mapping,
                 ctrl=self.ctrl,
                 executor_hook=_hook,
+                progress_setup=self.progress_setup,
             )
         finally:
             signal.signal(signal.SIGINT, old_handler)

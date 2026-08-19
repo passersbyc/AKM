@@ -10,6 +10,8 @@ library/
 *.epub
 *.pdf
 *.bak
+*.bak-shm
+*.bak-wal
 
 # sensitive config (contains Pixiv credentials)
 config.json
