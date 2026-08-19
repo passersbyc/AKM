@@ -67,13 +67,12 @@ def list_items(target_type: str, sort_by: str = "id", number: int = 0) -> dict:
 def list_recent_favorited(days: int = 7) -> list[dict]:
     """返回收藏作者最近 N 天内入库/发布的作品，按时间倒序。"""
     from datetime import datetime, timedelta
-    from src.core.database import get_db
+    from src.core.database import query_all_sites
     from src.core.queries import row_to_manifest
 
-    db = get_db()
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
 
-    fav_authors = db.execute("SELECT id FROM authors WHERE favorite = 1").fetchall()
+    fav_authors = query_all_sites("SELECT id FROM authors WHERE favorite = 1")
     if not fav_authors:
         return []
 
@@ -92,7 +91,7 @@ def list_recent_favorited(days: int = 7) -> list[dict]:
         )
         ORDER BY COALESCE(NULLIF(w.published_at, ''), w.imported_at) DESC
     """
-    rows = db.execute(sql, fav_ids + [cutoff, cutoff]).fetchall()
+    rows = query_all_sites(sql, fav_ids + [cutoff, cutoff])
     return [row_to_manifest(dict(r)) for r in rows]
 
 
@@ -114,34 +113,32 @@ def list_authors_with_status() -> list[dict]:
 
 def list_download_queue(show_all: bool = False) -> list[dict]:
     """返回下载队列。show_all=True 含已下载/无效/拉黑，否则仅待下载（排除无效与黑名单）。"""
-    from src.core.database import get_db
-    db = get_db()
+    from src.core.database import query_all_sites
     where = "" if show_all else "WHERE is_valid = 1 AND is_in_db = 0 AND is_blacklisted = 0 "
-    rows = db.execute(
+    rows = query_all_sites(
         "SELECT url, author_name, work_type, is_valid, is_in_db, "
         "is_blacklisted, fail_count, download_time, added_at "
         f"FROM download_queue {where}ORDER BY added_at DESC"
-    ).fetchall()
+    )
     return [dict(r) for r in rows]
 
 
 def get_download_stats() -> dict:
-    """用单条 SQL 统计队列各状态数量（不受 show_all 影响）。"""
-    from src.core.database import get_db
-    db = get_db()
-    row = db.execute(
-        "SELECT "
-        "COUNT(*) as total, "
-        "SUM(CASE WHEN is_valid=1 AND is_in_db=0 AND is_blacklisted=0 THEN 1 ELSE 0 END) as pending, "
-        "SUM(CASE WHEN is_in_db=1 THEN 1 ELSE 0 END) as downloaded, "
-        "SUM(CASE WHEN is_valid=0 AND is_in_db=0 THEN 1 ELSE 0 END) as invalid, "
-        "SUM(CASE WHEN is_blacklisted=1 THEN 1 ELSE 0 END) as blacklisted "
-        "FROM download_queue"
-    ).fetchone()
-    return {
-        "total": row["total"] or 0,
-        "pending": row["pending"] or 0,
-        "downloaded": row["downloaded"] or 0,
-        "invalid": row["invalid"] or 0,
-        "blacklisted": row["blacklisted"] or 0,
-    }
+    """统计队列各状态数量（跨站点聚合）。"""
+    from src.core.site import SITES
+    from src.core.database import get_site_db
+    agg = {"total": 0, "pending": 0, "downloaded": 0, "invalid": 0, "blacklisted": 0}
+    for site in SITES:
+        db = get_site_db(site)
+        row = db.execute(
+            "SELECT "
+            "COUNT(*) as total, "
+            "SUM(CASE WHEN is_valid=1 AND is_in_db=0 AND is_blacklisted=0 THEN 1 ELSE 0 END) as pending, "
+            "SUM(CASE WHEN is_in_db=1 THEN 1 ELSE 0 END) as downloaded, "
+            "SUM(CASE WHEN is_valid=0 AND is_in_db=0 THEN 1 ELSE 0 END) as invalid, "
+            "SUM(CASE WHEN is_blacklisted=1 THEN 1 ELSE 0 END) as blacklisted "
+            "FROM download_queue"
+        ).fetchone()
+        for k in agg:
+            agg[k] += row[k] or 0
+    return agg
