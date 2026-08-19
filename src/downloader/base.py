@@ -425,21 +425,24 @@ class BaseDownloader(ABC):
         # 收藏标记：metadata 显式指定 > 下载器实例的 favorited 开关
         favorited = bool(metadata_info.get("favorited", self.favorited))
 
-        result = import_one(
-            file_path=str(file_path),
-            author=author or "佚名",
-            series=series,
-            tags=tags_str,
-            source=work_url,
-            description=description,
-            like_count=like_count,
-            create_date=create_date,
-            source_status=source_status,
-            title=title,
-            user_id=metadata_info.get("user_id", ""),
-            favorited=favorited,
-            convert_doc=False,
-        )
+        from src.core.database import site_ctx
+        # import 入库期间切换到当前下载器的站点库（多站点分库）
+        with site_ctx(getattr(self, "name", "local")):
+            result = import_one(
+                file_path=str(file_path),
+                author=author or "佚名",
+                series=series,
+                tags=tags_str,
+                source=work_url,
+                description=description,
+                like_count=like_count,
+                create_date=create_date,
+                source_status=source_status,
+                title=title,
+                user_id=metadata_info.get("user_id", ""),
+                favorited=favorited,
+                convert_doc=False,
+            )
 
         if result.success:
             try:

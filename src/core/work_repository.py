@@ -47,10 +47,14 @@ def write_all(rows: list[dict]) -> None:
 
 
 def append_one(entry: dict) -> None:
-    db = get_db()
-    with _lock:
-        with db:
-            _append_raw(db, entry)
+    from src.core.site import infer_site
+    from src.core.database import site_ctx
+    # 按来源 URL 推断站点，自动路由到对应站点库（多站点分库）
+    with site_ctx(infer_site(entry.get("来源", "") or "")):
+        db = get_db()
+        with _lock:
+            with db:
+                _append_raw(db, entry)
 
 
 def _append_raw(db, entry: dict) -> None:

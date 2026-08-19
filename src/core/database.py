@@ -43,6 +43,10 @@ def _get_db_path() -> Path:
 
 
 def get_db() -> sqlite3.Connection:
+    # 有站点上下文（site_ctx 内）→ 连对应站点库；否则连默认单库（向后兼容）。
+    site = getattr(_thread_local, "site", None)
+    if site:
+        return get_site_db(site)
     # 每线程独立连接（首次按线程创建并缓存）。
     # 注意：sqlite3 连接跨线程共享 execute 会卡死/报 bad parameter，
     # 各线程必须使用自己的连接；跨线程的写串行由调用方锁（work_repository._lock）保证。
@@ -99,6 +103,8 @@ def get_site_db(site: str) -> sqlite3.Connection:
         conn.execute("PRAGMA foreign_keys=ON")
         conn.row_factory = sqlite3.Row
         setattr(_thread_local, f"conn_{site}", conn)
+        # 懒初始化站点库 schema（幂等）
+        init_db(db=conn)
     return conn
 
 
@@ -122,6 +128,8 @@ def get_meta_db() -> sqlite3.Connection:
             if sp.exists():
                 conn.execute(f"ATTACH '{sp}' AS {s}")
         _thread_local.meta_conn = conn
+        # 懒初始化主库 schema（幂等）
+        init_meta_db(db=conn)
     return conn
 
 
@@ -295,9 +303,10 @@ def init_site_db(site: str) -> None:
     init_db(db=get_site_db(site))
 
 
-def init_meta_db() -> None:
+def init_meta_db(db=None) -> None:
     """初始化主库 schema：sites 注册表 + recent_opens(带 site) + settings。"""
-    db = get_meta_db()
+    if db is None:
+        db = get_meta_db()
     db.executescript("""
         CREATE TABLE IF NOT EXISTS sites (
             name        TEXT PRIMARY KEY,
