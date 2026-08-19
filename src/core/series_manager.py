@@ -7,10 +7,17 @@ def _init() -> None:
     init_db()
 
 
+def _query_series(sql: str, params: tuple = ()) -> list[dict]:
+    """系列查询：site_ctx 内查当前站点，否则遍历站点库。"""
+    from src.core.database import get_current_site, get_site_db, query_all_sites
+    site = get_current_site()
+    if site:
+        return [dict(r) for r in get_site_db(site).execute(sql, params).fetchall()]
+    return [dict(r) for r in query_all_sites(sql, params)]
+
+
 def list_all() -> list[dict]:
-    _init()
-    db = get_db()
-    rows = db.execute("""
+    rows = _query_series("""
         SELECT s.id, s.author_id, s.name, a.name AS author_name,
                COUNT(w.id) AS work_count,
                COALESCE(SUM(w.likes), 0) AS total_likes
@@ -19,31 +26,26 @@ def list_all() -> list[dict]:
           LEFT JOIN works w ON w.series_id = s.id AND w.author_id = s.author_id
         GROUP BY s.id, s.author_id
          ORDER BY s.author_id, s.id
-    """).fetchall()
-    return dicts_from_rows(rows)
+    """)
+    return rows
 
 
 def get(series_name: str, author_id: str = "") -> dict | None:
-    db = get_db()
     if author_id:
-        row = db.execute(
+        rows = _query_series(
             "SELECT * FROM series WHERE name = ? AND author_id = ?",
-            (series_name.strip(), author_id),
-        ).fetchone()
-        return dict_from_row(row)
-    row = db.execute(
-        "SELECT * FROM series WHERE name = ?", (series_name.strip(),)
-    ).fetchone()
-    return dict_from_row(row)
+            (series_name.strip(), author_id))
+        return rows[0] if rows else None
+    rows = _query_series(
+        "SELECT * FROM series WHERE name = ?", (series_name.strip(),))
+    return rows[0] if rows else None
 
 
 def get_by_id(series_id: str, author_id: str) -> dict | None:
-    db = get_db()
-    row = db.execute(
+    rows = _query_series(
         "SELECT * FROM series WHERE id = ? AND author_id = ?",
-        (series_id, author_id),
-    ).fetchone()
-    return dict_from_row(row)
+        (series_id, author_id))
+    return rows[0] if rows else None
 
 
 def resolve(target: str, author_id: str = "") -> dict | None:
