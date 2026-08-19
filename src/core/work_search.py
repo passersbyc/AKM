@@ -1,20 +1,15 @@
 """作品搜索 — 支持多字段筛选、正则和关键词搜索。"""
 import re as re_mod
 
-from src.core.database import get_db
-from src.core.queries import JOIN_SQL, row_to_manifest
-
 
 def search(query: str = "", author: str = "", series: str = "",
            file_type: str = "", tags: str = "", source: str = "",
            keyword: str = "", regex: bool = False, limit: int = 0,
            favorited: str = "") -> list[dict]:
-    db = get_db()
-    rows = db.execute(JOIN_SQL).fetchall()
-    if not rows:
+    from src.core.work_repository import read_all
+    manifest_rows = read_all()
+    if not manifest_rows:
         return []
-
-    manifest_rows = [row_to_manifest(dict(r)) for r in rows]
 
     def build_matcher(pattern, use_regex):
         if not pattern:

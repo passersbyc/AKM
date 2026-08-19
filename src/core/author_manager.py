@@ -39,21 +39,27 @@ def _merge_row(row: dict) -> dict:
     }
 
 
+def _query_author(sql: str, params: tuple = ()) -> list[dict]:
+    """作者查询：site_ctx 内查当前站点（避免跨站点同名混淆），否则遍历站点库。"""
+    from src.core.database import get_current_site, get_site_db, query_all_sites
+    site = get_current_site()
+    if site:
+        return [dict(r) for r in get_site_db(site).execute(sql, params).fetchall()]
+    return [dict(r) for r in query_all_sites(sql, params)]
+
+
 def list_all() -> list[dict]:
-    _init()
-    db = get_db()
-    rows = db.execute(_AUTHOR_JOIN + " ORDER BY a.id").fetchall()
-    return [_merge_row(dict(r)) for r in rows]
+    rows = _query_author(_AUTHOR_JOIN + " ORDER BY a.id")
+    return [_merge_row(r) for r in rows]
 
 
 def compute_author_tags(author_id: str) -> list[str]:
-    db = get_db()
-    rows = db.execute(
-        "SELECT tags FROM works WHERE author_id = ? AND tags != ''", (author_id,)
-    ).fetchall()
+    from src.core.database import query_all_sites
+    rows = query_all_sites(
+        "SELECT tags FROM works WHERE author_id = ? AND tags != ''", (author_id,))
     seen = set()
-    for (tags_str,) in rows:
-        for t in tags_str.split(","):
+    for r in rows:
+        for t in (r[0] or "").split(","):
             t = t.strip()
             if t:
                 seen.add(t)
@@ -62,13 +68,12 @@ def compute_author_tags(author_id: str) -> list[str]:
 
 def compute_author_top_tags(author_id: str, top_n: int = 5) -> list[tuple[str, int]]:
     from collections import Counter
-    db = get_db()
-    rows = db.execute(
-        "SELECT tags FROM works WHERE author_id = ? AND tags != ''", (author_id,)
-    ).fetchall()
+    from src.core.database import query_all_sites
+    rows = query_all_sites(
+        "SELECT tags FROM works WHERE author_id = ? AND tags != ''", (author_id,))
     counter: Counter = Counter()
-    for (tags_str,) in rows:
-        for t in tags_str.split(","):
+    for r in rows:
+        for t in (r[0] or "").split(","):
             t = t.strip()
             if t:
                 counter[t] += 1
@@ -76,37 +81,35 @@ def compute_author_top_tags(author_id: str, top_n: int = 5) -> list[tuple[str, i
 
 
 def set_author_favorite(author_id: str, favorite: bool) -> bool:
-    db = get_db()
-    db.execute(
-        "UPDATE authors SET favorite = ?, updated_at = datetime('now') WHERE id = ?",
-        (1 if favorite else 0, author_id),
-    )
-    db.commit()
-    return db.total_changes > 0
+    from src.core.database import get_current_site, get_site_db
+    from src.core.site import SITES
+    site = get_current_site()
+    sites = [site] if site else SITES
+    for s in sites:
+        db = get_site_db(s)
+        db.execute(
+            "UPDATE authors SET favorite = ?, updated_at = datetime('now') WHERE id = ?",
+            (1 if favorite else 0, author_id),
+        )
+        db.commit()
+        if db.total_changes > 0:
+            return True
+    return False
 
 
 def get_by_pixiv_uid(uid: str) -> dict | None:
-    db = get_db()
-    row = db.execute(
-        _AUTHOR_JOIN + " WHERE p.pixiv_uid = ?", (uid.strip(),)
-    ).fetchone()
-    return _merge_row(dict(row)) if row else None
+    rows = _query_author(_AUTHOR_JOIN + " WHERE p.pixiv_uid = ?", (uid.strip(),))
+    return _merge_row(rows[0]) if rows else None
 
 
 def get_by_name(name: str) -> dict | None:
-    db = get_db()
-    row = db.execute(
-        _AUTHOR_JOIN + " WHERE a.name = ?", (name.strip(),)
-    ).fetchone()
-    return _merge_row(dict(row)) if row else None
+    rows = _query_author(_AUTHOR_JOIN + " WHERE a.name = ?", (name.strip(),))
+    return _merge_row(rows[0]) if rows else None
 
 
 def get_by_id(author_id: str) -> dict | None:
-    db = get_db()
-    row = db.execute(
-        _AUTHOR_JOIN + " WHERE a.id = ?", (author_id.strip(),)
-    ).fetchone()
-    return _merge_row(dict(row)) if row else None
+    rows = _query_author(_AUTHOR_JOIN + " WHERE a.id = ?", (author_id.strip(),))
+    return _merge_row(rows[0]) if rows else None
 
 
 def resolve(target: str) -> dict | None:

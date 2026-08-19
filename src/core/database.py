@@ -70,15 +70,15 @@ def get_db() -> sqlite3.Connection:
 # ── 多站点分库连接层（新增，不影响现有 get_db） ──────────────────
 
 
-def get_current_site() -> str:
-    """当前线程的站点上下文（默认 local）。"""
-    return getattr(_thread_local, "site", "local")
+def get_current_site() -> str | None:
+    """当前线程的站点上下文（None 表示未在 site_ctx 内）。"""
+    return getattr(_thread_local, "site", None)
 
 
 @contextmanager
 def site_ctx(site: str):
     """临时切换当前线程的站点上下文（写操作路由目标）。"""
-    old = getattr(_thread_local, "site", "local")
+    old = getattr(_thread_local, "site", None)
     _thread_local.site = site
     try:
         yield
