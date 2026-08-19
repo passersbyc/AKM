@@ -48,7 +48,7 @@ class InfoCommand(BaseCommand):
             if fp.exists():
                 subprocess.run(["open", str(fp)])
                 logger.info(f" 已打开: {fp.name}")
-                self._record_open(target, book.get("标题", ""))
+                self._record_open(target, book.get("标题", ""), book.get("来源", "") or "")
             else:
                 logger.warning(f" 文件不存在: {fp}")
 
@@ -106,9 +106,10 @@ class InfoCommand(BaseCommand):
             logger.info(f"标题: {book.get('标题', '')}")
         return 0
 
-    def _record_open(self, work_id: str, title: str) -> None:
+    def _record_open(self, work_id: str, title: str, source: str = "") -> None:
         from src.operations import record_open
+        from src.core.site import infer_site
         try:
-            record_open(work_id, title)
+            record_open(work_id, title, infer_site(source))
         except Exception:
             pass

@@ -57,13 +57,14 @@ def get_series_name(series_id: str, author_id: str = "") -> str:
     return row["name"] if row else series_id
 
 
-def record_open(work_id: str, title: str) -> None:
-    """记录最近打开的作品，保留最近 50 条。"""
-    db = get_db()
+def record_open(work_id: str, title: str, site: str = "local") -> None:
+    """记录最近打开的作品（写入主库 recent_opens，保留最近 50 条）。"""
+    from src.core.database import get_meta_db
+    db = get_meta_db()
     with db:
         db.execute(
-            "INSERT INTO recent_opens (work_id, title) VALUES (?, ?)",
-            (work_id, title),
+            "INSERT INTO recent_opens (site, work_id, title) VALUES (?, ?, ?)",
+            (site, work_id, title),
         )
         db.execute(
             "DELETE FROM recent_opens WHERE id NOT IN "

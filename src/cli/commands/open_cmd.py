@@ -43,7 +43,7 @@ class OpenCommand(BaseCommand):
             return self.output.result(False, error=f"打开失败: {e}")
 
         logger.info(f" 已打开: {fp.name}")
-        self._record_open(work["id"], work.get("title", ""))
+        self._record_open(work["id"], work.get("title", ""), work.get("来源", "") or "")
 
         if self.output.json_mode:
             return self.output.result(True, data={
@@ -171,9 +171,10 @@ class OpenCommand(BaseCommand):
 
         return self.output.result(False, error=f"找不到作品或作者: {target} 哦～")
 
-    def _record_open(self, work_id: str, title: str) -> None:
+    def _record_open(self, work_id: str, title: str, source: str = "") -> None:
         from src.operations import record_open
+        from src.core.site import infer_site
         try:
-            record_open(work_id, title)
+            record_open(work_id, title, infer_site(source))
         except Exception:
             pass

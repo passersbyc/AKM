@@ -623,7 +623,8 @@ def work_open(work_id: str):
                 subprocess.Popen(["xdg-open", file_path])
         # 记录最近打开（仪表盘「最近活动」）
         from src.operations import record_open
-        record_open(work_id, info.get("标题", ""))
+        from src.core.site import infer_site
+        record_open(work_id, info.get("标题", ""), infer_site(info.get("来源", "") or ""))
         return {"success": True}
     except Exception as e:
         return JSONResponse({"success": False, "error": f"(｡•́︿•̀｡) 打开失败呀～ {e}"}, status_code=500)
