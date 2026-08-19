@@ -63,43 +63,56 @@ class ListCommand(BaseCommand):
             logger.info(" 书架空空如也～")
             return 0
 
-        limit = args.number if args.number > 0 else (0 if args.no_limit else 300)
-        is_default_limit = not args.number and not args.no_limit
-        if limit > 0 and len(items) > limit:
-            items = items[:limit]
+        # 每站点显示数量：number > 0 用 number，--no-limit 全部，否则每站点 100
+        per_site = args.number if args.number > 0 else (0 if args.no_limit else 100)
 
         from rich.table import Table
+        from src.core.site import SITES, site_prefix
 
-        table = Table(title="作品列表", show_lines=False)
-        table.add_column("ID", justify="right", style="cyan", no_wrap=True)
-        table.add_column("标题", style="magenta")
-        table.add_column("作者", style="green")
-        table.add_column("系列", style="yellow")
-        table.add_column("分类", style="blue")
-        table.add_column("收藏", style="red")
-        table.add_column("点赞", style="yellow")
-        table.add_column("评分", style="cyan")
+        # 按站点分组（保持全局排序的相对顺序）
+        groups: dict[str, list] = {}
+        for r in items:
+            groups.setdefault(r.get("站点", "local"), []).append(r)
 
-        for i, row in enumerate(items):
-            author = row.get("作者", "未知")
-            is_last_of_author = (i + 1 == len(items)
-                                 or items[i + 1].get("作者", "未知") != author)
+        for site in SITES:
+            site_items = groups.get(site, [])
+            if not site_items:
+                continue
+            total_site = len(site_items)
+            if per_site > 0 and len(site_items) > per_site:
+                site_items = site_items[:per_site]
 
-            likes = row.get("点赞", "0") or "0"
-            rating = row.get("评分", "-") or "0"
-            table.add_row(
-                short_id(row.get("ID", "N/A"), row.get("站点")),
-                row.get("标题", ""),
-                author,
-                row.get("系列", "-") or "-",
-                row.get("分类", "") or "未知",
-                "♥" if row.get("收藏", "否") == "是" else "",
-                likes if int(likes) > 0 else "",
-                rating if float(rating) > 0 else "",
-                end_section=is_last_of_author,
-            )
+            table = Table(
+                title=f"{site}（前缀 {site_prefix(site)}）· 显示 {len(site_items)}/{total_site} 部",
+                show_lines=False)
+            table.add_column("ID", justify="right", style="cyan", no_wrap=True)
+            table.add_column("标题", style="magenta")
+            table.add_column("作者", style="green")
+            table.add_column("系列", style="yellow")
+            table.add_column("分类", style="blue")
+            table.add_column("收藏", style="red")
+            table.add_column("点赞", style="yellow")
+            table.add_column("评分", style="cyan")
 
-        self.console.print(table)
+            for i, row in enumerate(site_items):
+                author = row.get("作者", "未知")
+                is_last_of_author = (i + 1 == len(site_items)
+                                     or site_items[i + 1].get("作者", "未知") != author)
+                likes = row.get("点赞", "0") or "0"
+                rating = row.get("评分", "-") or "0"
+                table.add_row(
+                    short_id(row.get("ID", "N/A"), row.get("站点")),
+                    row.get("标题", ""),
+                    author,
+                    row.get("系列", "-") or "-",
+                    row.get("分类", "") or "未知",
+                    "♥" if row.get("收藏", "否") == "是" else "",
+                    likes if int(likes) > 0 else "",
+                    rating if float(rating) > 0 else "",
+                    end_section=is_last_of_author,
+                )
+
+            self.console.print(table)
         return 0
 
     def _list_author(self, args: argparse.Namespace) -> int:
