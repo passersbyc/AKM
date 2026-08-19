@@ -120,9 +120,12 @@ def queue_author_works(url: str, exts: Optional[set] = None,
     name, _ = info
     uid = downloader.extract_uid(url)
 
-    # 关注（upsert）——与 follow_author_by_url 相同的几行，独立实现以避免重复网络调用
-    already = resolve(uid) if uid else None
-    row = upsert(uid=uid, name=name, homepage=url)
+    # 关注（upsert）——在站点上下文内，路由到对应站点库
+    from src.core.site import infer_site
+    from src.core.database import site_ctx
+    with site_ctx(infer_site(url)):
+        already = resolve(uid) if uid else None
+        row = upsert(uid=uid, name=name, homepage=url)
     if not row:
         return None
 
