@@ -28,13 +28,15 @@ def normalize_id(id_str: str) -> str:
 
 
 def read_all() -> list[dict]:
-    # 同一 sqlite 连接跨线程并发 execute 会报 bad parameter/死锁（WebUI 线程池并发），
-    # init_db（DDL 写）与查询必须与写操作共用同一把锁串行化
-    with _lock:
-        init_db()
-        db = get_db()
+    # 多站点分库：遍历各站点库，JOIN 查询后合并（每个站点库独立连接，无需共享锁）
+    from src.core.site import SITES
+    from src.core.database import get_site_db
+    all_rows = []
+    for site in SITES:
+        db = get_site_db(site)
         rows = db.execute(JOIN_SQL + " ORDER BY w.id").fetchall()
-    return [row_to_manifest(dict(r)) for r in rows]
+        all_rows.extend(dict(r) for r in rows)
+    return [row_to_manifest(r) for r in all_rows]
 
 
 def write_all(rows: list[dict]) -> None:
