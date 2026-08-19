@@ -27,6 +27,17 @@ def normalize_id(id_str: str) -> str:
     return to_full_id(id_str.strip())
 
 
+def _site_of_book(book_id: str) -> str | None:
+    """定位作品所在站点（遍历站点库查 id）。"""
+    from src.core.site import SITES
+    from src.core.database import get_site_db
+    for site in SITES:
+        if get_site_db(site).execute(
+                "SELECT 1 FROM works WHERE id = ?", (book_id,)).fetchone():
+            return site
+    return None
+
+
 def read_all() -> list[dict]:
     # 多站点分库：遍历各站点库，JOIN 查询后合并（每个站点库独立连接，无需共享锁）
     from src.core.site import SITES
@@ -133,45 +144,54 @@ def get_by_source(url: str) -> dict | None:
 
 def update_entry(book_id: str, changes: dict) -> bool:
     book_id = normalize_id(book_id)
-    db = get_db()
-    valid = {k: v for k, v in changes.items() if k in MANIFEST_FIELDS}
-    if not valid:
+    from src.core.database import site_ctx
+    site = _site_of_book(book_id)
+    if not site:
         return False
-    field_map = {
-        "标题": "title", "作者": "author_id", "系列": "series_id",
-        "标签": "tags", "来源": "source", "源状态": "source_status",
-        "后缀": "file_ext", "分类": "file_type", "导入时间": "imported_at",
-        "文件大小(KB)": "file_size_kb", "MD5": "md5", "文件路径": "file_path",
-        "收藏": "favorite", "评分": "rating", "简介": "description", "点赞": "likes",
-    }
-    set_parts = []
-    values = []
-    for k, v in valid.items():
-        col = field_map.get(k, k)
-        if col == "favorite":
-            values.append(1 if v == "是" else 0)
-        elif col == "author_id":
-            values.append(resolve_author_id(str(v)))
-        elif col == "series_id":
-            author_name = changes.get("作者", "")
-            aid = resolve_author_id(author_name) if author_name else ""
-            values.append(resolve_series_id(aid, str(v)) if v else "")
-        else:
-            values.append(str(v) if v is not None else "")
-        set_parts.append(f"{col} = ?")
-    values.append(book_id)
-    with _lock, db:
-        cur = db.execute(
-            f"UPDATE works SET {', '.join(set_parts)} WHERE id = ?", values
-        )
-        return cur.rowcount > 0
+    with site_ctx(site):
+        db = get_db()
+        valid = {k: v for k, v in changes.items() if k in MANIFEST_FIELDS}
+        if not valid:
+            return False
+        field_map = {
+            "标题": "title", "作者": "author_id", "系列": "series_id",
+            "标签": "tags", "来源": "source", "源状态": "source_status",
+            "后缀": "file_ext", "分类": "file_type", "导入时间": "imported_at",
+            "文件大小(KB)": "file_size_kb", "MD5": "md5", "文件路径": "file_path",
+            "收藏": "favorite", "评分": "rating", "简介": "description", "点赞": "likes",
+        }
+        set_parts = []
+        values = []
+        for k, v in valid.items():
+            col = field_map.get(k, k)
+            if col == "favorite":
+                values.append(1 if v == "是" else 0)
+            elif col == "author_id":
+                values.append(resolve_author_id(str(v)))
+            elif col == "series_id":
+                author_name = changes.get("作者", "")
+                aid = resolve_author_id(author_name) if author_name else ""
+                values.append(resolve_series_id(aid, str(v)) if v else "")
+            else:
+                values.append(str(v) if v is not None else "")
+            set_parts.append(f"{col} = ?")
+        values.append(book_id)
+        with _lock, db:
+            cur = db.execute(
+                f"UPDATE works SET {', '.join(set_parts)} WHERE id = ?", values
+            )
+            return cur.rowcount > 0
 
 
 def update_entry_full(book_id: str, field_updates: dict,
                       new_author: str = "", new_series: str = "") -> dict | None:
     book_id = normalize_id(book_id)
+    from src.core.database import get_site_db, site_ctx
+    site = _site_of_book(book_id)
+    if not site:
+        return None
 
-    db = get_db()
+    db = get_site_db(site)
     with _lock:
         row = db.execute(JOIN_SQL + " WHERE w.id = ?", (book_id,)).fetchone()
     if not row:
@@ -186,8 +206,9 @@ def update_entry_full(book_id: str, field_updates: dict,
     if new_series:
         final_series_name = normalize_series_name(new_series)
 
-    final_author_id = resolve_author_id(final_author_name)
-    final_series_id = resolve_series_id(final_author_id, final_series_name) if final_series_name else ""
+    with site_ctx(site):
+        final_author_id = resolve_author_id(final_author_name)
+        final_series_id = resolve_series_id(final_author_id, final_series_name) if final_series_name else ""
 
     need_move = False
     if new_author and new_author != old_author_name:
@@ -290,25 +311,32 @@ def delete_entries(ids: set[str]) -> list[dict]:
             if src:
                 source_urls.append(src)
     if deleted:
-        db = get_db()
-        with _lock, db:
+        from src.core.site import infer_site
+        from src.core.database import get_site_db, get_meta_db
+        # 按站点删除 works（作品 ID 各站点独立，需定位站点）
+        id_groups: dict[str, list[str]] = {}
+        for bid in ids:
+            site = _site_of_book(bid)
+            if site:
+                id_groups.setdefault(site, []).append(bid)
+        for site, bids in id_groups.items():
+            db = get_site_db(site)
+            with _lock, db:
+                placeholders = ",".join("?" for _ in bids)
+                db.execute(f"DELETE FROM works WHERE id IN ({placeholders})", bids)
+        # 按 url 站点删除 download_queue（pull 不应自动重新下载）
+        for u in source_urls:
+            db = get_site_db(infer_site(u))
+            with db:
+                db.execute("DELETE FROM download_queue WHERE url = ?", (u,))
+        # recent_opens 在主库，联动清理孤儿记录
+        meta = get_meta_db()
+        with meta:
             placeholders = ",".join("?" for _ in ids)
-            db.execute(f"DELETE FROM works WHERE id IN ({placeholders})", list(ids))
-            # 联动清理最近打开记录，避免 banner/stats 展示已删除作品的孤儿记录
-            db.execute(
+            meta.execute(
                 f"DELETE FROM recent_opens WHERE work_id IN ({placeholders})",
                 list(ids),
             )
-            # 联动：删除队列中对应 URL 记录——作品已被用户删除，
-            # pull 不应自动重新下载（否则删除形同虚设）。
-            # 若用户想重新获取：follow 同步会因 works 无记录而把 URL
-            # 视为新作自动重新入队，或手动再次入队。
-            if source_urls:
-                q_placeholders = ",".join("?" for _ in source_urls)
-                db.execute(
-                    f"DELETE FROM download_queue WHERE url IN ({q_placeholders})",
-                    source_urls,
-                )
     return deleted
 
 

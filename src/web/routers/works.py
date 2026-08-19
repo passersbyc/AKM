@@ -144,19 +144,21 @@ def _build_series_entry(raw_members: list[dict], global_count: int | None = None
 
 def _series_global_counts(names: list[str]) -> dict[str, int]:
     """一次查询所有系列名的全库作品数（与系列页 search(series=name) 口径一致）。"""
-    from src.core.database import get_db
+    from src.core.database import query_all_sites
     names = [n for n in dict.fromkeys(names) if n]
     if not names:
         return {}
-    db = get_db()
     placeholders = ",".join("?" * len(names))
-    rows = db.execute(
+    rows = query_all_sites(
         f"SELECT s.name, COUNT(*) FROM works w "
         f"JOIN series s ON w.series_id = s.id AND s.author_id = w.author_id "
         f"WHERE s.name IN ({placeholders}) GROUP BY s.name",
         names,
-    ).fetchall()
-    return {r[0]: r[1] for r in rows}
+    )
+    result: dict[str, int] = {}
+    for r in rows:
+        result[r[0]] = result.get(r[0], 0) + r[1]
+    return result
 
 
 def _merge_series(results: list[dict]) -> list[dict]:
@@ -437,15 +439,14 @@ def _default_open_app(file_type: str) -> str:
 @router.post("/works/{work_id}/favorite")
 def toggle_favorite(work_id: str):
     """切换作品收藏状态（本地库收藏标记）。"""
-    from src.core.database import get_db
+    from src.core.database import query_all_sites
     from src.core.work_manager import WorkManager
 
-    db = get_db()
-    row = db.execute("SELECT favorite FROM works WHERE id = ?", (work_id,)).fetchone()
-    if not row:
+    rows = query_all_sites("SELECT favorite FROM works WHERE id = ?", (work_id,))
+    if not rows:
         return JSONResponse({"success": False, "error": "(・ω・)? 作品不存在呀～"}, status_code=404)
 
-    new_val = 0 if row["favorite"] else 1
+    new_val = 0 if rows[0]["favorite"] else 1
     # update_entry_full 使用中文清单键（"收藏"），传 "是"/"否"
     WorkManager.update_entry_full(work_id, {"收藏": "是" if new_val else "否"})
     return {"success": True, "favorite": bool(new_val)}

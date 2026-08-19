@@ -38,9 +38,9 @@ def _kid_safe_counts() -> tuple[int, int]:
     now = time.time()
     if _kid_stats_cache["books"] is not None and now - _kid_stats_cache["t"] < 30:
         return _kid_stats_cache["books"], _kid_stats_cache["favored"]
-    db = get_db()
+    from src.core.database import query_all_sites
     books = favored = 0
-    for r in db.execute("SELECT tags, favorite FROM works"):
+    for r in query_all_sites("SELECT tags, favorite FROM works"):
         if not is_adult_row({"标签": r["tags"] or ""}):
             books += 1
             if r["favorite"]:
@@ -57,11 +57,11 @@ def _filter_adult(rows: list[dict], id_key: str) -> list[dict]:
     if not ids:
         return rows
     tag_map: dict[str, str] = {}
-    db = get_db()
+    from src.core.database import query_all_sites
     for i in range(0, len(ids), 500):
         chunk = ids[i:i + 500]
         placeholders = ",".join("?" * len(chunk))
-        for r in db.execute(
+        for r in query_all_sites(
             f"SELECT id, tags FROM works WHERE id IN ({placeholders})", chunk
         ):
             tag_map[r["id"]] = r["tags"] or ""
@@ -93,11 +93,11 @@ def _fill_file_types(rows: list[dict], id_key: str) -> None:
     ids = [r[id_key] for r in rows if r.get(id_key)]
     if not ids:
         return
-    db = get_db()
+    from src.core.database import query_all_sites
     placeholders = ",".join("?" * len(ids))
-    ft_rows = db.execute(
+    ft_rows = query_all_sites(
         f"SELECT id, file_type FROM works WHERE id IN ({placeholders})", ids
-    ).fetchall()
+    )
     ft_map = {r["id"]: r["file_type"] for r in ft_rows}
     for r in rows:
         r["file_type"] = ft_map.get(r.get(id_key, ""), "")

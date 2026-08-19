@@ -17,12 +17,12 @@ router = APIRouter()
 
 
 def _render(request: Request, *, results=None, error="", submitted=None):
-    from src.core.database import get_db, short_id
-    db = get_db()
-    recent = [dict(r) for r in db.execute(
-        "SELECT id, title, file_type, imported_at FROM works "
-        "WHERE imported_at != '' ORDER BY imported_at DESC LIMIT 5"
-    ).fetchall()]
+    from src.core.database import short_id, query_all_sites
+    recent = sorted(
+        query_all_sites(
+            "SELECT id, title, file_type, imported_at FROM works "
+            "WHERE imported_at != ''"),
+        key=lambda r: r["imported_at"], reverse=True)[:5]
     for row in recent:
         row["short_id"] = short_id(row["id"])
     return templates.TemplateResponse(request, "import.html", {
