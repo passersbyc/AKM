@@ -46,8 +46,7 @@ def build_completer(app):
         def _query_works(self, prefix: str, limit: int = 15) -> list[tuple[str, str]]:
             """查询作品：标题包含 + 短ID前缀匹配，返回 [(insert_text, display), ...]。"""
             try:
-                from src.core.database import get_db, short_id
-                db = get_db()
+                from src.core.database import short_id, query_all_sites
                 results: list[tuple[str, str]] = []
                 seen: set[str] = set()
 
@@ -62,28 +61,24 @@ def build_completer(app):
                 if prefix and prefix[0] in "ncmfi0":
                     clean = prefix.replace(".", "")
                     if clean:
-                        rows = db.execute(
-                            "SELECT id, title FROM works WHERE id LIKE ? LIMIT ?",
-                            (f"{clean}%", limit),
-                        ).fetchall()
+                        rows = query_all_sites(
+                            "SELECT id, title FROM works WHERE id LIKE ?",
+                            (f"{clean}%",))
                         for r in rows:
                             _add(r["id"], r["title"])
 
                 # 标题包含匹配
                 if prefix:
-                    rows = db.execute(
-                        "SELECT id, title FROM works WHERE title LIKE ? LIMIT ?",
-                        (f"%{prefix}%", limit),
-                    ).fetchall()
+                    rows = query_all_sites(
+                        "SELECT id, title FROM works WHERE title LIKE ?",
+                        (f"%{prefix}%",))
                     for r in rows:
                         _add(r["id"], r["title"])
 
                 # 无前缀时列出最近作品
                 if not prefix:
-                    rows = db.execute(
-                        "SELECT id, title FROM works ORDER BY imported_at DESC LIMIT ?",
-                        (limit,),
-                    ).fetchall()
+                    rows = query_all_sites(
+                        "SELECT id, title FROM works ORDER BY imported_at DESC")
                     for r in rows:
                         _add(r["id"], r["title"])
 
@@ -101,11 +96,11 @@ def build_completer(app):
 
         def _query_labels(self, prefix: str, limit: int = 15) -> list[str]:
             try:
-                from src.core.database import get_db
-                db = get_db()
+                from src.core.database import query_all_sites
                 all_tags: set[str] = set()
-                for r in db.execute("SELECT tags FROM works WHERE tags LIKE ? LIMIT 200",
-                                    (f"%{prefix}%",)).fetchall():
+                for r in query_all_sites(
+                        "SELECT tags FROM works WHERE tags LIKE ?",
+                        (f"%{prefix}%",)):
                     for t in (r["tags"] or "").split(","):
                         t = t.strip()
                         if t and (not prefix or prefix in t):
