@@ -40,12 +40,20 @@ def read_all() -> list[dict]:
 
 
 def write_all(rows: list[dict]) -> None:
-    db = get_db()
-    with _lock:
-        with db:
-            db.execute("DELETE FROM works")
-            for entry in rows:
-                _append_raw(db, entry)
+    from src.core.site import infer_site
+    from src.core.database import get_site_db
+    # 按来源推断站点分组，各站点库独立全表重写（多站点分库）
+    groups: dict[str, list[dict]] = {}
+    for entry in rows:
+        src = entry.get("来源", "") or entry.get("source", "") or ""
+        groups.setdefault(infer_site(src), []).append(entry)
+    for site, entries in groups.items():
+        db = get_site_db(site)
+        with _lock:
+            with db:
+                db.execute("DELETE FROM works")
+                for entry in entries:
+                    _append_raw(db, entry)
 
 
 def append_one(entry: dict) -> None:

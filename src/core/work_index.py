@@ -40,22 +40,25 @@ def _remove_files(ids: set[str]) -> None:
 
 
 def _reset_tables() -> None:
-    """清空 authors(除佚名)/series/pixiv_trackings/id_counters。"""
-    db = get_db()
-    for sql, desc in [
-        ("DELETE FROM pixiv_trackings WHERE author_id != '000'", "tracking"),
-        ("DELETE FROM series", "series"),
-        ("DELETE FROM authors WHERE id != '000'", "authors"),
-        ("DELETE FROM id_counters", "counters"),
-    ]:
+    """清空 authors(除佚名)/series/pixiv_trackings/id_counters（各站点库）。"""
+    from src.core.site import SITES
+    from src.core.database import get_site_db
+    for site in SITES:
+        db = get_site_db(site)
+        for sql, desc in [
+            ("DELETE FROM pixiv_trackings WHERE author_id != '000'", "tracking"),
+            ("DELETE FROM series", "series"),
+            ("DELETE FROM authors WHERE id != '000'", "authors"),
+            ("DELETE FROM id_counters", "counters"),
+        ]:
+            try:
+                db.execute(sql)
+            except Exception as e:
+                _log.warning("reset_tables: %s 删除失败 — %s", desc, e)
         try:
-            db.execute(sql)
+            db.commit()
         except Exception as e:
-            _log.warning("reset_tables: %s 删除失败 — %s", desc, e)
-    try:
-        db.commit()
-    except Exception as e:
-        _log.warning("reset_tables: commit 失败 — %s", e)
+            _log.warning("reset_tables: commit 失败 — %s", e)
 
 
 def _update_file_prefix(row: dict, new_id: str) -> None:
@@ -98,31 +101,36 @@ def reindex_groups(rows: list[dict], sort_key=None) -> list[dict]:
     if not rows:
         return rows
 
+    from src.core.site import infer_site
+    from src.core.database import site_ctx
+
     groups = defaultdict(list)
     for row in rows:
         file_type = row.get("分类", "") or determine_file_type(row.get("文件路径", ""))
         author = row.get("作者", "")
         series = row.get("系列", "")
-        key = f"{file_type}||{author}||{series or ''}"
+        site = infer_site(row.get("来源", "") or row.get("source", "") or "")
+        key = f"{site}||{file_type}||{author}||{series or ''}"
         groups[key].append(row)
 
-    init_db()
     for key, group_rows in groups.items():
         group_rows.sort(key=sort_key or (lambda r: r.get("ID", "")))
         parts = key.split("||")
-        file_type = parts[0] if len(parts) > 0 else ""
-        author = parts[1] if len(parts) > 1 else ""
-        series = parts[2] if len(parts) > 2 else ""
+        site = parts[0] if len(parts) > 0 else "local"
+        file_type = parts[1] if len(parts) > 1 else ""
+        author = parts[2] if len(parts) > 2 else ""
+        series = parts[3] if len(parts) > 3 else ""
         type_char = _get_type_char(file_type) if file_type else "0"
-        author_id = _get_author_id(author) if author else "000"
-        series_id = _get_series_id(author, series)
+        with site_ctx(site):
+            author_id = _get_author_id(author) if author else "000"
+            series_id = _get_series_id(author, series)
 
-        counter_key = f"work:{type_char}:{author_id}:{series_id}"
-        reset_counter(counter_key)
-        for row in group_rows:
-            seq = next_counter(counter_key)
-            work_id = _to_base36(seq, 4)
-            row["ID"] = f"{type_char}{author_id}{series_id}{work_id}"
+            counter_key = f"work:{type_char}:{author_id}:{series_id}"
+            reset_counter(counter_key)
+            for row in group_rows:
+                seq = next_counter(counter_key)
+                work_id = _to_base36(seq, 4)
+                row["ID"] = f"{type_char}{author_id}{series_id}{work_id}"
 
         # Phase 1: rename files to temp names to avoid collisions
         for row in group_rows:
@@ -208,16 +216,18 @@ def reindex_by_sources(urls: set[str], sort_key=None) -> None:
         if not all_rows:
             return
 
+        from src.core.site import infer_site
         affected_keys = set()
         for row in all_rows:
             if row.get("来源", "") in url_set:
-                key = f"{row.get('分类', '')}||{row.get('作者', '')}||{row.get('系列', '') or ''}"
+                site = infer_site(row.get("来源", "") or "")
+                key = f"{site}||{row.get('分类', '')}||{row.get('作者', '')}||{row.get('系列', '') or ''}"
                 affected_keys.add(key)
         if not affected_keys:
             return
 
         affected_rows = [r for r in all_rows
-                         if f"{r.get('分类', '')}||{r.get('作者', '')}||{r.get('系列', '') or ''}" in affected_keys]
+                         if f"{infer_site(r.get('来源', '') or '')}||{r.get('分类', '')}||{r.get('作者', '')}||{r.get('系列', '') or ''}" in affected_keys]
         reindex_groups(affected_rows, sort_key)
 
         reindexed = {r["来源"]: r for r in affected_rows}
