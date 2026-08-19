@@ -83,7 +83,7 @@ class SearchCommand(BaseCommand):
         for row in items:
             rating = row.get("评分", "-") or "0"
             rows.append([
-                short_id(str(row.get("ID", "N/A"))),
+                short_id(str(row.get("ID", "N/A")), row.get("站点")),
                 row.get("标题", ""),
                 row.get("作者", "未知"),
                 row.get("分类", "") or "未知",
@@ -117,7 +117,7 @@ class SearchCommand(BaseCommand):
             {"header": "收藏", "style": "red", "width": 4},
         ], [
             [
-                short_id(r["id"]),
+                short_id(r["id"], r.get("站点")),
                 r["title"],
                 r["author_name"] or "未知",
                 r["file_type"] or "未知",
@@ -177,7 +177,7 @@ class SearchCommand(BaseCommand):
                 {"header": "点赞", "justify": "right", "style": "yellow", "width": 8},
             ], [
                 [
-                    short_id(r.get("ID", "")),
+                    short_id(r.get("ID", ""), r.get("站点")),
                     (r.get("标题", "") or "")[:24],
                     r.get("系列", "-") or "-",
                     r.get("分类", "") or "",

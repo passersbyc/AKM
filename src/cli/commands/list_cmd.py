@@ -88,7 +88,7 @@ class ListCommand(BaseCommand):
             likes = row.get("点赞", "0") or "0"
             rating = row.get("评分", "-") or "0"
             table.add_row(
-                short_id(row.get("ID", "N/A")),
+                short_id(row.get("ID", "N/A"), row.get("站点")),
                 row.get("标题", ""),
                 author,
                 row.get("系列", "-") or "-",

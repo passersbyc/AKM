@@ -8,6 +8,28 @@ from pathlib import Path
 # 已知站点标识（与下载器 name 一致），local 为本地导入（无来源站点）
 SITES = ["pixiv", "pawchive", "biquge", "asmrmoon", "local"]
 
+# 站点短前缀（用于 ID 展示与解析，如 p.n.1.0.1 = pixiv 小说）
+SITE_PREFIX = {
+    "pixiv": "p",
+    "pawchive": "w",
+    "asmrmoon": "a",
+    "biquge": "b",
+    "local": "l",
+}
+
+
+def site_prefix(site: str) -> str:
+    """站点 → 短前缀；未知返回空串。"""
+    return SITE_PREFIX.get(site, "")
+
+
+def prefix_to_site(prefix: str) -> str | None:
+    """短前缀 → 站点；未知返回 None。"""
+    for s, p in SITE_PREFIX.items():
+        if p == prefix:
+            return s
+    return None
+
 
 def infer_site(source: str) -> str:
     """从来源 URL 推断站点；空值 / 无法识别归为 local。"""

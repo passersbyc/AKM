@@ -8,6 +8,7 @@ JOIN_SQL = """
 
 
 def row_to_manifest(row: dict) -> dict:
+    from src.core.site import infer_site
     return {
         "ID": row.get("id", ""),
         "标题": row.get("title", ""),
@@ -15,6 +16,7 @@ def row_to_manifest(row: dict) -> dict:
         "系列": row.get("_series_name", "") or "",
         "标签": row.get("tags", ""),
         "来源": row.get("source", ""),
+        "站点": infer_site(row.get("source", "")),
         "源状态": row.get("source_status", "ok"),
         "后缀": row.get("file_ext", ""),
         "分类": row.get("file_type", ""),

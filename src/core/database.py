@@ -395,13 +395,19 @@ def next_series_id(author_id: str) -> str:
     return _to_base36(seq, 2)
 
 
-def short_id(book_id: str) -> str:
+def short_id(book_id: str, site: str | None = None) -> str:
     if not book_id:
         return book_id
     if len(book_id) < 10:
         return book_id
     t, a, s, w = book_id[0], book_id[1:4], book_id[4:6], book_id[6:]
-    return f"{t}.{a.lstrip('0') or '0'}.{s.lstrip('0') or '0'}.{w.lstrip('0') or '0'}"
+    sid = f"{t}.{a.lstrip('0') or '0'}.{s.lstrip('0') or '0'}.{w.lstrip('0') or '0'}"
+    if site:
+        from src.core.site import site_prefix
+        p = site_prefix(site)
+        if p:
+            return f"{p}.{sid}"
+    return sid
 
 
 def to_full_id(short: str) -> str:

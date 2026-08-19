@@ -60,16 +60,22 @@ def search_works(
 
 
 def search_by_label(query: str, limit: int = 50) -> list[dict]:
-    """按标签搜索作品，返回 [{id, title, tags, file_type, favorite, rating, author_name}, ...]。"""
+    """按标签搜索作品，返回 [{id, title, tags, file_type, favorite, rating, author_name, 站点}, ...]。"""
     from src.core.database import query_all_sites
+    from src.core.site import infer_site
     rows = query_all_sites(
-        "SELECT id, title, tags, file_type, favorite, rating, "
+        "SELECT id, title, tags, file_type, favorite, rating, source, "
         "(SELECT a.name FROM authors a WHERE a.id = works.author_id) as author_name "
         "FROM works WHERE tags LIKE ? "
         "ORDER BY favorite DESC, rating DESC",
         (f"%{query}%",),
     )
-    return [dict(r) for r in rows][:limit]
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["站点"] = infer_site(d.get("source", ""))
+        result.append(d)
+    return result[:limit]
 
 
 def search_authors(query: str, limit: int = 0) -> list[dict]:

@@ -1,27 +1,49 @@
 """模糊匹配工具 — ID 精确匹配 → 标题包含匹配 → 多结果选择。"""
-from src.core.database import short_id, to_full_id, query_all_sites
+from src.core.database import short_id, to_full_id, query_all_sites, get_site_db
+from src.core.site import prefix_to_site
+
+
+def _parse_site_prefix(target: str) -> tuple[str | None, str]:
+    """解析站点前缀：p.n.1.0.1 → ('pixiv', 'n.1.0.1')；无前缀返回 (None, target)。"""
+    parts = target.split(".")
+    if len(parts) == 5:
+        site = prefix_to_site(parts[0])
+        if site:
+            return site, ".".join(parts[1:])
+    return None, target
+
+
+def _query_works(site: str | None, sql: str, params=()):
+    """站点定位查询：site 已知查该站点库，否则遍历站点库。返回 list[dict]。"""
+    if site:
+        return [dict(r) for r in get_site_db(site).execute(sql, params).fetchall()]
+    return [dict(r) for r in query_all_sites(sql, params)]
 
 
 def resolve_work(target: str, output=None) -> dict | None:
     """解析作品：精确 ID → 短 ID → 标题包含匹配 → 多结果选择。
 
+    支持带站点前缀的 ID（如 p.n.1.0.1 = pixiv 小说）。
     返回 work dict（含 id, title, author_id, tags, series_id, file_type,
     favorite, rating, description, source, file_path, imported_at）或 None。
     """
+    site, target = _parse_site_prefix(target)
+
     # 1. 精确全 ID 匹配
-    rows = query_all_sites("SELECT * FROM works WHERE id = ?", (target,))
+    rows = _query_works(site, "SELECT * FROM works WHERE id = ?", (target,))
     if rows:
         return dict(rows[0])
 
     # 2. 短 ID 匹配
     full_id = to_full_id(target)
     if full_id != target:
-        rows = query_all_sites("SELECT * FROM works WHERE id = ?", (full_id,))
+        rows = _query_works(site, "SELECT * FROM works WHERE id = ?", (full_id,))
         if rows:
             return dict(rows[0])
 
     # 3. 标题包含匹配
-    rows = query_all_sites(
+    rows = _query_works(
+        site,
         "SELECT * FROM works WHERE title LIKE ? ORDER BY imported_at DESC",
         (f"%{target}%",),
     )
@@ -36,7 +58,7 @@ def resolve_work(target: str, output=None) -> dict | None:
     if output:
         output.info(f"找到 {len(rows)} 个匹配作品:")
         for i, r in enumerate(rows[:20]):
-            output.info(f"  [{i}] [cyan]{short_id(r['id'])}[/cyan] {r['title']}")
+            output.info(f"  [{i}] [cyan]{short_id(r['id'], site)}[/cyan] {r['title']}")
         if len(rows) > 20:
             output.info(f"  ... 还有 {len(rows) - 20} 个")
         try:
@@ -54,11 +76,14 @@ def resolve_work(target: str, output=None) -> dict | None:
 def resolve_author(target: str, output=None) -> dict | None:
     """解析作者：精确 ID → 名称包含匹配 → 多结果选择。
 
-    返回 author dict（含 id, name, source, homepage, favorite, note,
-    pixiv_uid, follow_status）或 None。
+    支持带站点前缀的 ID。返回 author dict（含 id, name, source, homepage,
+    favorite, note, pixiv_uid, follow_status）或 None。
     """
+    site, target = _parse_site_prefix(target)
+
     # 1. 精确 ID 匹配
-    rows = query_all_sites(
+    rows = _query_works(
+        site,
         "SELECT a.*, pt.pixiv_uid, pt.homepage, pt.follow_status "
         "FROM authors a LEFT JOIN pixiv_trackings pt ON a.id = pt.author_id "
         "WHERE a.id = ?", (target,)
@@ -67,7 +92,8 @@ def resolve_author(target: str, output=None) -> dict | None:
         return dict(rows[0])
 
     # 2. 名称包含匹配
-    rows = query_all_sites(
+    rows = _query_works(
+        site,
         "SELECT a.*, pt.pixiv_uid, pt.homepage, pt.follow_status "
         "FROM authors a LEFT JOIN pixiv_trackings pt ON a.id = pt.author_id "
         "WHERE a.name LIKE ? ORDER BY a.favorite DESC, a.name",
@@ -124,3 +150,4 @@ def list_author_names(prefix: str = "", limit: int = 20) -> list[tuple[str, str]
         rows = query_all_sites(
             "SELECT id, name FROM authors ORDER BY favorite DESC, name")
     return [(r["id"], r["name"]) for r in rows][:limit]
+
