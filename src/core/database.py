@@ -150,8 +150,9 @@ def dicts_from_rows(rows: list[sqlite3.Row]) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def init_db() -> None:
-    db = get_db()
+def init_db(db=None) -> None:
+    if db is None:
+        db = get_db()
     db.executescript("""
         CREATE TABLE IF NOT EXISTS authors (
             id              TEXT PRIMARY KEY,
@@ -287,6 +288,36 @@ def init_db() -> None:
         db.execute("ALTER TABLE download_queue ADD COLUMN fail_count INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
+
+
+def init_site_db(site: str) -> None:
+    """初始化指定站点的库 schema（复用 init_db 的建表逻辑）。"""
+    init_db(db=get_site_db(site))
+
+
+def init_meta_db() -> None:
+    """初始化主库 schema：sites 注册表 + recent_opens(带 site) + settings。"""
+    db = get_meta_db()
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS sites (
+            name        TEXT PRIMARY KEY,
+            db_path     TEXT DEFAULT '',
+            enabled     INTEGER DEFAULT 1,
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS recent_opens (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            site        TEXT NOT NULL DEFAULT 'local',
+            work_id     TEXT NOT NULL,
+            title       TEXT DEFAULT '',
+            opened_at   TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_meta_recent_opens_time ON recent_opens(opened_at DESC);
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+    """)
 
 
 def next_counter(name: str) -> int:
