@@ -1602,6 +1602,14 @@ button.detail-badge:not(.badge-fav):hover { background: rgba(255,92,138,0.12); c
 }
 .wf-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); background: var(--surface); }
 .wf-input::placeholder { color: var(--muted); }
+.wf-more-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--text-secondary);
+  background: none; border: none; cursor: pointer; padding: 4px 6px;
+  border-radius: 8px; transition: color var(--transition);
+}
+.wf-more-toggle:hover { color: var(--primary); }
+.wf-more-panel.is-hidden { display: none; }
 
 /* 结果条 */
 .works-bar {
@@ -1747,6 +1755,9 @@ button.detail-badge:not(.badge-fav):hover { background: rgba(255,92,138,0.12); c
 .w-card:hover .w-tag { border-color: var(--border-light); background: var(--surface); }
 .w-card:hover .w-tag:hover { color: var(--primary); border-color: var(--primary); }
 .w-row .w-tags, .w-row-tags { margin-top: 2px; }
+/* 卡片降噪：标签默认隐藏，hover 淡入（占位不变，不跳动） */
+.w-card .w-tags { opacity: 0; transition: opacity 0.2s ease; }
+.w-card:hover .w-tags, .w-card:focus-within .w-tags { opacity: 1; }
 
 /* 列表视图 */
 .w-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }

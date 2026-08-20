@@ -137,8 +137,10 @@
                     <a href="{{ href(site='biquge', page=1) }}" class="w-pill site-pill {% if site == 'biquge' %}active{% endif %}"><span class="site-dot" data-site="biquge"></span>biquge</a>
                     <a href="{{ href(site='local', page=1) }}" class="w-pill site-pill {% if site == 'local' %}active{% endif %}"><span class="site-dot" data-site="local"></span>local</a>
                 </div>
-                <span class="wf-sep"></span>
-                <div class="wf-group wf-inputs">
+                <button type="button" class="wf-more-toggle" onclick="toggleMoreFilters(this)" aria-expanded="{{ 'true' if author or tags or source else 'false' }}">
+                    更多筛选 <span class="wf-more-caret">{{ '▴' if author or tags or source else '▾' }}</span>
+                </button>
+                <div class="wf-group wf-inputs wf-more-panel{% if not (author or tags or source) %} is-hidden{% endif %}" id="moreFilterPanel">
                     <input type="text" name="author" value="{{ author }}" placeholder="作者" class="wf-input">
                     <input type="text" name="tags" value="{{ tags }}" placeholder="标签" class="wf-input">
                     <input type="text" name="source" value="{{ source }}" placeholder="来源" class="wf-input">
@@ -198,6 +200,14 @@
         {% endfor %}
     </div>
     <script>
+    function toggleMoreFilters(btn) {
+        const panel = document.getElementById('moreFilterPanel');
+        const caret = btn.querySelector('.wf-more-caret');
+        if (!panel) return;
+        const hidden = panel.classList.toggle('is-hidden');
+        btn.setAttribute('aria-expanded', String(!hidden));
+        if (caret) caret.textContent = hidden ? '▾' : '▴';
+    }
     const GROUP_STORAGE_KEY = 'akm_group_collapsed';
     function readCollapsedMap() {
         try { return JSON.parse(localStorage.getItem(GROUP_STORAGE_KEY) || '{}'); } catch (e) { return {}; }
