@@ -149,6 +149,20 @@
         </form>
     </div>
 
+    <!-- 生效筛选 chips（可单独清除） -->
+    {% if has_filters %}
+    <div class="works-chips">
+        {% if q %}<a href="{{ href(q='', page=1) }}" class="wc-chip" title="清除标题筛选">「{{ q }}」<span class="wc-x">✕</span></a>{% endif %}
+        {% if author %}<a href="{{ href(author='', page=1) }}" class="wc-chip" title="清除作者筛选">作者 {{ author }}<span class="wc-x">✕</span></a>{% endif %}
+        {% if tags %}<a href="{{ href(tags='', page=1) }}" class="wc-chip" title="清除标签筛选">标签 {{ tags }}<span class="wc-x">✕</span></a>{% endif %}
+        {% if file_type %}<a href="{{ href(file_type='', page=1) }}" class="wc-chip" title="清除类型筛选">类型 {{ file_type }}<span class="wc-x">✕</span></a>{% endif %}
+        {% if source %}<a href="{{ href(source='', page=1) }}" class="wc-chip" title="清除来源筛选">来源 {{ source }}<span class="wc-x">✕</span></a>{% endif %}
+        {% if favorited %}<a href="{{ href(favorited='', page=1) }}" class="wc-chip" title="清除收藏筛选">★ 已收藏<span class="wc-x">✕</span></a>{% endif %}
+        {% if site %}<a href="{{ href(site='', page=1) }}" class="wc-chip" title="清除站点筛选"><span class="site-dot" data-site="{{ site }}"></span>{{ site }}<span class="wc-x">✕</span></a>{% endif %}
+        <a href="/works" class="wc-clear">清除全部</a>
+    </div>
+    {% endif %}
+
     <!-- 结果条 -->
     <div class="works-bar">
         <span class="wb-total">共 <b>{{ total }}</b> 件作品</span>
