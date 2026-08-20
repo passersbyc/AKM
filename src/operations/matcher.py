@@ -1,6 +1,6 @@
 """模糊匹配工具 — ID 精确匹配 → 标题包含匹配 → 多结果选择。"""
 from src.core.database import short_id, to_full_id, query_all_sites, get_site_db
-from src.core.site import prefix_to_site
+from src.core.site import prefix_to_site, site_prefix, SITES
 
 
 def _parse_site_prefix(target: str) -> tuple[str | None, str]:
@@ -14,10 +14,50 @@ def _parse_site_prefix(target: str) -> tuple[str | None, str]:
 
 
 def _query_works(site: str | None, sql: str, params=()):
-    """站点定位查询：site 已知查该站点库，否则遍历站点库。返回 list[dict]。"""
+    """站点定位查询：site 已知查该站点库，否则遍历站点库。
+
+    每行结果附加 _site 字段，供跨站点歧义时区分。
+    """
     if site:
-        return [dict(r) for r in get_site_db(site).execute(sql, params).fetchall()]
-    return [dict(r) for r in query_all_sites(sql, params)]
+        rows = [dict(r) for r in get_site_db(site).execute(sql, params).fetchall()]
+        for r in rows:
+            r["_site"] = site
+        return rows
+    out: list[dict] = []
+    for s in SITES:
+        for r in get_site_db(s).execute(sql, params).fetchall():
+            d = dict(r)
+            d["_site"] = s
+            out.append(d)
+    return out
+
+
+def _pick(rows: list[dict], output, kind: str, label_fn) -> dict | None:
+    """唯一则返回；多条则交互选择（json 模式或无 output 时返回 None）。"""
+    if not rows:
+        return None
+    if len(rows) == 1:
+        return dict(rows[0])
+    if output and output.json_mode:
+        return None
+    if not output:
+        return None
+    output.info(f"找到 {len(rows)} 个匹配{kind}:")
+    for i, r in enumerate(rows[:20]):
+        fav = " (◕‿◕)" if r.get("favorite") else ""
+        output.info(f"  [{i}] [cyan]{label_fn(r)}[/cyan] {r.get('title', r.get('name', ''))}{fav}")
+    if len(rows) > 20:
+        output.info(f"  ... 还有 {len(rows) - 20} 个")
+    try:
+        choice = input("输入序号选择 (回车取消): ").strip()
+        if not choice:
+            return None
+        idx = int(choice)
+        if 0 <= idx < len(rows):
+            return dict(rows[idx])
+    except (ValueError, EOFError, KeyboardInterrupt):
+        return None
+    return None
 
 
 def resolve_work(target: str, output=None) -> dict | None:
@@ -29,17 +69,20 @@ def resolve_work(target: str, output=None) -> dict | None:
     """
     site, target = _parse_site_prefix(target)
 
+    def _label(r: dict) -> str:
+        return short_id(r["id"], r.get("_site") or site)
+
     # 1. 精确全 ID 匹配
     rows = _query_works(site, "SELECT * FROM works WHERE id = ?", (target,))
     if rows:
-        return dict(rows[0])
+        return _pick(rows, output, "作品", _label)
 
     # 2. 短 ID 匹配
     full_id = to_full_id(target)
     if full_id != target:
         rows = _query_works(site, "SELECT * FROM works WHERE id = ?", (full_id,))
         if rows:
-            return dict(rows[0])
+            return _pick(rows, output, "作品", _label)
 
     # 3. 标题包含匹配
     rows = _query_works(
@@ -47,30 +90,7 @@ def resolve_work(target: str, output=None) -> dict | None:
         "SELECT * FROM works WHERE title LIKE ? ORDER BY imported_at DESC",
         (f"%{target}%",),
     )
-    if not rows:
-        return None
-    if len(rows) == 1:
-        return dict(rows[0])
-
-    # 4. 多结果选择
-    if output and output.json_mode:
-        return None  # json 模式不交互
-    if output:
-        output.info(f"找到 {len(rows)} 个匹配作品:")
-        for i, r in enumerate(rows[:20]):
-            output.info(f"  [{i}] [cyan]{short_id(r['id'], site)}[/cyan] {r['title']}")
-        if len(rows) > 20:
-            output.info(f"  ... 还有 {len(rows) - 20} 个")
-        try:
-            choice = input("输入序号选择 (回车取消): ").strip()
-            if not choice:
-                return None
-            idx = int(choice)
-            if 0 <= idx < len(rows):
-                return dict(rows[idx])
-        except (ValueError, EOFError, KeyboardInterrupt):
-            return None
-    return None
+    return _pick(rows, output, "作品", _label)
 
 
 def resolve_author(target: str, output=None) -> dict | None:
@@ -81,6 +101,11 @@ def resolve_author(target: str, output=None) -> dict | None:
     """
     site, target = _parse_site_prefix(target)
 
+    def _label(r: dict) -> str:
+        s = r.get("_site") or site
+        prefix = site_prefix(s) if s else ""
+        return f"{prefix}.{r['id']}" if prefix else r["id"]
+
     # 1. 精确 ID 匹配
     rows = _query_works(
         site,
@@ -89,7 +114,7 @@ def resolve_author(target: str, output=None) -> dict | None:
         "WHERE a.id = ?", (target,)
     )
     if rows:
-        return dict(rows[0])
+        return _pick(rows, output, "作者", _label)
 
     # 2. 名称包含匹配
     rows = _query_works(
@@ -99,31 +124,7 @@ def resolve_author(target: str, output=None) -> dict | None:
         "WHERE a.name LIKE ? ORDER BY a.favorite DESC, a.name",
         (f"%{target}%",),
     )
-    if not rows:
-        return None
-    if len(rows) == 1:
-        return dict(rows[0])
-
-    # 3. 多结果选择
-    if output and output.json_mode:
-        return None
-    if output:
-        output.info(f"找到 {len(rows)} 个匹配作者:")
-        for i, r in enumerate(rows[:20]):
-            fav = " (◕‿◕)" if r["favorite"] else ""
-            output.info(f"  [{i}] [cyan]{r['id']}[/cyan] {r['name']}{fav}")
-        if len(rows) > 20:
-            output.info(f"  ... 还有 {len(rows) - 20} 个")
-        try:
-            choice = input("输入序号选择 (回车取消): ").strip()
-            if not choice:
-                return None
-            idx = int(choice)
-            if 0 <= idx < len(rows):
-                return dict(rows[idx])
-        except (ValueError, EOFError, KeyboardInterrupt):
-            return None
-    return None
+    return _pick(rows, output, "作者", _label)
 
 
 def list_work_titles(prefix: str = "", limit: int = 20) -> list[tuple[str, str]]:
