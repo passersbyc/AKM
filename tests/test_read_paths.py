@@ -92,3 +92,33 @@ class TestListWork:
         assert result["total"] == 2
         # 聚合结果带"站点"字段
         assert result["items"][0].get("站点") == "pixiv"
+
+
+class TestResolveAuthor:
+    def test_homepage_from_tracking(self, isolated_dbs):
+        """pixiv 作者主页在 pixiv_trackings（authors.homepage 空），resolve_author 应合并返回。"""
+        from src.core.database import get_site_db
+        db = get_site_db("pixiv")
+        db.execute("INSERT OR REPLACE INTO authors (id, name, source) VALUES ('001', '跟踪作者', 'pixiv')")
+        db.execute(
+            "INSERT OR REPLACE INTO pixiv_trackings (author_id, pixiv_uid, homepage) "
+            "VALUES ('001', '12345', 'https://www.pixiv.net/users/12345')")
+        db.commit()
+
+        from src.operations.matcher import resolve_author
+        r = resolve_author("p.1")
+        assert r is not None
+        assert r["homepage"] == "https://www.pixiv.net/users/12345"
+
+    def test_homepage_from_authors(self, isolated_dbs):
+        """非 pixiv 作者主页在 authors.homepage。"""
+        from src.core.database import get_site_db
+        db = get_site_db("pawchive")
+        db.execute("INSERT OR REPLACE INTO authors (id, name, source, homepage) "
+                   "VALUES ('001', '漫画作者', 'local', 'https://pawchive.pw/fanbox/user/9')")
+        db.commit()
+
+        from src.operations.matcher import resolve_author
+        r = resolve_author("w.1")
+        assert r is not None
+        assert r["homepage"] == "https://pawchive.pw/fanbox/user/9"

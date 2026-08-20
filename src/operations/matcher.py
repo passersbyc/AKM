@@ -116,37 +116,43 @@ def resolve_author(target: str, output=None) -> dict | None:
         prefix = site_prefix(s) if s else ""
         return f"{prefix}.{r['id']}" if prefix else r["id"]
 
+    def _finalize(result: dict | None) -> dict | None:
+        """合并主页：优先 authors.homepage，回退 pixiv_trackings.homepage。"""
+        if result:
+            result["homepage"] = result.get("homepage") or result.get("tracking_homepage") or ""
+        return result
+
     # 1. 精确 ID 匹配
     rows = _query_works(
         site,
-        "SELECT a.*, pt.pixiv_uid, pt.homepage, pt.follow_status "
+        "SELECT a.*, pt.pixiv_uid, pt.homepage AS tracking_homepage, pt.follow_status "
         "FROM authors a LEFT JOIN pixiv_trackings pt ON a.id = pt.author_id "
         "WHERE a.id = ?", (target,)
     )
     if rows:
-        return _pick(rows, output, "作者", _label)
+        return _finalize(_pick(rows, output, "作者", _label))
 
     # 1.5 短作者号匹配（去前导零，如 1 → 001、a → 00a）
     if target and len(target) < 3 and all(c in BASE36 for c in target.lower()):
         padded = target.lower().zfill(3)
         rows = _query_works(
             site,
-            "SELECT a.*, pt.pixiv_uid, pt.homepage, pt.follow_status "
+            "SELECT a.*, pt.pixiv_uid, pt.homepage AS tracking_homepage, pt.follow_status "
             "FROM authors a LEFT JOIN pixiv_trackings pt ON a.id = pt.author_id "
             "WHERE a.id = ?", (padded,)
         )
         if rows:
-            return _pick(rows, output, "作者", _label)
+            return _finalize(_pick(rows, output, "作者", _label))
 
     # 2. 名称包含匹配
     rows = _query_works(
         site,
-        "SELECT a.*, pt.pixiv_uid, pt.homepage, pt.follow_status "
+        "SELECT a.*, pt.pixiv_uid, pt.homepage AS tracking_homepage, pt.follow_status "
         "FROM authors a LEFT JOIN pixiv_trackings pt ON a.id = pt.author_id "
         "WHERE a.name LIKE ? ORDER BY a.favorite DESC, a.name",
         (f"%{target}%",),
     )
-    return _pick(rows, output, "作者", _label)
+    return _finalize(_pick(rows, output, "作者", _label))
 
 
 def list_work_titles(prefix: str = "", limit: int = 20) -> list[tuple[str, str]]:
