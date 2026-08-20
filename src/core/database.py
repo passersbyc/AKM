@@ -180,6 +180,7 @@ def init_db(db=None) -> None:
             name            TEXT NOT NULL DEFAULT '',
             aliases         TEXT DEFAULT '',
             source          TEXT DEFAULT 'local',
+            homepage        TEXT DEFAULT '',
             note            TEXT DEFAULT '',
             favorite        INTEGER DEFAULT 0,
             created_at      TEXT DEFAULT (datetime('now')),
@@ -275,6 +276,10 @@ def init_db(db=None) -> None:
     """)
     try:
         db.execute("ALTER TABLE authors ADD COLUMN favorite INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        db.execute("ALTER TABLE authors ADD COLUMN homepage TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
     try:

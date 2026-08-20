@@ -10,7 +10,7 @@ from src.core.config import get_project_root
 from src.core.database import get_db, init_db, next_author_id, dict_from_row, dicts_from_rows
 
 _AUTHOR_JOIN = """
-    SELECT a.*, p.pixiv_uid, p.homepage,
+    SELECT a.*, p.pixiv_uid, p.homepage AS tracking_homepage,
            p.follow_status AS tracking_status,
            p.latest_work_id, p.last_checked,
            p.note AS tracking_note
@@ -31,7 +31,7 @@ def _merge_row(row: dict) -> dict:
         "source": row.get("source", ""),
         "site": row.get("_site", ""),
         "pixiv_uid": row.get("pixiv_uid") or "",
-        "homepage": row.get("homepage") or "",
+        "homepage": row.get("homepage") or row.get("tracking_homepage") or "",
         "follow_status": row.get("tracking_status") or "active",
         "latest_work_id": row.get("latest_work_id") or "",
         "last_checked": row.get("last_checked") or "",
@@ -195,6 +195,8 @@ def upsert(uid: str = "", name: str = "", homepage: str = "",
         if is_pixiv:
             _upsert_tracking(db, author_id, uid, homepage, latest_work_id, "", note, now)
 
+    if homepage:
+        db.execute("UPDATE authors SET homepage = ? WHERE id = ?", (homepage, author_id))
     db.commit()
     return get_by_pixiv_uid(uid) or get_by_name(name)
 

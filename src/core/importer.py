@@ -162,7 +162,9 @@ def import_one(file_path: str, author: str = "", series: str = "",
         if final_author:
             try:
                 from src.core.author_manager import register
-                register(name=final_author, uid=user_id or "", homepage="")
+                from src.core.author_homepage import extract_author_homepage
+                homepage = extract_author_homepage(source, final_author)
+                register(name=final_author, uid=user_id or "", homepage=homepage)
             except Exception:
                 pass
 
