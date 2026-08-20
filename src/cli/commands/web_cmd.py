@@ -1,6 +1,15 @@
-"""startui 命令 — 启动 FastAPI Web UI 服务器并自动打开浏览器。"""
+"""webui 命令 — 启动/关闭 FastAPI Web UI 服务器。
+
+用法：
+    akm webui            # 启动 WebUI（已有实例则直接打开复用）
+    akm webui close      # 关闭正在运行的 WebUI
+"""
 import argparse
+import os
+import shutil
+import signal
 import socket
+import subprocess
 import threading
 import urllib.request
 import webbrowser
@@ -40,11 +49,27 @@ def _find_existing(host: str, preferred: int, max_tries: int = 10) -> int:
     return -1
 
 
-class StartUICommand(BaseCommand):
-    verb = "startui"
-    nouns: list[str] = []
-    description = "启动 Web UI 界面（自动打开浏览器）"
+def _pids_on_port(port: int) -> list[int]:
+    """返回监听指定端口的进程 PID（仅 LISTEN 状态，避免误杀浏览器等连接者）。"""
+    if shutil.which("lsof"):
+        try:
+            out = subprocess.run(
+                ["lsof", "-ti", f":{port}", "-sTCP:LISTEN"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if out.returncode == 0:
+                return [int(p) for p in out.stdout.strip().split() if p.isdigit()]
+        except Exception:
+            pass
+    return []
+
+
+class WebUICommand(BaseCommand):
+    verb = "webui"
+    nouns: list[str] = ["close"]
+    description = "启动/关闭 Web UI（默认打开浏览器）"
     group = "系统"
+    noun_descriptions = {"close": "关闭正在运行的 WebUI"}
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--host", default="127.0.0.1", help="绑定地址（默认 127.0.0.1）～")
@@ -52,7 +77,40 @@ class StartUICommand(BaseCommand):
         parser.add_argument("--reload", action="store_true", help="热重载（开发模式）～")
         parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器～")
 
-    def execute(self, args: argparse.Namespace, noun=None) -> int:
+    def configure_noun_parser(self, parser: argparse.ArgumentParser, noun: str) -> None:
+        """close 子命令参数（与 verb 级一致）。"""
+        if noun == "close":
+            parser.add_argument("--host", default="127.0.0.1", help="绑定地址～")
+            parser.add_argument("--port", type=int, default=8000, help="端口～")
+
+    def execute(self, args: argparse.Namespace, noun: str | None = None) -> int:
+        if noun == "close":
+            return self._close(args)
+        return self._open(args)
+
+    def _close(self, args: argparse.Namespace) -> int:
+        """关闭正在运行的 WebUI。"""
+        existing = _find_existing(args.host, args.port)
+        if existing == -1:
+            self.output.info("(・ω・) WebUI 没有在运行呢～")
+            return 0
+        pids = _pids_on_port(existing)
+        if not pids:
+            self.output.warn(f"端口 {existing} 有 WebUI 在跑，但没找到监听进程呢～")
+            return 1
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                continue
+            except Exception as e:
+                self.output.error(f"关闭 PID {pid} 失败: {e}")
+                return 1
+        self.output.info(f"已关闭 WebUI（端口 {existing}）～")
+        return 0
+
+    def _open(self, args: argparse.Namespace) -> int:
+        """启动 WebUI（已有实例则直接打开复用）。"""
         import uvicorn
         from src.web import create_app
 

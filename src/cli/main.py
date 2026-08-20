@@ -21,7 +21,7 @@ def load_commands(app: CLIApp) -> None:
     from src.cli.commands.cookie_cmd import CookieCommand
     from src.cli.commands.export import ExportCommand
     from src.cli.commands.setting_cmd import SettingCommand
-    from src.cli.commands.web_cmd import StartUICommand
+    from src.cli.commands.web_cmd import WebUICommand
 
     for cls in (
         StatsCommand,
@@ -39,7 +39,7 @@ def load_commands(app: CLIApp) -> None:
         CookieCommand,
         ExportCommand,
         SettingCommand,
-        StartUICommand,
+        WebUICommand,
     ):
         app.register_command(cls)
 
