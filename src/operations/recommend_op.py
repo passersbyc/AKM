@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 
-from src.core.database import get_db, short_id
+from src.core.database import short_id
 
 
 def get_recommendations(limit: int = 8) -> list[dict]:

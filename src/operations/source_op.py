@@ -6,6 +6,10 @@ import requests
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.downloader.base import BaseDownloader
 
 from src.core.author_manager import (
     list_all, resolve, upsert, update, unfollow,
