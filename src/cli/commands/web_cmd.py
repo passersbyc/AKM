@@ -2,6 +2,7 @@
 import argparse
 import socket
 import threading
+import urllib.request
 import webbrowser
 
 from src.cli.base import BaseCommand
@@ -20,6 +21,25 @@ def _find_free_port(host: str, preferred: int, max_tries: int = 10) -> int:
     return -1
 
 
+def _is_akm_running(host: str, port: int, timeout: float = 0.6) -> bool:
+    """探测 host:port 是否跑着 AKM WebUI（请求 /health）。"""
+    try:
+        url = f"http://{host}:{port}/health"
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
+def _find_existing(host: str, preferred: int, max_tries: int = 10) -> int:
+    """从 preferred 开始找已运行的 AKM 实例端口；无则返回 -1。"""
+    for offset in range(max_tries):
+        port = preferred + offset
+        if _is_akm_running(host, port):
+            return port
+    return -1
+
+
 class StartUICommand(BaseCommand):
     verb = "startui"
     nouns: list[str] = []
@@ -35,6 +55,15 @@ class StartUICommand(BaseCommand):
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         import uvicorn
         from src.web import create_app
+
+        # 单实例：已有 AKM 在跑则直接打开复用，不重复启动
+        existing = _find_existing(args.host, args.port)
+        if existing != -1:
+            url = f"http://{args.host}:{existing}"
+            self.output.info(f"WebUI 已在运行: {url}，直接打开～")
+            if not args.no_browser:
+                webbrowser.open(url)
+            return 0
 
         port = _find_free_port(args.host, args.port)
         if port == -1:

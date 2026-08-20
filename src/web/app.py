@@ -34,6 +34,11 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="AKM WebUI", version="0.1.0")
 
+    @app.get("/health")
+    def health():
+        """健康检查端点（startui 单实例检测用）。"""
+        return {"ok": True}
+
     # 静态文件
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
