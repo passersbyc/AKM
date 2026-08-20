@@ -70,80 +70,84 @@
 {%- endmacro %}
 
 {%- macro type_link(t) -%}
-{%- set cnt = (stats.type_distribution or {}).get(t, 0) if t else stats.total_books -%}
-<a href="{{ href(file_type=t, page=1) }}" class="w-pill {{ type_cls(t) }} {% if file_type == t %}active{% endif %}">{{ t or '全部' }}<em class="w-pill-n">{{ cnt }}</em></a>
+<a href="{{ href(file_type=t, page=1) }}" class="w-pill {{ type_cls(t) }} {% if file_type == t %}active{% endif %}">{{ t or '全部' }}</a>
 {%- endmacro %}
 
 {%- set has_filters = q or author or tags or file_type or source or favorited or site -%}
 
 <div class="works-page animate-in">
-    <!-- 头部 -->
-    <header class="works-header">
-        <div>
-            <h1 class="works-title">作品 <span class="works-count">{{ total }}</span></h1>
-            <p class="works-subtitle">
-                {% if q %}「{{ q }}」的搜索结果
-                {% elif has_filters %}筛选结果
-                {% else %}全部作品{% endif %}
-                {% if file_type %} · {{ file_type }}{% endif %}
-            </p>
-        </div>
-        {% if has_filters %}
-        <a href="/works" class="works-clear">✕ 清除筛选</a>
-        {% endif %}
-    </header>
-
-    <!-- 搜索工具条 -->
-    <div class="works-toolbar">
-        <form method="get" action="/works" class="works-form">
-            <div class="works-search-row">
-                <div class="works-search">
-                    <svg class="ws-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input type="text" name="q" value="{{ q }}" placeholder="搜索标题…" id="worksSearchInput" autocomplete="off" spellcheck="false">
-                    <button type="button" class="ws-clear" id="worksSearchClear" title="清空搜索" tabindex="-1">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                    <kbd class="ws-kbd" title="快捷键：⌘K / /">⌘K</kbd>
-                </div>
+    <form method="get" action="/works" class="works-form">
+        <!-- 顶栏：标题 + 搜索 + 分组切换 + 导出 -->
+        <div class="works-topbar">
+            <div class="wt-title">
+                <h1 class="works-title">作品 <span class="works-count">{{ total }}</span></h1>
+                {% if author_groups %}<span class="wt-sub">{{ author_groups|length }} 组</span>{% endif %}
             </div>
-
-            <div class="works-filters">
-                <div class="wf-group">
-                    <span class="wf-label">类型</span>
-                    {{ type_link('') }}
-                    {{ type_link('小说') }}
-                    {{ type_link('漫画') }}
-                    {{ type_link('音乐') }}
-                    {{ type_link('电影') }}
-                    {{ type_link('图片') }}
-                </div>
-                <span class="wf-sep"></span>
-                <div class="wf-group">
-                    <span class="wf-label">收藏</span>
-                    <a href="{{ href(favorited='', page=1) }}" class="w-pill {% if not favorited %}active{% endif %}">全部</a>
-                    <a href="{{ href(favorited='yes', page=1) }}" class="w-pill fav-pill {% if favorited == 'yes' %}active{% endif %}">★ 已收藏</a>
-                </div>
-                <span class="wf-sep"></span>
-                <div class="wf-group">
-                    <span class="wf-label">站点</span>
-                    <a href="{{ href(site='', page=1) }}" class="w-pill {% if not site %}active{% endif %}">全部</a>
-                    <a href="{{ href(site='pixiv', page=1) }}" class="w-pill site-pill {% if site == 'pixiv' %}active{% endif %}"><span class="site-dot" data-site="pixiv"></span>pixiv</a>
-                    <a href="{{ href(site='pawchive', page=1) }}" class="w-pill site-pill {% if site == 'pawchive' %}active{% endif %}"><span class="site-dot" data-site="pawchive"></span>pawchive</a>
-                    <a href="{{ href(site='asmrmoon', page=1) }}" class="w-pill site-pill {% if site == 'asmrmoon' %}active{% endif %}"><span class="site-dot" data-site="asmrmoon"></span>asmrmoon</a>
-                    <a href="{{ href(site='biquge', page=1) }}" class="w-pill site-pill {% if site == 'biquge' %}active{% endif %}"><span class="site-dot" data-site="biquge"></span>biquge</a>
-                    <a href="{{ href(site='local', page=1) }}" class="w-pill site-pill {% if site == 'local' %}active{% endif %}"><span class="site-dot" data-site="local"></span>local</a>
-                </div>
-                <button type="button" class="wf-more-toggle" onclick="toggleMoreFilters(this)" aria-expanded="{{ 'true' if author or tags or source else 'false' }}">
-                    更多筛选 <span class="wf-more-caret">{{ '▴' if author or tags or source else '▾' }}</span>
+            <div class="works-search">
+                <svg class="ws-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input type="text" name="q" value="{{ q }}" placeholder="搜索标题、作者、标签…" id="worksSearchInput" autocomplete="off" spellcheck="false">
+                <button type="button" class="ws-clear" id="worksSearchClear" title="清空搜索" tabindex="-1">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
-                <div class="wf-group wf-inputs wf-more-panel{% if not (author or tags or source) %} is-hidden{% endif %}" id="moreFilterPanel">
-                    <input type="text" name="author" value="{{ author }}" placeholder="作者" class="wf-input">
-                    <input type="text" name="tags" value="{{ tags }}" placeholder="标签" class="wf-input">
-                    <input type="text" name="source" value="{{ source }}" placeholder="来源" class="wf-input">
-                </div>
+                <kbd class="ws-kbd" title="快捷键：⌘K / /">⌘K</kbd>
             </div>
-        </form>
-    </div>
+            <div class="wt-actions">
+                <span class="wb-group-toggle">
+                    <a href="{{ href(group='author', page=1) }}" class="w-pill {% if group == 'author' %}active{% endif %}">按作者</a>
+                    <a href="{{ href(group='site', page=1) }}" class="w-pill {% if group == 'site' %}active{% endif %}">按站点</a>
+                    <a href="{{ href(group='type', page=1) }}" class="w-pill {% if group == 'type' %}active{% endif %}">按类型</a>
+                    <a href="{{ href(group='flat', page=1) }}" class="w-pill {% if group == 'flat' %}active{% endif %}">平铺</a>
+                </span>
+                {% if total %}
+                <button type="button" class="wb-export-btn" id="exportBtn"
+                        data-q="{{ q }}" data-author="{{ author }}" data-tags="{{ tags }}"
+                        data-type="{{ file_type }}" data-source="{{ source }}" data-fav="{{ favorited }}"
+                        data-total="{{ total }}" data-fmt="{{ export_fmt }}"
+                        title="按当前筛选条件导出作品" onclick="openExportModal()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    导出
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 筛选（一行） -->
+        <div class="works-filters">
+            <div class="wf-group">
+                <span class="wf-label">类型</span>
+                {{ type_link('') }}
+                {{ type_link('小说') }}
+                {{ type_link('漫画') }}
+                {{ type_link('音乐') }}
+                {{ type_link('电影') }}
+                {{ type_link('图片') }}
+            </div>
+            <span class="wf-sep"></span>
+            <div class="wf-group">
+                <span class="wf-label">收藏</span>
+                <a href="{{ href(favorited='', page=1) }}" class="w-pill {% if not favorited %}active{% endif %}">全部</a>
+                <a href="{{ href(favorited='yes', page=1) }}" class="w-pill fav-pill {% if favorited == 'yes' %}active{% endif %}">★ 已收藏</a>
+            </div>
+            <span class="wf-sep"></span>
+            <div class="wf-group">
+                <span class="wf-label">站点</span>
+                <a href="{{ href(site='', page=1) }}" class="w-pill {% if not site %}active{% endif %}">全部</a>
+                <a href="{{ href(site='pixiv', page=1) }}" class="w-pill site-pill {% if site == 'pixiv' %}active{% endif %}"><span class="site-dot" data-site="pixiv"></span>pixiv</a>
+                <a href="{{ href(site='pawchive', page=1) }}" class="w-pill site-pill {% if site == 'pawchive' %}active{% endif %}"><span class="site-dot" data-site="pawchive"></span>pawchive</a>
+                <a href="{{ href(site='asmrmoon', page=1) }}" class="w-pill site-pill {% if site == 'asmrmoon' %}active{% endif %}"><span class="site-dot" data-site="asmrmoon"></span>asmrmoon</a>
+                <a href="{{ href(site='biquge', page=1) }}" class="w-pill site-pill {% if site == 'biquge' %}active{% endif %}"><span class="site-dot" data-site="biquge"></span>biquge</a>
+                <a href="{{ href(site='local', page=1) }}" class="w-pill site-pill {% if site == 'local' %}active{% endif %}"><span class="site-dot" data-site="local"></span>local</a>
+            </div>
+            <button type="button" class="wf-more-toggle" onclick="toggleMoreFilters(this)" aria-expanded="{{ 'true' if author or tags or source else 'false' }}">
+                更多筛选 <span class="wf-more-caret">{{ '▴' if author or tags or source else '▾' }}</span>
+            </button>
+            <div class="wf-group wf-inputs wf-more-panel{% if not (author or tags or source) %} is-hidden{% endif %}" id="moreFilterPanel">
+                <input type="text" name="author" value="{{ author }}" placeholder="作者" class="wf-input">
+                <input type="text" name="tags" value="{{ tags }}" placeholder="标签" class="wf-input">
+                <input type="text" name="source" value="{{ source }}" placeholder="来源" class="wf-input">
+            </div>
+        </div>
+    </form>
 
     <!-- 生效筛选 chips（可单独清除） -->
     {% if has_filters %}
@@ -158,29 +162,6 @@
         <a href="/works" class="wc-clear">清除全部</a>
     </div>
     {% endif %}
-
-    <!-- 结果条 -->
-    <div class="works-bar">
-        <span class="wb-total">共 <b>{{ total }}</b> 件作品</span>
-        {% if author_groups %}<span class="wb-sub">{{ author_groups|length }} 组</span>{% endif %}
-        <span class="wb-spacer"></span>
-        <span class="wb-group-toggle">
-            <a href="{{ href(group='author', page=1) }}" class="w-pill {% if group == 'author' %}active{% endif %}">按作者</a>
-            <a href="{{ href(group='site', page=1) }}" class="w-pill {% if group == 'site' %}active{% endif %}">按站点</a>
-            <a href="{{ href(group='type', page=1) }}" class="w-pill {% if group == 'type' %}active{% endif %}">按类型</a>
-            <a href="{{ href(group='flat', page=1) }}" class="w-pill {% if group == 'flat' %}active{% endif %}">平铺</a>
-        </span>
-        {% if total %}
-        <button type="button" class="wb-export-btn" id="exportBtn"
-                data-q="{{ q }}" data-author="{{ author }}" data-tags="{{ tags }}"
-                data-type="{{ file_type }}" data-source="{{ source }}" data-fav="{{ favorited }}"
-                data-total="{{ total }}" data-fmt="{{ export_fmt }}"
-                title="按当前筛选条件导出作品" onclick="openExportModal()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            导出
-        </button>
-        {% endif %}
-    </div>
 
     <!-- 分组视图（同系列已合并） -->
     {% if author_groups %}
