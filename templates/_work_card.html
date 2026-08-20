@@ -17,6 +17,7 @@
 <a href="{% if is_series %}{{ series_url }}{% else %}/works/{{ w.id }}{% endif %}" class="w-card {{ type_cls(w.file_type) }}{% if is_series %} w-card-series{% endif %}" data-id="{{ w.id }}">
     <div class="w-cover">
         {{ cover(w) }}
+        {% if w.site %}<span class="w-site-tag" data-site="{{ w.site }}">{{ w.site }}</span>{% endif %}
         <div class="w-cover-shade"></div>
         <div class="w-cover-actions">
             <button type="button" class="w-open-btn"
@@ -37,7 +38,6 @@
         <div class="w-author-row">
             <span class="w-avatar">{{ (w.author_name or '?')[:1] }}</span>
             <span class="w-author">{{ w.author_name or '未知' }}</span>
-            {% if w.site %}<span class="site-badge" data-site="{{ w.site }}" style="margin-right:0">{{ w.site }}</span>{% endif %}
         </div>
         {% if w.tags %}
         <div class="w-tags">

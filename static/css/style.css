@@ -1682,7 +1682,7 @@ button.detail-badge:not(.badge-fav):hover { background: rgba(255,92,138,0.12); c
 
 /* 网格视图 */
 .w-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 18px; margin-bottom: 8px;
 }
 .w-card {
@@ -3207,6 +3207,19 @@ html.privacy-mode .ag-avatar {
 .w-card:hover .w-open-btn { transform: translateY(0) scale(1); }
 .w-open-btn:hover { background: #fff; }
 .w-open-btn:active { transform: translateY(0) scale(0.97); }
+
+/* 站点角标（右上，实心站点色 + 白字，叠封面） */
+.w-site-tag {
+  position: absolute; top: 7px; right: 7px; z-index: 2;
+  font-size: 10px; font-weight: 600; color: #fff;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--site-local);
+}
+.w-site-tag[data-site="pixiv"] { background: var(--site-pixiv); }
+.w-site-tag[data-site="pawchive"] { background: var(--site-pawchive); }
+.w-site-tag[data-site="asmrmoon"] { background: var(--site-asmrmoon); }
+.w-site-tag[data-site="biquge"] { background: var(--site-biquge); }
+.w-site-tag[data-site="local"] { background: var(--site-local); }
 
 /* 评分角标（左上） */
 .w-rating {
