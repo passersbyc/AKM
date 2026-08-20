@@ -1,6 +1,7 @@
 import argparse
 
 from src.cli.base import BaseCommand
+from src.core.database import short_id
 from src.core.logging import logger
 from src.operations import list_items
 
@@ -100,7 +101,7 @@ class ListCommand(BaseCommand):
                 likes = row.get("点赞", "0") or "0"
                 rating = row.get("评分", "-") or "0"
                 table.add_row(
-                    (row.get("ID", "") or "N/A")[-4:],
+                    short_id(row.get("ID", "N/A")),
                     row.get("标题", ""),
                     author,
                     row.get("系列", "-") or "-",
