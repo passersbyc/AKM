@@ -10,22 +10,27 @@ from src.core.logging import logger
 
 class OpenCommand(BaseCommand):
     verb = "open"
-    nouns = ["url"]
+    nouns = ["url", "author"]
     description = "在关联应用中打开作品文件，或打开来源网址"
     group = "浏览"
-    noun_descriptions = {"url": "打开作品或作者的来源网址"}
+    noun_descriptions = {
+        "url": "打开作品或作者的来源网址",
+        "author": "打开作者主页",
+    }
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("target", type=str, help="作品 ID 或名称～")
 
     def configure_noun_parser(self, parser: argparse.ArgumentParser, noun: str) -> None:
-        if noun == "url":
+        if noun in ("url", "author"):
             parser.add_argument("target", type=str,
                                 help="作品 ID/名称 或 作者 ID/名称～")
 
     def execute(self, args: argparse.Namespace, noun=None) -> int:
         if noun == "url":
             return self._open_url(args)
+        if noun == "author":
+            return self._open_author(args)
         return self._open_file(args)
 
     def _open_file(self, args: argparse.Namespace) -> int:
@@ -170,6 +175,20 @@ class OpenCommand(BaseCommand):
             return self.output.result(False, error=f"作者 {author.get('name', '')} 没有网址呢～")
 
         return self.output.result(False, error=f"找不到作品或作者: {target} 哦～")
+
+    def _open_author(self, args: argparse.Namespace) -> int:
+        author = resolve_author(args.target, self.output)
+        if not author:
+            return self.output.result(False, error=f"找不到作者: {args.target} 哦～")
+
+        homepage = (author.get("homepage", "") or "").strip()
+        if homepage and homepage.startswith("http"):
+            webbrowser.open(homepage)
+            logger.info(f" 已打开: {homepage}")
+            if self.output.json_mode:
+                return self.output.result(True, data={"author_id": author["id"], "url": homepage})
+            return 0
+        return self.output.result(False, error=f"作者 {author.get('name', '')} 没有网址呢～")
 
     def _record_open(self, work_id: str, title: str, source: str = "") -> None:
         from src.operations import record_open

@@ -5,6 +5,7 @@ from src.core.author_manager import (
     rename as author_rename,
     resolve as author_resolve,
     set_author_favorite,
+    set_author_homepage,
 )
 
 
@@ -22,7 +23,8 @@ def get_book(book_id: str) -> dict | None:
 
 def edit_author(target: str, name: str | None = None,
                 note: str | None = None,
-                favorite: str | None = None) -> dict | None:
+                favorite: str | None = None,
+                homepage: str | None = None) -> dict | None:
     author = author_resolve(target)
     if not author:
         return None
@@ -38,6 +40,9 @@ def edit_author(target: str, name: str | None = None,
 
     if note is not None:
         author_update(uid, note=note.strip())
+
+    if homepage is not None:
+        set_author_homepage(author["id"], homepage.strip())
 
     if favorite is not None:
         fav = favorite == "yes"

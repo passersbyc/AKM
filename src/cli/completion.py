@@ -86,11 +86,29 @@ def build_completer(app):
             except Exception:
                 return []
 
-        def _query_authors(self, prefix: str, limit: int = 15) -> list[str]:
+        def _query_authors(self, prefix: str, limit: int = 15) -> list[tuple[str, str]]:
+            """作者补全：返回 [(insert_text=前缀.编号, display=编号+名字), ...]。"""
             try:
-                from src.operations.matcher import list_author_names
-                names = list_author_names(prefix, limit)
-                return [n for _, n in names]
+                from src.core.author_manager import list_all
+                from src.core.site import site_prefix
+                results: list[tuple[str, str]] = []
+                seen: set[tuple[str, str]] = set()
+                for a in list_all():
+                    name = a.get("name", "")
+                    site = a.get("site", "")
+                    aid = a.get("id", "")
+                    short_aid = aid.lstrip("0") or "0"
+                    insert = f"{site_prefix(site)}.{short_aid}"
+                    if prefix and (prefix not in name
+                                   and not short_aid.startswith(prefix)
+                                   and not insert.startswith(prefix)):
+                        continue
+                    key = (site, aid)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    results.append((insert, f"{insert}  {name}"))
+                return results[:limit]
             except Exception:
                 return []
 
@@ -170,15 +188,25 @@ def build_completer(app):
                     for insert, display in self._query_works(word_before):
                         yield Completion(insert, start_position=-len(word_before),
                                          display=display)
-                    for name in self._query_authors(word_before):
-                        yield Completion(name, start_position=-len(word_before))
+                    for insert, display in self._query_authors(word_before):
+                        yield Completion(insert, start_position=-len(word_before),
+                                         display=display)
+                return
+
+            # open author / edit author: 补全作者（带编号显示）
+            if first in ("open", "edit") and second == "author":
+                if len(words) == 2 or (len(words) == 3 and not text.endswith(" ")):
+                    for insert, display in self._query_authors(word_before):
+                        yield Completion(insert, start_position=-len(word_before),
+                                         display=display)
                 return
 
             # search author / delete author / export author / list author: 补全作者名
             if first in ("search", "delete", "export", "list") and second == "author":
                 if len(words) == 2 or (len(words) == 3 and not text.endswith(" ")):
-                    for name in self._query_authors(word_before):
-                        yield Completion(name, start_position=-len(word_before))
+                    for insert, display in self._query_authors(word_before):
+                        yield Completion(insert, start_position=-len(word_before),
+                                         display=display)
                 return
 
             # search label: 补全标签名

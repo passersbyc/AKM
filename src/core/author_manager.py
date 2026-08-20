@@ -116,6 +116,24 @@ def set_author_favorite(author_id: str, favorite: bool) -> bool:
     return False
 
 
+def set_author_homepage(author_id: str, homepage: str) -> bool:
+    """更新作者主页（authors.homepage，按 author_id 定位）。"""
+    from src.core.database import get_current_site, get_site_db
+    from src.core.site import SITES
+    site = get_current_site()
+    sites = [site] if site else SITES
+    for s in sites:
+        db = get_site_db(s)
+        db.execute(
+            "UPDATE authors SET homepage = ?, updated_at = datetime('now') WHERE id = ?",
+            (homepage.strip(), author_id),
+        )
+        db.commit()
+        if db.total_changes > 0:
+            return True
+    return False
+
+
 def get_by_pixiv_uid(uid: str) -> dict | None:
     rows = _query_author(_AUTHOR_JOIN + " WHERE p.pixiv_uid = ?", (uid.strip(),))
     return _merge_row(rows[0]) if rows else None

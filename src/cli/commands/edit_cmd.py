@@ -1,10 +1,11 @@
 import argparse
 
 from src.cli.base import BaseCommand
-from src.operations.matcher import resolve_work
+from src.operations.matcher import resolve_work, resolve_author
 from src.core.database import short_id
 from src.core.logging import logger
 from src.operations import edit_book
+from src.operations.edit_op import edit_author
 
 
 def _author_name(author_id: str) -> str:
@@ -23,14 +24,21 @@ def _series_name(series_id: str, author_id: str) -> str:
 
 class EditCommand(BaseCommand):
     verb = "edit"
-    nouns: list[str] = []
+    nouns: list[str] = ["author"]
     description = "交互式编辑作品元数据（逐字段提示）"
     group = "管理"
+    noun_descriptions = {"author": "编辑作者信息（名称/备注/主页/收藏）"}
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("target", type=str, help="作品 ID 或名称～")
 
+    def configure_noun_parser(self, parser: argparse.ArgumentParser, noun: str) -> None:
+        if noun == "author":
+            parser.add_argument("target", type=str, help="作者 ID/名称 或 编号（如 p.1）～")
+
     def execute(self, args: argparse.Namespace, noun=None) -> int:
+        if noun == "author":
+            return self._edit_author(args)
         work = resolve_work(args.target, self.output)
         if not work:
             return self.output.result(False, error=f"找不到作品: {args.target} 哦～")
@@ -137,4 +145,60 @@ class EditCommand(BaseCommand):
             return self.output.result(False, error=f"更新失败: {wid}")
 
         self.output.info(f"[green]已更新:[/green] {updated.get('标题', title)}")
+        return 0
+
+    def _edit_author(self, args: argparse.Namespace) -> int:
+        author = resolve_author(args.target, self.output)
+        if not author:
+            return self.output.result(False, error=f"找不到作者: {args.target} 哦～")
+
+        if self.output.json_mode:
+            return self.output.result(True, data={"author": dict(author)})
+
+        name = author.get("name", "")
+        note = author.get("note", "") or ""
+        homepage = author.get("homepage", "") or ""
+        favorite = author.get("favorite", False)
+
+        self.output.info(
+            f"\n[bold green] 编辑作者:[/bold green] [cyan]{author['id']}[/cyan] {name}\n")
+
+        def _ask(label: str, current: str) -> str:
+            try:
+                return input(f"  {label} [{current or '(空)'}] → ").strip()
+            except (EOFError, KeyboardInterrupt):
+                return ""
+
+        new_name = _ask("名称", name)
+        new_note = _ask("备注", note)
+        new_homepage = _ask("主页", homepage)
+
+        fav_display = "是" if favorite else "否"
+        try:
+            fav_input = input(f"  收藏 [{fav_display}] (y/n) → ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            fav_input = ""
+        new_fav = None
+        if fav_input in ("y", "yes"):
+            new_fav = "yes"
+        elif fav_input in ("n", "no"):
+            new_fav = "no"
+
+        if not new_name and not new_note and not new_homepage and new_fav is None:
+            self.output.info("[dim]无修改，退出～[/dim]")
+            return 0
+
+        result = edit_author(
+            args.target,
+            name=new_name or None,
+            note=new_note or None,
+            homepage=new_homepage or None,
+            favorite=new_fav,
+        )
+        if not result:
+            return self.output.result(False, error=f"编辑失败: {args.target}")
+        if result.get("error"):
+            return self.output.result(False, error=result["error"])
+
+        self.output.info(f"[green]已更新作者:[/green] {new_name or name}")
         return 0
