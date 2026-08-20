@@ -56,7 +56,7 @@
 
 
 {%- macro href() -%}
-{%- set ps = {'q': q, 'author': author, 'tags': tags, 'file_type': file_type, 'source': source, 'favorited': favorited, 'page': page} -%}
+{%- set ps = {'q': q, 'author': author, 'tags': tags, 'file_type': file_type, 'source': source, 'favorited': favorited, 'site': site, 'page': page} -%}
 {%- for k, v in kwargs.items() -%}{% if ps.update({k: v}) %}{% endif %}{%- endfor -%}
 {%- set out = [] -%}
 {%- for k, v in ps.items() -%}
@@ -74,7 +74,7 @@
 <a href="{{ href(file_type=t, page=1) }}" class="w-pill {{ type_cls(t) }} {% if file_type == t %}active{% endif %}">{{ t or '全部' }}<em class="w-pill-n">{{ cnt }}</em></a>
 {%- endmacro %}
 
-{%- set has_filters = q or author or tags or file_type or source or favorited -%}
+{%- set has_filters = q or author or tags or file_type or source or favorited or site -%}
 
 <div class="works-page animate-in">
     <!-- 头部 -->
@@ -126,6 +126,16 @@
                     <span class="wf-label">收藏</span>
                     <a href="{{ href(favorited='', page=1) }}" class="w-pill {% if not favorited %}active{% endif %}">全部</a>
                     <a href="{{ href(favorited='yes', page=1) }}" class="w-pill fav-pill {% if favorited == 'yes' %}active{% endif %}">★ 已收藏</a>
+                </div>
+                <span class="wf-sep"></span>
+                <div class="wf-group">
+                    <span class="wf-label">站点</span>
+                    <a href="{{ href(site='', page=1) }}" class="w-pill {% if not site %}active{% endif %}">全部</a>
+                    <a href="{{ href(site='pixiv', page=1) }}" class="w-pill site-pill {% if site == 'pixiv' %}active{% endif %}"><span class="site-dot" data-site="pixiv"></span>pixiv</a>
+                    <a href="{{ href(site='pawchive', page=1) }}" class="w-pill site-pill {% if site == 'pawchive' %}active{% endif %}"><span class="site-dot" data-site="pawchive"></span>pawchive</a>
+                    <a href="{{ href(site='asmrmoon', page=1) }}" class="w-pill site-pill {% if site == 'asmrmoon' %}active{% endif %}"><span class="site-dot" data-site="asmrmoon"></span>asmrmoon</a>
+                    <a href="{{ href(site='biquge', page=1) }}" class="w-pill site-pill {% if site == 'biquge' %}active{% endif %}"><span class="site-dot" data-site="biquge"></span>biquge</a>
+                    <a href="{{ href(site='local', page=1) }}" class="w-pill site-pill {% if site == 'local' %}active{% endif %}"><span class="site-dot" data-site="local"></span>local</a>
                 </div>
                 <span class="wf-sep"></span>
                 <div class="wf-group wf-inputs">

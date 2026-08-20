@@ -2107,6 +2107,16 @@ button.detail-badge:not(.badge-fav):hover { background: rgba(255,92,138,0.12); c
 .site-badge[data-site="asmrmoon"]::before { background: var(--site-asmrmoon); }
 .site-badge[data-site="biquge"]::before { background: var(--site-biquge); }
 .site-badge[data-site="local"]::before { background: var(--site-local); }
+.site-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--site-local); flex-shrink: 0;
+}
+.site-dot[data-site="pixiv"] { background: var(--site-pixiv); }
+.site-dot[data-site="pawchive"] { background: var(--site-pawchive); }
+.site-dot[data-site="asmrmoon"] { background: var(--site-asmrmoon); }
+.site-dot[data-site="biquge"] { background: var(--site-biquge); }
+.site-dot[data-site="local"] { background: var(--site-local); }
+.site-pill { display: inline-flex; align-items: center; gap: 6px; }
 .dl-url {
   color: var(--text); text-decoration: none; font-family: var(--font-mono);
   font-size: 12.5px; transition: color var(--transition);

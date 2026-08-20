@@ -23,6 +23,7 @@ def authors_list(
     request: Request,
     q: str = Query("", description="作者名/别名搜索"),
     status: str = Query("", description="状态筛选(active/paused/dead)"),
+    site: str = Query("", description="站点筛选(pixiv/pawchive/asmrmoon/biquge/local)"),
     page: int = Query(1, ge=1),
 ):
     """作者列表。"""
@@ -42,6 +43,8 @@ def authors_list(
             a for a in all_authors
             if any(k in (a.get("status") or "") for k in kws)
         ]
+    if site:
+        all_authors = [a for a in all_authors if a.get("site") == site]
 
     total = len(all_authors)
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
@@ -58,5 +61,6 @@ def authors_list(
         "total_pages": total_pages,
         "q": q,
         "status": status,
+        "site": site,
         "stats": get_stats(),
     })

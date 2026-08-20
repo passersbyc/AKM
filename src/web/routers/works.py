@@ -39,6 +39,7 @@ _KEY_MAP = {
     "系列": "series_name",
     "标签": "tags",
     "来源": "source",
+    "站点": "site",
     "源状态": "source_status",
     "后缀": "file_ext",
     "分类": "file_type",
@@ -191,6 +192,7 @@ def works_list(
     file_type: str = Query("", description="文件类型"),
     source: str = Query("", description="来源"),
     favorited: str = Query("", description="收藏"),
+    site: str = Query("", description="站点筛选"),
     page: int = Query(1, ge=1),
 ):
     """作品列表：默认按作者分组，组内同系列合并显示。"""
@@ -199,6 +201,8 @@ def works_list(
         file_type=file_type, source=source,
         favorited=favorited,
     )
+    if site:
+        results = [w for w in results if w.get("站点") == site]
 
     # 按作者聚合（保持首次出现顺序），组内同系列合并
     from collections import OrderedDict
@@ -217,6 +221,7 @@ def works_list(
         "stats": get_stats(),
         "q": q, "author": author, "tags": tags,
         "file_type": file_type, "source": source, "favorited": favorited,
+        "site": site,
         "export_fmt": (load_config().get("project_settings", {}) or {}).get("export_format", "folder"),
         "export_path": (load_config().get("project_settings", {}) or {}).get("export_path", ""),
     }

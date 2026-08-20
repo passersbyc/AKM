@@ -35,10 +35,20 @@
         <div class="works-filters">
             <div class="wf-group">
                 <span class="wf-label">状态</span>
-                <a href="/authors?q={{ q }}" class="w-pill {% if not status %}active{% endif %}">全部</a>
-                <a href="/authors?q={{ q }}&status=active" class="w-pill st-pill-active {% if status == 'active' %}active{% endif %}">✿ 活跃</a>
-                <a href="/authors?q={{ q }}&status=paused" class="w-pill st-pill-paused {% if status == 'paused' %}active{% endif %}">· 停更</a>
-                <a href="/authors?q={{ q }}&status=dead" class="w-pill st-pill-dead {% if status == 'dead' %}active{% endif %}">✕ 注销</a>
+                <a href="/authors?q={{ q }}&site={{ site }}" class="w-pill {% if not status %}active{% endif %}">全部</a>
+                <a href="/authors?q={{ q }}&status=active&site={{ site }}" class="w-pill st-pill-active {% if status == 'active' %}active{% endif %}">✿ 活跃</a>
+                <a href="/authors?q={{ q }}&status=paused&site={{ site }}" class="w-pill st-pill-paused {% if status == 'paused' %}active{% endif %}">· 停更</a>
+                <a href="/authors?q={{ q }}&status=dead&site={{ site }}" class="w-pill st-pill-dead {% if status == 'dead' %}active{% endif %}">✕ 注销</a>
+            </div>
+            <span class="wf-sep"></span>
+            <div class="wf-group">
+                <span class="wf-label">站点</span>
+                <a href="/authors?q={{ q }}&status={{ status }}" class="w-pill {% if not site %}active{% endif %}">全部</a>
+                <a href="/authors?q={{ q }}&status={{ status }}&site=pixiv" class="w-pill site-pill {% if site == 'pixiv' %}active{% endif %}"><span class="site-dot" data-site="pixiv"></span>pixiv</a>
+                <a href="/authors?q={{ q }}&status={{ status }}&site=pawchive" class="w-pill site-pill {% if site == 'pawchive' %}active{% endif %}"><span class="site-dot" data-site="pawchive"></span>pawchive</a>
+                <a href="/authors?q={{ q }}&status={{ status }}&site=asmrmoon" class="w-pill site-pill {% if site == 'asmrmoon' %}active{% endif %}"><span class="site-dot" data-site="asmrmoon"></span>asmrmoon</a>
+                <a href="/authors?q={{ q }}&status={{ status }}&site=biquge" class="w-pill site-pill {% if site == 'biquge' %}active{% endif %}"><span class="site-dot" data-site="biquge"></span>biquge</a>
+                <a href="/authors?q={{ q }}&status={{ status }}&site=local" class="w-pill site-pill {% if site == 'local' %}active{% endif %}"><span class="site-dot" data-site="local"></span>local</a>
             </div>
         </div>
     </div>
@@ -54,6 +64,7 @@
                     {% if a.favorite %}<span class="au-fav" title="收藏作者">★</span>{% endif %}
                 </div>
                 <div class="au-sub">
+                    <span class="site-badge" data-site="{{ a.site }}" style="margin-right:0">{{ a.site }}</span>
                     {% if a.pixiv_uid %}<span class="au-uid">UID {{ a.pixiv_uid }}</span>{% endif %}
                     <span class="au-status st-{{ status_cls(a.status) }}">{{ a.status }}</span>
                 </div>
