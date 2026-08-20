@@ -23,6 +23,7 @@ def _find_free_port(host: str, preferred: int, max_tries: int = 10) -> int:
         port = preferred + offset
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 s.bind((host, port))
                 return port
             except OSError:
@@ -62,6 +63,21 @@ def _pids_on_port(port: int) -> list[int]:
         except Exception:
             pass
     return []
+
+
+def _wait_port_free(host: str, port: int, timeout: float = 5.0) -> bool:
+    """等待端口释放（旧实例退出），返回是否已释放。"""
+    import time
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind((host, port))
+                return True
+        except OSError:
+            time.sleep(0.2)
+    return False
 
 
 class WebUICommand(BaseCommand):
@@ -110,18 +126,20 @@ class WebUICommand(BaseCommand):
         return 0
 
     def _open(self, args: argparse.Namespace) -> int:
-        """启动 WebUI（已有实例则直接打开复用）。"""
+        """启动 WebUI（先杀旧实例再新建，保证窗口唯一）。"""
         import uvicorn
         from src.web import create_app
 
-        # 单实例：已有 AKM 在跑则直接打开复用，不重复启动
+        # 杀掉旧实例，保证窗口唯一性
         existing = _find_existing(args.host, args.port)
         if existing != -1:
-            url = f"http://{args.host}:{existing}"
-            self.output.info(f"WebUI 已在运行: {url}，直接打开～")
-            if not args.no_browser:
-                webbrowser.open(url)
-            return 0
+            self.output.info(f"发现旧 WebUI 实例（端口 {existing}），关闭后重启～")
+            for pid in _pids_on_port(existing):
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except Exception:
+                    pass
+            _wait_port_free(args.host, existing)
 
         port = _find_free_port(args.host, args.port)
         if port == -1:
