@@ -29,6 +29,7 @@ def _merge_row(row: dict) -> dict:
         "name": row.get("name", ""),
         "aliases": row.get("aliases", ""),
         "source": row.get("source", ""),
+        "site": row.get("_site", ""),
         "pixiv_uid": row.get("pixiv_uid") or "",
         "homepage": row.get("homepage") or "",
         "follow_status": row.get("tracking_status") or "active",
@@ -40,12 +41,25 @@ def _merge_row(row: dict) -> dict:
 
 
 def _query_author(sql: str, params: tuple = ()) -> list[dict]:
-    """作者查询：site_ctx 内查当前站点（避免跨站点同名混淆），否则遍历站点库。"""
-    from src.core.database import get_current_site, get_site_db, query_all_sites
+    """作者查询：site_ctx 内查当前站点（避免跨站点同名混淆），否则遍历站点库。
+
+    每行附加 _site 字段，供展示层区分作者所属站点。
+    """
+    from src.core.database import get_current_site, get_site_db
+    from src.core.site import SITES
     site = get_current_site()
     if site:
-        return [dict(r) for r in get_site_db(site).execute(sql, params).fetchall()]
-    return [dict(r) for r in query_all_sites(sql, params)]
+        rows = [dict(r) for r in get_site_db(site).execute(sql, params).fetchall()]
+        for r in rows:
+            r["_site"] = site
+        return rows
+    out: list[dict] = []
+    for s in SITES:
+        for r in get_site_db(s).execute(sql, params).fetchall():
+            d = dict(r)
+            d["_site"] = s
+            out.append(d)
+    return out
 
 
 def list_all() -> list[dict]:
@@ -53,10 +67,15 @@ def list_all() -> list[dict]:
     return [_merge_row(r) for r in rows]
 
 
-def compute_author_tags(author_id: str) -> list[str]:
-    from src.core.database import query_all_sites
-    rows = query_all_sites(
-        "SELECT tags FROM works WHERE author_id = ? AND tags != ''", (author_id,))
+def compute_author_tags(author_id: str, site: str = "") -> list[str]:
+    from src.core.database import get_site_db, query_all_sites
+    if site:
+        rows = get_site_db(site).execute(
+            "SELECT tags FROM works WHERE author_id = ? AND tags != ''",
+            (author_id,)).fetchall()
+    else:
+        rows = query_all_sites(
+            "SELECT tags FROM works WHERE author_id = ? AND tags != ''", (author_id,))
     seen = set()
     for r in rows:
         for t in (r[0] or "").split(","):

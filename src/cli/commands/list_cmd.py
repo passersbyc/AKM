@@ -144,40 +144,55 @@ class ListCommand(BaseCommand):
             return 0
 
         from rich.table import Table
+        from src.core.site import SITES, site_prefix
 
-        table = Table(title="作者列表", show_lines=False)
-        table.add_column("ID", style="magenta", justify="right", width=4)
-        table.add_column("名称", style="bold")
-        table.add_column("收藏", style="red", width=4)
-        table.add_column("状态", style="cyan", width=12)
-        table.add_column("作品数", justify="right", style="green")
-        table.add_column("系列数", justify="right", style="yellow")
-        table.add_column("主页", style="dim", max_width=30)
+        # 按站点分组（站点隔离，作者 ID 各站点独立）
+        groups: dict[str, list] = {}
+        for a in items:
+            groups.setdefault(a.get("site", "local"), []).append(a)
 
-        sorted_items = sorted(items, key=lambda r: (not r.get("favorite", False), r.get("id", "")))
-        last_fav_idx = -1
-        for i, row in enumerate(sorted_items):
-            if row.get("favorite", False):
-                last_fav_idx = i
+        total = len(items)
+        for site in SITES:
+            site_items = groups.get(site, [])
+            if not site_items:
+                continue
 
-        for i, row in enumerate(sorted_items):
-            is_last_fav = (i == last_fav_idx and last_fav_idx >= 0)
-            name = row.get("name", "")
-            lid = row.get("id", "")
-            homepage = row.get("homepage", "") or "-"
-            if homepage != "-" and "//" in homepage:
-                homepage = homepage.split("//", 1)[1]
+            table = Table(
+                title=f"{site}（前缀 {site_prefix(site)}）· {len(site_items)} 位作者",
+                show_lines=False)
+            table.add_column("ID", style="magenta", justify="right", width=7)
+            table.add_column("名称", style="bold")
+            table.add_column("收藏", style="red", width=4)
+            table.add_column("状态", style="cyan", width=12)
+            table.add_column("作品数", justify="right", style="green")
+            table.add_column("系列数", justify="right", style="yellow")
+            table.add_column("主页", style="dim", max_width=30)
 
-            status = row.get("status", "")
-            count = str(row.get("work_count", 0))
-            scount = str(row.get("series_count", 0))
-            fav = "[red]\u2665[/red]" if row.get("favorite") else ""
+            sorted_items = sorted(site_items, key=lambda r: (not r.get("favorite", False), r.get("id", "")))
+            last_fav_idx = -1
+            for i, row in enumerate(sorted_items):
+                if row.get("favorite", False):
+                    last_fav_idx = i
 
-            table.add_row(lid, name, fav, status, count, scount, homepage,
-                          end_section=is_last_fav)
+            for i, row in enumerate(sorted_items):
+                is_last_fav = (i == last_fav_idx and last_fav_idx >= 0)
+                name = row.get("name", "")
+                lid = f"{site_prefix(site)}.{row.get('id', '')}"
+                homepage = row.get("homepage", "") or "-"
+                if homepage != "-" and "//" in homepage:
+                    homepage = homepage.split("//", 1)[1]
 
-        self.console.print(table)
-        self.output.info(f"[dim]共计 {len(items)} 位作者[/dim]")
+                status = row.get("status", "")
+                count = str(row.get("work_count", 0))
+                scount = str(row.get("series_count", 0))
+                fav = "[red]\u2665[/red]" if row.get("favorite") else ""
+
+                table.add_row(lid, name, fav, status, count, scount, homepage,
+                              end_section=is_last_fav)
+
+            self.console.print(table)
+
+        self.output.info(f"[dim]共计 {total} 位作者[/dim]")
         return 0
 
     def _list_download(self, args: argparse.Namespace) -> int:

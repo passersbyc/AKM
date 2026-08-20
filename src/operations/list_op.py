@@ -40,16 +40,18 @@ def list_items(target_type: str, sort_by: str = "id", number: int = 0) -> dict:
             a = w.get("作者", "")
             if not a:
                 continue
-            author_info[a]["works"] += 1
+            key = (w.get("站点", ""), a)
+            author_info[key]["works"] += 1
             s = w.get("系列", "")
             if s:
-                author_info[a]["series"].add(s)
+                author_info[key]["series"].add(s)
         for item in items:
             name = item.get("name", "")
-            info = author_info.get(name, {})
+            key = (item.get("site", ""), name)
+            info = author_info.get(key, {})
             item["work_count"] = info.get("works", 0)
             item["series_count"] = len(info.get("series", set()))
-            item["tags"] = compute_author_tags(item["id"])
+            item["tags"] = compute_author_tags(item["id"], item.get("site", ""))
         return {"total": len(items), "items": items}
 
     if target_type in ("series", "s"):
