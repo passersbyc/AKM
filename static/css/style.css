@@ -1141,6 +1141,8 @@ html.privacy-mode .cloud-rank-name {
 .work-fav:hover { transform: scale(1.2); }
 .work-fav:not(.on) { opacity: 0.6; filter: grayscale(1); }
 .work-fav:not(.on):hover { opacity: 1; }
+/* 卡片内收藏 ♥ 往下移，避开右上角的站点徽章（w-site-tag） */
+.w-card .work-fav { top: 32px; }
 .work-type-badge {
   position: absolute; left: 6px; bottom: 6px; z-index: 2;
   font-size: 10px; font-weight: 600; color: #fff; letter-spacing: 0.5px;
