@@ -26,11 +26,13 @@ def get_library_path() -> Path:
 
 
 def build_import_target(file: Path, author: str = "", series: str = "", book_id: str = "",
-                        uid: str = "") -> Path:
+                        uid: str = "", source: str = "") -> Path:
     file_type = determine_file_type(str(file))
     if file_type == "unknown":
         raise ValueError(f"无法识别文件类型: {file}")
-    base = get_library_path() / file_type
+    from src.core.site import infer_site
+    site = infer_site(source)
+    base = get_library_path() / site / file_type
     a = author.strip() if author else ""
     s = series.strip() if series else ""
     if a and s:

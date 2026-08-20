@@ -223,7 +223,7 @@ class PixivDownloader(BaseDownloader):
         book_id = generate_id(file_type, author, series, uid=user_id)
         safe_title = normalize_series_name(title)
         placeholder_name = f"{book_id}_{safe_title}{suffix}"
-        target = build_import_target(Path(placeholder_name), author, series, book_id=book_id, uid=user_id)
+        target = build_import_target(Path(placeholder_name), author, series, book_id=book_id, uid=user_id, source=ctx.work_url)
 
         entry = {
             "ID": book_id, "标题": title, "作者": author or "佚名",
@@ -287,7 +287,7 @@ class PixivDownloader(BaseDownloader):
             if len(normalized) >= 10:
                 create_date = normalized
 
-        target = build_import_target(fp, author, series, book_id=book_id, uid=user_id)
+        target = build_import_target(fp, author, series, book_id=book_id, uid=user_id, source=ctx.work_url)
 
         ctx.entry = {
             "ID": book_id,

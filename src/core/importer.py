@@ -90,7 +90,7 @@ def import_one(file_path: str, author: str = "", series: str = "",
             return ImportResult(success=False, error=f"无法识别的文件类型: {fp.suffix}")
 
         book_id = generate_id(file_type, author, series, uid=user_id)
-        target = build_import_target(fp, author, series, book_id=book_id, uid=user_id)
+        target = build_import_target(fp, author, series, book_id=book_id, uid=user_id, source=source)
         target.parent.mkdir(parents=True, exist_ok=True)
 
         if target.exists():

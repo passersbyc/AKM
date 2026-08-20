@@ -230,7 +230,8 @@ def update_entry_full(book_id: str, field_updates: dict,
             else:
                 clean_path = Path(old_path.name)
             new_target = build_import_target(clean_path, final_author_name,
-                                             final_series_name, book_id=candidate_id)
+                                             final_series_name, book_id=candidate_id,
+                                             source=row_dict.get("source", ""))
             new_target.parent.mkdir(parents=True, exist_ok=True)
             if not new_target.exists():
                 shutil.move(str(old_path), str(new_target))
