@@ -126,9 +126,10 @@ class WebUICommand(BaseCommand):
         return 0
 
     def _open(self, args: argparse.Namespace) -> int:
-        """启动 WebUI（先杀旧实例再新建，保证窗口唯一）。"""
-        import uvicorn
-        from src.web import create_app
+        """启动 WebUI（先杀旧实例再后台新建，不阻塞 CLI）。"""
+        import subprocess
+        import sys as _sys
+        from src.core.config import get_project_root
 
         # 杀掉旧实例，保证窗口唯一性
         existing = _find_existing(args.host, args.port)
@@ -148,21 +149,25 @@ class WebUICommand(BaseCommand):
         if port != args.port:
             self.output.warn(f"端口 {args.port} 被占用，自动切换到 {port} 啦～")
 
-        app = create_app()
         url = f"http://{args.host}:{port}"
-        self.output.info(f"AKM WebUI 启动中... {url}")
+
+        # 后台启动 uvicorn（独立进程，脱离 CLI 会话，不阻塞）
+        cmd = [_sys.executable, "-m", "uvicorn", "src.web.app:create_app",
+               "--factory", "--host", args.host, "--port", str(port)]
+        if args.reload:
+            cmd.append("--reload")
+        subprocess.Popen(
+            cmd,
+            cwd=str(get_project_root()),
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        self.output.info(f"AKM WebUI 已在后台启动: {url}")
 
         # 延迟 1.5s 打开浏览器，等 uvicorn 起来
         if not args.no_browser:
             threading.Timer(1.5, lambda: webbrowser.open(url)).start()
 
-        # reload 模式要求 import 字符串 + factory=True（传 app 对象会直接退出）
-        if args.reload:
-            uvicorn.run(
-                "src.web.app:create_app",
-                host=args.host, port=port,
-                reload=True, factory=True,
-            )
-        else:
-            uvicorn.run(app, host=args.host, port=port)
         return 0
