@@ -38,7 +38,7 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
     # 注册路由
-    from src.web.routers import dashboard, works, authors, download, settings, update, importer
+    from src.web.routers import dashboard, works, authors, download, settings, update, importer, export
     app.include_router(dashboard.router)
     app.include_router(works.router)
     app.include_router(authors.router)
@@ -46,5 +46,6 @@ def create_app() -> FastAPI:
     app.include_router(settings.router)
     app.include_router(update.router)
     app.include_router(importer.router)
+    app.include_router(export.router)
 
     return app

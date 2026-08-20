@@ -4,18 +4,17 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-import threading
-import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Request, Query, Form
+from fastapi import APIRouter, Request, Query
 from fastapi.responses import Response, JSONResponse
 from src.core.database import short_id
 from src.core.config import load_config
 
-from src.operations import search_works, get_info, get_related_works, get_stats
+from src.operations import get_info, get_related_works, get_stats
 from src.web.app import templates
 from src.web.cover import extract_cover
+from src.web.deps import safe_search
 
 router = APIRouter()
 
@@ -26,29 +25,11 @@ def _kid_mode() -> bool:
     return bool(cfg.get("kid_mode", False))
 
 
-def _safe_search(**kw):
-    """按当前儿童模式状态过滤的搜索。"""
-    return search_works(**kw, safe_mode=_kid_mode())
-
 PAGE_SIZE = 24
 # 按作者分组视图：每组预览上限（大标签下避免渲染数千封面）
 GROUP_PREVIEW = 12
 # 首屏直接渲染卡片的分组数，其余分组折叠按需 AJAX 加载
 LAZY_GROUPS = 3
-
-# 异步导出任务表（内存态，进程重启即失效，可接受）
-_EXPORT_TASKS: dict[str, dict] = {}
-_EXPORT_LOCK = threading.Lock()
-
-
-def _task_set(task_id: str, **fields) -> None:
-    with _EXPORT_LOCK:
-        _EXPORT_TASKS.setdefault(task_id, {}).update(fields)
-
-
-def _task_get(task_id: str) -> dict:
-    with _EXPORT_LOCK:
-        return dict(_EXPORT_TASKS.get(task_id, {}))
 
 # 中文 key → 英文 key 映射（operations 层返回中文，模板用英文）
 _KEY_MAP = {
@@ -213,7 +194,7 @@ def works_list(
     page: int = Query(1, ge=1),
 ):
     """作品列表：默认按作者分组，组内同系列合并显示。"""
-    results = _safe_search(
+    results = safe_search(
         query=q, author=author, tags=tags,
         file_type=file_type, source=source,
         favorited=favorited,
@@ -286,7 +267,7 @@ def author_works_partial(
     """某作者作品的 HTML 片段（作者分组懒加载用），返回 JSON。"""
     from fastapi.responses import JSONResponse
 
-    entries = _merge_series(_safe_search(author=name))
+    entries = _merge_series(safe_search(author=name))
     items = entries[offset:offset + limit]
     html = templates.TemplateResponse(request, "partials/_works_grid.html", {
         "request": request,
@@ -316,7 +297,7 @@ def series_page(
             "stats": get_stats(),
         })
 
-    results = _safe_search(series=name)
+    results = safe_search(series=name)
     total = len(results)
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, total_pages)
@@ -450,98 +431,6 @@ def toggle_favorite(work_id: str):
     # update_entry_full 使用中文清单键（"收藏"），传 "是"/"否"
     WorkManager.update_entry_full(work_id, {"收藏": "是" if new_val else "否"})
     return {"success": True, "favorite": bool(new_val)}
-
-
-@router.post("/works/export")
-async def export_works_filtered(
-    q: str = Form(""),
-    author: str = Form(""),
-    tags: str = Form(""),
-    file_type: str = Form(""),
-    source: str = Form(""),
-    favorited: str = Form(""),
-    output_format: str = Form(""),
-):
-    """导出当前筛选结果（异步任务）：立即返回 task_id，前端轮询 /works/export/status/{id}。"""
-    from src.export.models import ExportRequest
-
-    rows = _safe_search(query=q, author=author, tags=tags,
-                        file_type=file_type, source=source, favorited=favorited)
-    if not rows:
-        return JSONResponse({"success": False, "error": "没有符合条件的作品可导出"}, status_code=400)
-
-    cfg = load_config().get("project_settings", {}) or {}
-    dest = str(cfg.get("export_path") or Path.cwd())
-    fmt = output_format or cfg.get("export_format") or "folder"
-    if fmt not in ("folder", "zip", "epub"):
-        fmt = "folder"
-
-    cond = [x for x in [q, author, tags, file_type, source] if x]
-    if favorited == "yes":
-        cond.append("已收藏")
-    export_name = "-".join(cond) if cond else "全部作品"
-
-    req = ExportRequest(query=export_name, dest_dir=Path(dest),
-                        export_name=export_name, mode="author",
-                        output_format=fmt, prefiltered=True)
-    task_id = uuid.uuid4().hex[:12]
-    _task_set(task_id, status="pending")
-
-    def _worker():
-        from src.export import export_works as run_export
-        _task_set(task_id, status="running")
-        try:
-            result = run_export(rows, req)
-            _task_set(task_id,
-                      status="done" if result.success else "failed",
-                      exported=result.exported_count,
-                      destination=str(result.destination) if result.destination else "",
-                      error=result.error)
-        except Exception as exc:  # noqa: BLE001
-            _task_set(task_id, status="failed", error=f"导出失败: {exc}")
-
-    threading.Thread(target=_worker, daemon=True).start()
-    return {"success": True, "task_id": task_id, "status": "pending"}
-
-
-@router.get("/works/export/status/{task_id}")
-def export_status(task_id: str):
-    """查询异步导出任务状态。"""
-    t = _task_get(task_id)
-    if not t:
-        return JSONResponse({"success": False, "error": "任务不存在"}, status_code=404)
-    return {"success": True, "task_id": task_id, **t}
-
-
-@router.post("/works/export/open")
-def export_open(dest: str = Form("")):
-    """在系统文件管理器中打开导出目录。"""
-    import os
-    if not dest or not os.path.isdir(dest):
-        return JSONResponse({"success": False, "error": "目录不存在"}, status_code=400)
-    try:
-        if sys.platform == "darwin":
-            subprocess.Popen(["open", dest])
-        elif sys.platform == "win32":
-            os.startfile(dest)
-        else:
-            subprocess.Popen(["xdg-open", dest])
-    except Exception as exc:  # noqa: BLE001
-        return JSONResponse({"success": False, "error": str(exc)}, status_code=500)
-    return {"success": True}
-
-
-@router.post("/works/{work_id}/export")
-def export_single_work(work_id: str):
-    """导出单个作品到配置的导出目录。"""
-    from src.operations.export_op import export_work
-
-    cfg = load_config().get("project_settings", {}) or {}
-    dest = str(cfg.get("export_path") or Path.cwd())
-    fmt = cfg.get("export_format") or "folder"
-    if fmt not in ("folder", "zip", "epub"):
-        fmt = "folder"
-    return export_work(work_id, Path(dest), output_format=fmt)
 
 
 @router.put("/works/{work_id}")
