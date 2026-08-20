@@ -26,6 +26,17 @@ def _template_kid_mode() -> bool:
 templates.env.globals["kid_mode"] = _template_kid_mode
 
 
+def _css_version() -> str:
+    """CSS/JS 版本号（style.css 文件 mtime），用于缓存破坏。"""
+    try:
+        return str(int((_STATIC_DIR / "css" / "style.css").stat().st_mtime))
+    except Exception:
+        return "1"
+
+
+templates.env.globals["css_version"] = _css_version
+
+
 def create_app() -> FastAPI:
     """创建并配置 FastAPI 应用。"""
     from src.core.database import init_db
