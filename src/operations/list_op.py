@@ -116,13 +116,17 @@ def list_authors_with_status() -> list[dict]:
 def list_download_queue(show_all: bool = False) -> list[dict]:
     """返回下载队列。show_all=True 含已下载/无效/拉黑，否则仅待下载（排除无效与黑名单）。"""
     from src.core.database import query_all_sites
+    from src.core.site import infer_site
     where = "" if show_all else "WHERE is_valid = 1 AND is_in_db = 0 AND is_blacklisted = 0 "
     rows = query_all_sites(
         "SELECT url, author_name, work_type, is_valid, is_in_db, "
         "is_blacklisted, fail_count, download_time, added_at "
         f"FROM download_queue {where}ORDER BY added_at DESC"
     )
-    return [dict(r) for r in rows]
+    items = [dict(r) for r in rows]
+    for it in items:
+        it["site"] = infer_site(it.get("url", "") or "")
+    return items
 
 
 def get_download_stats() -> dict:

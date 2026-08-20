@@ -64,6 +64,12 @@
   --c-image-2: #3ed0bf;
   --c-other: #9a9ab0;
   --c-other-2: #bcbccf;
+  /* 站点识别色：pixiv=蓝 · pawchive=珊瑚 · asmrmoon=紫 · biquge=绿 · local=灰 */
+  --site-pixiv: #378ADD;
+  --site-pawchive: #D85A30;
+  --site-asmrmoon: #7F77DD;
+  --site-biquge: #639922;
+  --site-local: #888780;
 }
 
 /* 夜晚模式：由 data-theme="dark" 驱动（JS 物化系统偏好或用户手动选择） */
@@ -2087,18 +2093,20 @@ button.detail-badge:not(.badge-fav):hover { background: rgba(255,92,138,0.12); c
 .dl-row-done { opacity: 0.6; }
 .dl-row-invalid { opacity: 0.4; }
 .dl-cell-url { white-space: nowrap; }
-.dl-site {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 22px; padding: 0 7px; height: 20px;
-  border-radius: 5px; font-size: 10px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.4px; color: #fff;
-  margin-right: 9px; vertical-align: middle; flex-shrink: 0;
+.site-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text-secondary); margin-right: 9px;
+  flex-shrink: 0; white-space: nowrap;
 }
-.s-pixiv { background: linear-gradient(135deg, #3aa0d6, #6fc2ee); }
-.s-x { background: linear-gradient(135deg, #3a3a3a, #5a5a5a); }
-.s-danbooru { background: linear-gradient(135deg, #b05f5f, #d08a8a); }
-.s-fantia { background: linear-gradient(135deg, #d6a03a, #f0c070); }
-.s-web { background: linear-gradient(135deg, #7a7aa0, #9a9ab8); }
+.site-badge::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--site-local);
+}
+.site-badge[data-site="pixiv"]::before { background: var(--site-pixiv); }
+.site-badge[data-site="pawchive"]::before { background: var(--site-pawchive); }
+.site-badge[data-site="asmrmoon"]::before { background: var(--site-asmrmoon); }
+.site-badge[data-site="biquge"]::before { background: var(--site-biquge); }
+.site-badge[data-site="local"]::before { background: var(--site-local); }
 .dl-url {
   color: var(--text); text-decoration: none; font-family: var(--font-mono);
   font-size: 12.5px; transition: color var(--transition);
@@ -2154,7 +2162,6 @@ button.detail-badge:not(.badge-fav):hover { background: rgba(255,92,138,0.12); c
   .dl-follow-btn { width: 100%; }
   .dl-btn-big { width: 100%; align-self: stretch; }
   .dl-table th, .dl-table td { padding: 10px 12px; }
-  .dl-site { display: none; }
   .dl-cell-time:nth-child(6) { display: none; }
 }
 
@@ -2599,12 +2606,6 @@ button.detail-badge:not(.badge-fav):hover { background: rgba(255,92,138,0.12); c
 .dc-row-done { opacity: 0.62; }
 .dc-row-invalid { opacity: 0.42; }
 .dc-cell-url { white-space: nowrap; }
-.dc-site {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 22px; padding: 0 7px; height: 20px; border-radius: 5px;
-  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
-  color: #fff; margin-right: 9px; vertical-align: middle; flex-shrink: 0;
-}
 .dc-url { color: var(--text); text-decoration: none; font-family: var(--font-mono); font-size: 12.5px; transition: color var(--transition); }
 .dc-url:hover { color: var(--primary); text-decoration: underline; }
 .dc-cell-author { white-space: nowrap; }
@@ -2645,7 +2646,6 @@ button.detail-badge:not(.badge-fav):hover { background: rgba(255,92,138,0.12); c
   .dc-hero { padding: 20px; }
   .dc-hero-nums { gap: 18px; }
   .dc-num b { font-size: 24px; }
-  .dc-site { display: none; }
   .dc-follow { flex-direction: column; }
   .dc-follow-btn { width: 100%; }
   .dc-table th, .dc-table td { padding: 10px 12px; }

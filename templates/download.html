@@ -2,15 +2,6 @@
 {% block title %}AKM · 下载{% endblock %}
 {% block content %}
 
-{%- macro site_name(url) -%}
-{%- if 'pixiv.net' in (url or '') %}pixiv
-{%- elif 'twitter.com' in (url or '') or 'x.com' in (url or '') %}x
-{%- elif 'danbooru' in (url or '') %}danbooru
-{%- elif 'fantia' in (url or '') %}fantia
-{%- elif 'pixivision' in (url or '') %}pixiv
-{%- else %}web{%- endif -%}
-{%- endmacro %}
-
 {%- macro wtype_label(t) -%}
 {%- if t == 'novel' %}小说{%- elif t == 'illust' %}插画{%- else %}{{ t or '未知' }}{%- endif -%}
 {%- endmacro %}
@@ -153,7 +144,7 @@
                     {% for item in queue %}
                     <tr class="dc-row-{{ status_key(item) }}">
                         <td class="dc-cell-url">
-                            <span class="dc-site s-{{ site_name(item.url) }}">{{ site_name(item.url) }}</span>
+                            <span class="site-badge" data-site="{{ item.site }}">{{ item.site }}</span>
                             <a href="{{ item.url }}" target="_blank" class="dc-url" title="{{ item.url }}">{{ item.url.split('/')[-1] }}</a>
                         </td>
                         <td class="dc-cell-author">
