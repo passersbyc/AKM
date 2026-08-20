@@ -1,5 +1,5 @@
 """模糊匹配工具 — ID 精确匹配 → 标题包含匹配 → 多结果选择。"""
-from src.core.database import short_id, to_full_id, query_all_sites, get_site_db
+from src.core.database import short_id, to_full_id, query_all_sites, get_site_db, BASE36
 from src.core.site import prefix_to_site, site_prefix, SITES
 
 
@@ -10,6 +10,16 @@ def _parse_site_prefix(target: str) -> tuple[str | None, str]:
         site = prefix_to_site(parts[0])
         if site:
             return site, ".".join(parts[1:])
+    return None, target
+
+
+def _parse_author_prefix(target: str) -> tuple[str | None, str]:
+    """解析作者号前缀：p.1 / p.001 → ('pixiv', '1'/'001')；无前缀返回 (None, target)。"""
+    parts = target.split(".")
+    if len(parts) == 2:
+        site = prefix_to_site(parts[0])
+        if site:
+            return site, parts[1]
     return None, target
 
 
@@ -99,7 +109,7 @@ def resolve_author(target: str, output=None) -> dict | None:
     支持带站点前缀的 ID。返回 author dict（含 id, name, source, homepage,
     favorite, note, pixiv_uid, follow_status）或 None。
     """
-    site, target = _parse_site_prefix(target)
+    site, target = _parse_author_prefix(target)
 
     def _label(r: dict) -> str:
         s = r.get("_site") or site
@@ -115,6 +125,18 @@ def resolve_author(target: str, output=None) -> dict | None:
     )
     if rows:
         return _pick(rows, output, "作者", _label)
+
+    # 1.5 短作者号匹配（去前导零，如 1 → 001、a → 00a）
+    if target and len(target) < 3 and all(c in BASE36 for c in target.lower()):
+        padded = target.lower().zfill(3)
+        rows = _query_works(
+            site,
+            "SELECT a.*, pt.pixiv_uid, pt.homepage, pt.follow_status "
+            "FROM authors a LEFT JOIN pixiv_trackings pt ON a.id = pt.author_id "
+            "WHERE a.id = ?", (padded,)
+        )
+        if rows:
+            return _pick(rows, output, "作者", _label)
 
     # 2. 名称包含匹配
     rows = _query_works(
