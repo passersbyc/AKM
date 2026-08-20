@@ -193,9 +193,10 @@ def works_list(
     source: str = Query("", description="来源"),
     favorited: str = Query("", description="收藏"),
     site: str = Query("", description="站点筛选"),
+    group: str = Query("author", description="分组维度(author/site/type/flat)"),
     page: int = Query(1, ge=1),
 ):
-    """作品列表：默认按作者分组，组内同系列合并显示。"""
+    """作品列表：按作者/站点/类型分组，或平铺；组内同系列合并显示。"""
     results = safe_search(
         query=q, author=author, tags=tags,
         file_type=file_type, source=source,
@@ -204,18 +205,27 @@ def works_list(
     if site:
         results = [w for w in results if w.get("站点") == site]
 
-    # 按作者聚合（保持首次出现顺序），组内同系列合并
+    # 按分组维度聚合（保持首次出现顺序），组内同系列合并
     from collections import OrderedDict
+    if author:
+        _gkey = lambda w: w.get("作者") or "佚名"
+    elif group == "site":
+        _gkey = lambda w: w.get("站点") or "local"
+    elif group == "type":
+        _gkey = lambda w: w.get("分类") or "其他"
+    elif group == "flat":
+        _gkey = lambda w: "全部作品"
+    else:
+        _gkey = lambda w: w.get("作者") or "佚名"
     raw_groups: "OrderedDict[str, list]" = OrderedDict()
     for w in results:
-        name = w.get("作者") or "佚名"
-        raw_groups.setdefault(name, []).append(w)
+        raw_groups.setdefault(_gkey(w), []).append(w)
 
     author_groups: "OrderedDict[str, dict]" = OrderedDict()
     ctx: dict = {
         "request": request,
         "active_page": "works",
-        "group": "author",
+        "group": group,
         "works": [],
         "total": len(results),
         "stats": get_stats(),
@@ -242,19 +252,21 @@ def works_list(
         }
         ctx.update(page=page, total_pages=total_pages)
     else:
-        # 多作者（或未筛选）：仅前 LAZY_GROUPS 组渲染卡片，其余折叠按需加载（首屏提速）
+        # 按分组维度渲染：author 分组组数多，仅前 LAZY_GROUPS 组渲染卡片、其余懒加载；
+        # site/type/flat 组数少（≤6），直接渲染前 GROUP_PREVIEW 个，不懒加载
+        use_lazy = (group == "author")
         for i, (name, ws) in enumerate(raw_groups.items()):
-            if i < LAZY_GROUPS:
-                author_groups[name] = {
-                    "works": _merge_series(ws)[:GROUP_PREVIEW],
-                    "total": len(ws),
-                    **_group_extras(ws),
-                }
-            else:
+            if use_lazy and i >= LAZY_GROUPS:
                 author_groups[name] = {
                     "works": [],
                     "total": len(ws),
                     "lazy": True,
+                    **_group_extras(ws),
+                }
+            else:
+                author_groups[name] = {
+                    "works": _merge_series(ws)[:GROUP_PREVIEW],
+                    "total": len(ws),
                     **_group_extras(ws),
                 }
 
