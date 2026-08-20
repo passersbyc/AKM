@@ -150,14 +150,14 @@ def _series_global_counts(names: list[str]) -> dict[str, int]:
         return {}
     placeholders = ",".join("?" * len(names))
     rows = query_all_sites(
-        f"SELECT s.name, COUNT(*) FROM works w "
+        f"SELECT s.name, COUNT(*) AS cnt FROM works w "
         f"JOIN series s ON w.series_id = s.id AND s.author_id = w.author_id "
         f"WHERE s.name IN ({placeholders}) GROUP BY s.name",
         names,
     )
     result: dict[str, int] = {}
     for r in rows:
-        result[r[0]] = result.get(r[0], 0) + r[1]
+        result[r["name"]] = result.get(r["name"], 0) + r["cnt"]
     return result
 
 

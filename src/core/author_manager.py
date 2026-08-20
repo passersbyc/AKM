@@ -78,7 +78,7 @@ def compute_author_tags(author_id: str, site: str = "") -> list[str]:
             "SELECT tags FROM works WHERE author_id = ? AND tags != ''", (author_id,))
     seen = set()
     for r in rows:
-        for t in (r[0] or "").split(","):
+        for t in (r["tags"] or "").split(","):
             t = t.strip()
             if t:
                 seen.add(t)
@@ -92,7 +92,7 @@ def compute_author_top_tags(author_id: str, top_n: int = 5) -> list[tuple[str, i
         "SELECT tags FROM works WHERE author_id = ? AND tags != ''", (author_id,))
     counter: Counter = Counter()
     for r in rows:
-        for t in (r[0] or "").split(","):
+        for t in (r["tags"] or "").split(","):
             t = t.strip()
             if t:
                 counter[t] += 1

@@ -78,7 +78,7 @@ def list_recent_favorited(days: int = 7) -> list[dict]:
     if not fav_authors:
         return []
 
-    fav_ids = [r[0] for r in fav_authors]
+    fav_ids = [r["id"] for r in fav_authors]
     placeholders = ",".join("?" * len(fav_ids))
 
     sql = f"""

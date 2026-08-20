@@ -71,7 +71,7 @@ def show_interactive_banner(prog_name: str, commands: Optional[list[tuple[str, s
         total_works = stats["total_books"]
         total_authors = stats["total_authors"]
         total_series = stats["total_series"]
-        total_fav = sum(r[0] for r in query_all_sites("SELECT COUNT(*) FROM works WHERE favorite = 1"))
+        total_fav = sum(r["cnt"] for r in query_all_sites("SELECT COUNT(*) AS cnt FROM works WHERE favorite = 1"))
 
         console.print()
         console.print(Rule(style="bright_cyan"))

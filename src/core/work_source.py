@@ -5,7 +5,7 @@ from src.core.database import get_db
 def source_set() -> set[str]:
     from src.core.database import query_all_sites
     rows = query_all_sites("SELECT DISTINCT source FROM works")
-    return {r[0] for r in rows if r[0]}
+    return {r["source"] for r in rows if r["source"]}
 
 
 def is_source_imported(url: str) -> bool:
