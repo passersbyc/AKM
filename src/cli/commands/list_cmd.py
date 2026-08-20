@@ -160,7 +160,7 @@ class ListCommand(BaseCommand):
             table = Table(
                 title=f"{site}（前缀 {site_prefix(site)}）· {len(site_items)} 位作者",
                 show_lines=False)
-            table.add_column("ID", style="magenta", justify="right", width=7)
+            table.add_column("ID", style="magenta", justify="right", width=4)
             table.add_column("名称", style="bold")
             table.add_column("收藏", style="red", width=4)
             table.add_column("状态", style="cyan", width=12)
@@ -177,7 +177,7 @@ class ListCommand(BaseCommand):
             for i, row in enumerate(sorted_items):
                 is_last_fav = (i == last_fav_idx and last_fav_idx >= 0)
                 name = row.get("name", "")
-                lid = f"{site_prefix(site)}.{row.get('id', '')}"
+                lid = row.get('id', '').lstrip('0') or '0'
                 homepage = row.get("homepage", "") or "-"
                 if homepage != "-" and "//" in homepage:
                     homepage = homepage.split("//", 1)[1]
