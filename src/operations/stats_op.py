@@ -120,14 +120,14 @@ def get_recent_activity() -> dict:
         "FROM recent_opens GROUP BY site, work_id ORDER BY opened_at DESC LIMIT 6"
     ).fetchall()]
     recent_import = sorted(
-        query_all_sites(
+        [dict(r) for r in query_all_sites(
             "SELECT id, title, imported_at FROM works "
-            "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%')"),
+            "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%')")],
         key=lambda r: r["imported_at"], reverse=True)[:6]
     recent_download = sorted(
-        query_all_sites(
+        [dict(r) for r in query_all_sites(
             "SELECT id, title, imported_at, source FROM works "
-            "WHERE imported_at != '' AND source LIKE 'http%'"),
+            "WHERE imported_at != '' AND source LIKE 'http%'")],
         key=lambda r: r["imported_at"], reverse=True)[:6]
     return {"recent_open": recent_open, "recent_import": recent_import, "recent_download": recent_download}
 

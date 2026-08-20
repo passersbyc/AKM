@@ -122,3 +122,16 @@ class TestResolveAuthor:
         r = resolve_author("w.1")
         assert r is not None
         assert r["homepage"] == "https://pawchive.pw/fanbox/user/9"
+
+
+class TestRecentActivity:
+    def test_recent_rows_are_dicts(self, isolated_dbs):
+        """get_recent_activity 的 recent_import/download 应为 dict（dashboard 用 .get()）。"""
+        _seed(isolated_dbs)
+        from src.operations.stats_op import get_recent_activity
+        activity = get_recent_activity()
+        # 作品的 source 是 http → recent_download 应有数据
+        assert activity["recent_download"]
+        for row in activity["recent_import"] + activity["recent_download"]:
+            assert isinstance(row, dict)
+            assert row.get("id")  # 之前 sqlite3.Row 无 .get() 会 AttributeError
