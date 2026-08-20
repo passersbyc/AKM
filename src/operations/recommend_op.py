@@ -32,12 +32,12 @@ def get_recommendations(limit: int = 8) -> list[dict]:
     ).fetchall()
     recent_import = sorted(
         query_all_sites(
-            "SELECT id, title, imported_at FROM works "
+            "SELECT id, title, imported_at, tags, author_id, series_id, file_type FROM works "
             "WHERE imported_at != '' AND (source = '' OR source = 'local' OR source = 'demo' OR source NOT LIKE 'http%')"),
         key=lambda r: r["imported_at"], reverse=True)[:5]
     recent_download = sorted(
         query_all_sites(
-            "SELECT id, title, imported_at, source FROM works "
+            "SELECT id, title, imported_at, source, tags, author_id, series_id, file_type FROM works "
             "WHERE imported_at != '' AND source LIKE 'http%'"),
         key=lambda r: r["imported_at"], reverse=True)[:5]
 
@@ -85,15 +85,25 @@ def get_recommendations(limit: int = 8) -> list[dict]:
     def _feed(row, weight):
         if not row:
             return
-        wid = row["work_id"] if "work_id" in row.keys() else row["id"]
+        row = dict(row)
+        wid = row.get("work_id") or row.get("id")
         if not wid:
             return
-        w = db.execute(
-            "SELECT tags, author_id, series_id, file_type FROM works WHERE id = ?",
-            (wid,),
-        ).fetchone()
-        if not w:
-            return
+        # recent_import/recent_download 已带 works 字段，直接用；
+        # recent_open（主库 recent_opens）只有 site+work_id，按站点补查 works
+        if "tags" in row:
+            w = row
+        else:
+            site = row.get("site", "")
+            if not site:
+                return
+            from src.core.database import get_site_db
+            w = get_site_db(site).execute(
+                "SELECT tags, author_id, series_id, file_type FROM works WHERE id = ?",
+                (wid,),
+            ).fetchone()
+            if not w:
+                return
         for t in (w["tags"] or "").split(","):
             t = t.strip()
             if t:
@@ -221,11 +231,11 @@ def get_recommendations(limit: int = 8) -> list[dict]:
             if r not in seen:
                 seen.add(r)
                 unique_reasons.append(r)
-        srow = db.execute(
+        srows = query_all_sites(
             "SELECT name FROM series WHERE id = ? AND author_id = ?",
             (series_id, author_id),
-        ).fetchone()
-        series_name = srow["name"] if srow else f"系列{series_id}"
+        )
+        series_name = srows[0]["name"] if srows else f"系列{series_id}"
         first_work = min(members, key=lambda m: m["id"])
         all_candidates.append((avg_score, "series", (series_name, len(members), first_work["id"]),
                                unique_reasons[:2], author_id, series_id))
